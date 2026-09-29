@@ -295,9 +295,19 @@ export const MOCK_PAPERS: Paper[] = [
   },
 ];
 
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 2000): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export async function fetchFilterOptions(): Promise<FilterOptions> {
   try {
-    const res = await fetch(`${API_BASE_URL}/filters`, { headers: { Accept: "application/json" } });
+    const res = await fetchWithTimeout(`${API_BASE_URL}/filters`, { headers: { Accept: "application/json" } });
     if (res.ok) {
       const data = await res.json();
       return data;
@@ -354,7 +364,7 @@ export async function fetchQuestions(filters: FilterState): Promise<Question[]> 
     if (filters.topic !== "All" && filters.topic) query.set("topic", filters.topic);
     if (filters.level !== "All") query.set("level", filters.level);
 
-    const res = await fetch(`${API_BASE_URL}/questions?${query.toString()}`);
+    const res = await fetchWithTimeout(`${API_BASE_URL}/questions?${query.toString()}`);
     if (res.ok) {
       const data = await res.json();
       const rawList = Array.isArray(data) ? data : data.questions;
@@ -428,7 +438,7 @@ export async function fetchPapers(filters: FilterState): Promise<Paper[]> {
     if (filters.topic !== "All" && filters.topic) query.set("topic", filters.topic);
     if (filters.level !== "All") query.set("level", filters.level);
 
-    const res = await fetch(`${API_BASE_URL}/papers?${query.toString()}`);
+    const res = await fetchWithTimeout(`${API_BASE_URL}/papers?${query.toString()}`);
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {

@@ -1,4 +1,4 @@
-import { useEffect, useState, memo } from 'react';
+import React, { useEffect, useState, memo } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -13,13 +13,17 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { SymbolView } from 'expo-symbols';
 import { AppHeader } from '@/components/app-header';
 import { SideDrawer } from '@/components/side-drawer';
-import { Colors, getPalette, Spacing, BottomTabInset } from '@/constants/theme';
+import { MathText } from '@/components/math-text';
+import { Explanation } from '@/components/explanation';
+import { DropdownSelect } from '@/components/dropdown-select';
+import { Colors, getPalette, Spacing, BottomTabInset, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTabNavigation } from '@/context/tab-context';
+import { useResponsive } from '@/hooks/use-responsive';
 import type { ExamCategory, FilterState, Question, Standard, Subject } from '@/types/pcmb';
 import { fetchFilterOptions, fetchQuestions } from '@/services/apiService';
 
-// ─── helpers ────────────────────────────────────────────────────────────────
+// ─── constants ──────────────────────────────────────────────────────────────
 
 const FOUNDATION_STANDARDS: Standard[] = ['9th', '10th'];
 const JEE_NEET_STANDARDS: Standard[] = ['11th', '12th'];
@@ -29,60 +33,19 @@ const SUBJECT_MAP: Record<ExamCategory, Subject[]> = {
   'JEE/NEET': ['Physics', 'Chemistry', 'Mathematics', 'Biology'],
 };
 
-function chipColor(selected: boolean, dark: boolean) {
-  const palette = getPalette(dark);
-  if (selected) return { bg: palette.primary, text: palette.onPrimary };
-  return { bg: palette.card, text: palette.inkSoft };
-}
-
-// ─── components ─────────────────────────────────────────────────────────────
-
-function ChipRow({
-  label,
-  options,
-  selected,
-  onSelect,
-  dark,
-}: {
-  label: string;
-  options: string[];
-  selected: string;
-  onSelect: (v: string) => void;
-  dark: boolean;
-}) {
-  const palette = getPalette(dark);
-  return (
-    <View style={styles.chipSection}>
-      <Text style={[styles.chipLabel, { color: palette.mutedForeground }]}>{label}</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-        {['All', ...options].map((opt) => {
-          const isSelected = selected === opt;
-          const colors = chipColor(isSelected, dark);
-          return (
-            <Pressable
-              key={opt}
-              onPress={() => onSelect(opt)}
-              style={[styles.chip, { backgroundColor: colors.bg, borderColor: isSelected ? palette.primary : palette.border }]}
-            >
-              <Text style={[styles.chipText, { color: colors.text, fontWeight: isSelected ? '700' : '500' }]}>
-                {opt}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-    </View>
-  );
-}
+// ─── Question Card ─────────────────────────────────────────────────────────
 
 function QuestionCard({ question, dark }: { question: Question; dark: boolean }) {
-  const [expanded, setExpanded] = useState(false);
   const palette = getPalette(dark);
-  const diffColor = question.difficulty === 'Easy'
-    ? { bg: palette.successSoft, text: palette.successInk }
-    : question.difficulty === 'Hard'
+  const { cardPadding } = useResponsive();
+
+  const diffColor =
+    question.difficulty === 'Easy'
+      ? { bg: palette.successSoft, text: palette.successInk }
+      : question.difficulty === 'Hard'
       ? { bg: palette.dangerSoft, text: palette.dangerInk }
       : { bg: palette.warningSoft, text: palette.warningInk };
+
   const subjColor = { bg: palette.violetSoft, text: palette.violet };
   const cardBg = palette.card;
   const textColor = palette.cardForeground;
@@ -97,7 +60,7 @@ function QuestionCard({ question, dark }: { question: Question; dark: boolean })
   ];
 
   return (
-    <View style={[styles.card, { backgroundColor: cardBg, borderColor }]}>
+    <View style={[styles.card, { backgroundColor: cardBg, borderColor, padding: cardPadding }]}>
       {/* Header badges */}
       <View style={styles.cardHeader}>
         <View style={styles.badgeRow}>
@@ -115,14 +78,16 @@ function QuestionCard({ question, dark }: { question: Question; dark: boolean })
       </View>
 
       {/* Chapter · Topic */}
-      {(question.chapter || question.topic) ? (
+      {question.chapter || question.topic ? (
         <Text style={[styles.chapterLabel, { color: mutedColor }]}>
           {[question.chapter, question.topic].filter(Boolean).join('  ·  ')}
         </Text>
       ) : null}
 
       {/* Question text */}
-      <Text style={[styles.questionText, { color: textColor }]}>{question.questionText}</Text>
+      <View style={styles.questionTextWrap}>
+        <MathText text={question.questionText} fontSize={15} color={textColor} />
+      </View>
 
       {/* Options */}
       <View style={styles.optionsGrid}>
@@ -132,42 +97,43 @@ function QuestionCard({ question, dark }: { question: Question; dark: boolean })
           const optBorder = isCorrect ? palette.successBorder : palette.border;
           const optTextColor = isCorrect ? palette.successInk : palette.inkSoft;
           return (
-            <View key={key} style={[styles.optionBox, { backgroundColor: optBg, borderColor: optBorder }]}>
-              <Text style={[styles.optionKey, { color: isCorrect ? palette.success : mutedColor }]}>
+            <View
+              key={key}
+              style={[
+                styles.optionBox,
+                { backgroundColor: optBg, borderColor: optBorder },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.optionKey,
+                  { color: isCorrect ? palette.success : mutedColor },
+                ]}
+              >
                 {key}
               </Text>
-              <Text style={[styles.optionText, { color: optTextColor }]}>{text}</Text>
+              <View style={styles.optionTextWrap}>
+                <MathText text={text} fontSize={14} color={optTextColor} />
+              </View>
             </View>
           );
         })}
       </View>
 
-      {/* Toggle explanation */}
+      {/* Explanation */}
       {question.explanation ? (
-        <Pressable
-          onPress={() => setExpanded((v) => !v)}
-          style={[styles.explanationToggle, { borderColor }] }>
-          <Text style={{ color: palette.primary, fontSize: 13, fontWeight: '700' }}>
-            {expanded ? '▲ Hide Explanation' : '▼ Show Explanation'}
-          </Text>
-        </Pressable>
-      ) : null}
-
-      {expanded && question.explanation ? (
-        <View style={[styles.explanationBox, { backgroundColor: palette.violetSoft, borderColor: palette.violetBorder }]}>
-          <Text style={[styles.explanationText, { color: palette.inkSoft }]}>
-            {question.explanation}
-          </Text>
-          {question.source ? (
-            <Text style={[styles.sourceText, { color: mutedColor }]}>Source: {question.source}</Text>
-          ) : null}
-        </View>
+        <Explanation
+          text={question.explanation}
+          source={question.source}
+          correctAnswer={question.correctAnswer}
+          defaultCollapsed
+        />
       ) : null}
     </View>
   );
 }
 
-// ─── main screen ────────────────────────────────────────────────────────────
+// ─── Main Screen ────────────────────────────────────────────────────────────
 
 function QuestionsScreenComponent() {
   const scheme = useColorScheme();
@@ -175,6 +141,7 @@ function QuestionsScreenComponent() {
   const palette = getPalette(dark);
   const colors = Colors[dark ? 'dark' : 'light'];
   const insets = useSafeAreaInsets();
+  const { isTablet, isDesktop } = useResponsive();
   const { questionFilters: filters, setQuestionFilters: setFilters } = useTabNavigation();
 
   const [chapters, setChapters] = useState<string[]>([]);
@@ -196,17 +163,18 @@ function QuestionsScreenComponent() {
       ? SUBJECT_MAP[filters.examCategory as ExamCategory]
       : ['Physics', 'Chemistry', 'Mathematics', 'Biology', 'Science'];
 
-  // Load filter options (chapters / topics) from backend
+  // Load filter options from backend
   useEffect(() => {
     fetchFilterOptions().then((opts) => {
-      setChapters(opts.chapters);
-      setTopics(opts.topics);
+      setChapters(opts.chapters || []);
+      setTopics(opts.topics || []);
     });
   }, []);
 
   // Load questions whenever filters change
   useEffect(() => {
     let isCancelled = false;
+    setLoading(true);
     fetchQuestions(filters).then((qs) => {
       if (!isCancelled) {
         setQuestions(qs);
@@ -257,115 +225,219 @@ function QuestionsScreenComponent() {
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: bg }]}>
       <AppHeader title="Questions" subtitle="Practice by subject, chapter and level" />
-      <View style={styles.resultsToolbar}>
-        <Text style={[styles.resultsLabel, { color: colors.textSecondary }]}>
-          {loading ? 'Finding questions…' : `${questions.length} questions`}
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ expanded: showFilters }}
-          onPress={() => setShowFilters((visible) => !visible)}
-          style={({ pressed }) => [styles.filterToggleBtn, { backgroundColor: palette.primary }, pressed && styles.pressed]}>
-          <SymbolView
-            name={{ ios: 'slider.horizontal.3', android: 'tune', web: 'tune' }}
-            tintColor={palette.onPrimary}
-            size={17} />
-          <Text style={[styles.filterToggleText, { color: palette.onPrimary }]}>{showFilters ? 'Hide filters' : 'Filters'}</Text>
-          {activeFilterCount > 0 && (
-            <View style={[styles.filterCountBadge, { backgroundColor: palette.primaryInk }]}>
-              <Text style={[styles.filterCountText, { color: palette.onPrimary }]}>{activeFilterCount}</Text>
-            </View>
-          )}
-        </Pressable>
-      </View>
 
-      <View style={styles.searchContainer}>
-        <View style={[styles.searchBox, { backgroundColor: filterBg, borderColor }]}>
-          <SymbolView
-            name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
-            tintColor={palette.mutedForeground}
-            size={18} />
-          <TextInput
-            placeholder="Search questions, chapters, topics…"
-            placeholderTextColor={palette.mutedForeground}
-            value={filters.searchQuery}
-            onChangeText={(t) => setFilters((p) => ({ ...p, searchQuery: t }))}
-            style={[styles.searchInput, { color: colors.text }]}
-          />
-          {filters.searchQuery.length > 0 && (
-            <Pressable
-              accessibilityLabel="Clear search"
-              onPress={() => setFilters((p) => ({ ...p, searchQuery: '' }))}>
-              <SymbolView name={{ ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' }} tintColor={palette.mutedForeground} size={18} />
-            </Pressable>
-          )}
+      <View style={[styles.mainWrapper, { maxWidth: MaxContentWidth }]}>
+        {/* Results and Filter Toggle Toolbar */}
+        <View style={styles.resultsToolbar}>
+          <Text style={[styles.resultsLabel, { color: colors.textSecondary }]}>
+            {loading ? 'Finding questions…' : `${questions.length} questions available`}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showFilters }}
+            onPress={() => setShowFilters((visible) => !visible)}
+            style={({ pressed }) => [
+              styles.filterToggleBtn,
+              { backgroundColor: palette.primary },
+              pressed && styles.pressed,
+            ]}
+          >
+            <SymbolView
+              name={{ ios: 'slider.horizontal.3', android: 'tune', web: 'tune' }}
+              tintColor={palette.onPrimary}
+              size={16}
+            />
+            <Text style={[styles.filterToggleText, { color: palette.onPrimary }]}>
+              {showFilters ? 'Hide Filters' : 'Filters'}
+            </Text>
+            {activeFilterCount > 0 && (
+              <View style={[styles.filterCountBadge, { backgroundColor: palette.primaryInk }]}>
+                <Text style={[styles.filterCountText, { color: palette.onPrimary }]}>
+                  {activeFilterCount}
+                </Text>
+              </View>
+            )}
+          </Pressable>
         </View>
-      </View>
 
-      <SideDrawer
-        visible={showFilters}
-        title="Question filters"
-        subtitle="Narrow your practice set"
-        onClose={() => setShowFilters(false)}>
-          <ScrollView style={styles.filterScroll} contentContainerStyle={styles.filterPanel} showsVerticalScrollIndicator={false} nestedScrollEnabled>
+        {/* Search Box */}
+        <View style={styles.searchContainer}>
+          <View style={[styles.searchBox, { backgroundColor: filterBg, borderColor }]}>
+            <SymbolView
+              name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
+              tintColor={palette.mutedForeground}
+              size={18}
+            />
+            <TextInput
+              placeholder="Search questions, formulas, chapters…"
+              placeholderTextColor={palette.mutedForeground}
+              value={filters.searchQuery}
+              onChangeText={(t) => setFilters((p) => ({ ...p, searchQuery: t }))}
+              style={[styles.searchInput, { color: colors.text }]}
+            />
+            {filters.searchQuery.length > 0 && (
+              <Pressable
+                accessibilityLabel="Clear search"
+                onPress={() => setFilters((p) => ({ ...p, searchQuery: '' }))}
+              >
+                <SymbolView
+                  name={{ ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' }}
+                  tintColor={palette.mutedForeground}
+                  size={18}
+                />
+              </Pressable>
+            )}
+          </View>
+        </View>
 
+        {/* Active Filters Pill Bar (Quick View) */}
+        {activeFilterCount > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.activePillsContainer}
+          >
+            {filters.examCategory !== 'All' && (
+              <Pressable
+                onPress={() => updateFilter('examCategory', 'All')}
+                style={[styles.activePill, { backgroundColor: palette.primarySoft, borderColor: palette.primaryBorder }]}
+              >
+                <Text style={[styles.activePillText, { color: palette.primaryInk }]}>
+                  Exam: {filters.examCategory}
+                </Text>
+                <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} tintColor={palette.primaryInk} size={11} />
+              </Pressable>
+            )}
+            {filters.standard !== 'All' && (
+              <Pressable
+                onPress={() => updateFilter('standard', 'All')}
+                style={[styles.activePill, { backgroundColor: palette.primarySoft, borderColor: palette.primaryBorder }]}
+              >
+                <Text style={[styles.activePillText, { color: palette.primaryInk }]}>
+                  Grade: {filters.standard}
+                </Text>
+                <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} tintColor={palette.primaryInk} size={11} />
+              </Pressable>
+            )}
+            {filters.subject !== 'All' && (
+              <Pressable
+                onPress={() => updateFilter('subject', 'All')}
+                style={[styles.activePill, { backgroundColor: palette.primarySoft, borderColor: palette.primaryBorder }]}
+              >
+                <Text style={[styles.activePillText, { color: palette.primaryInk }]}>
+                  Subject: {filters.subject}
+                </Text>
+                <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} tintColor={palette.primaryInk} size={11} />
+              </Pressable>
+            )}
+            {filters.chapter !== 'All' && (
+              <Pressable
+                onPress={() => updateFilter('chapter', 'All')}
+                style={[styles.activePill, { backgroundColor: palette.primarySoft, borderColor: palette.primaryBorder }]}
+              >
+                <Text style={[styles.activePillText, { color: palette.primaryInk }]}>
+                  Chapter: {filters.chapter}
+                </Text>
+                <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} tintColor={palette.primaryInk} size={11} />
+              </Pressable>
+            )}
+            {filters.topic !== 'All' && (
+              <Pressable
+                onPress={() => updateFilter('topic', 'All')}
+                style={[styles.activePill, { backgroundColor: palette.primarySoft, borderColor: palette.primaryBorder }]}
+              >
+                <Text style={[styles.activePillText, { color: palette.primaryInk }]}>
+                  Topic: {filters.topic}
+                </Text>
+                <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} tintColor={palette.primaryInk} size={11} />
+              </Pressable>
+            )}
+            {filters.level !== 'All' && (
+              <Pressable
+                onPress={() => updateFilter('level', 'All')}
+                style={[styles.activePill, { backgroundColor: palette.primarySoft, borderColor: palette.primaryBorder }]}
+              >
+                <Text style={[styles.activePillText, { color: palette.primaryInk }]}>
+                  Level: {filters.level}
+                </Text>
+                <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} tintColor={palette.primaryInk} size={11} />
+              </Pressable>
+            )}
+          </ScrollView>
+        )}
+
+        {/* Filter SideDrawer with Sleek Dropdown Selects */}
+        <SideDrawer
+          visible={showFilters}
+          title="Filter Questions"
+          subtitle="Customize your practice set"
+          onClose={() => setShowFilters(false)}
+        >
+          <ScrollView
+            style={styles.filterScroll}
+            contentContainerStyle={styles.filterPanel}
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled
+          >
             {/* 1. Competitive Exam */}
-            <ChipRow
+            <DropdownSelect
               label="Competitive Exam"
               options={['Foundation', 'JEE/NEET']}
               selected={filters.examCategory}
               onSelect={(v) => updateFilter('examCategory', v as any)}
-              dark={dark}
+              icon={{ ios: 'graduationcap', android: 'school', web: 'school' }}
             />
 
             {/* 2. Standard */}
-            <ChipRow
+            <DropdownSelect
               label="Standard / Grade"
               options={availableStandards}
               selected={filters.standard}
               onSelect={(v) => updateFilter('standard', v as any)}
-              dark={dark}
+              icon={{ ios: 'number', android: 'pin', web: 'pin' }}
             />
 
             {/* 3. Subject */}
-            <ChipRow
+            <DropdownSelect
               label="Subject"
               options={availableSubjects}
               selected={filters.subject}
               onSelect={(v) => updateFilter('subject', v as any)}
-              dark={dark}
+              icon={{ ios: 'atom', android: 'science', web: 'science' }}
             />
 
             {/* 4. Chapter */}
-            <ChipRow
+            <DropdownSelect
               label="Chapter"
-              options={chapters.slice(0, 20)}
+              options={chapters}
               selected={filters.chapter}
               onSelect={(v) => updateFilter('chapter', v as any)}
-              dark={dark}
+              searchable
+              icon={{ ios: 'book', android: 'menu_book', web: 'menu_book' }}
             />
 
             {/* 5. Topic */}
-            <ChipRow
+            <DropdownSelect
               label="Topic"
-              options={topics.slice(0, 20)}
+              options={topics}
               selected={filters.topic}
               onSelect={(v) => updateFilter('topic', v as any)}
-              dark={dark}
+              searchable
+              icon={{ ios: 'list.bullet', android: 'list', web: 'list' }}
             />
 
             {/* 6. Level */}
-            <ChipRow
-              label="Level"
+            <DropdownSelect
+              label="Difficulty Level"
               options={['Easy', 'Mid', 'Hard']}
               selected={filters.level}
               onSelect={(v) => updateFilter('level', v as any)}
-              dark={dark}
+              icon={{ ios: 'speedometer', android: 'speed', web: 'speed' }}
             />
 
             {/* Reset button */}
             <Pressable
-              onPress={() =>
+              onPress={() => {
                 setFilters({
                   examCategory: 'All',
                   standard: 'All',
@@ -374,41 +446,49 @@ function QuestionsScreenComponent() {
                   topic: 'All',
                   level: 'All',
                   searchQuery: '',
-                })
-              }
+                });
+                setShowFilters(false);
+              }}
               style={[styles.resetBtn, { backgroundColor: palette.primary }]}
             >
-              <Text style={[styles.resetBtnText, { color: palette.onPrimary }]}>Reset all filters</Text>
+              <Text style={[styles.resetBtnText, { color: palette.onPrimary }]}>
+                Reset All Filters
+              </Text>
             </Pressable>
           </ScrollView>
-      </SideDrawer>
+        </SideDrawer>
 
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={palette.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading questions…</Text>
-        </View>
-      ) : questions.length === 0 ? (
-        <View style={styles.center}>
-          <SymbolView name={{ ios: 'doc.questionmark', android: 'quiz', web: 'quiz' }} tintColor={palette.mutedForeground} size={36} />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>No questions found</Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            Try adjusting the filters above
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={questions}
-          keyExtractor={(item) => item._id}
-          renderItem={({ item }) => <QuestionCard question={item} dark={dark} />}
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingBottom: insets.bottom + BottomTabInset + Spacing.three },
-          ]}
-          showsVerticalScrollIndicator={false}
-          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-        />
-      )}
+        {/* Question List */}
+        {loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={palette.primary} />
+            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+              Loading questions…
+            </Text>
+          </View>
+        ) : questions.length === 0 ? (
+          <View style={styles.center}>
+            <SymbolView
+              name={{ ios: 'doc.questionmark', android: 'quiz', web: 'quiz' }}
+              tintColor={palette.mutedForeground}
+              size={36}
+            />
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>No questions found</Text>
+            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+              Try adjusting your dropdown filters or search term
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={questions}
+            keyExtractor={(item) => item._id}
+            renderItem={({ item }) => <QuestionCard question={item} dark={dark} />}
+            ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
+            contentContainerStyle={[styles.listContent, { paddingBottom: BottomTabInset + 40 }]}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -416,112 +496,128 @@ function QuestionsScreenComponent() {
 export const QuestionsScreen = memo(QuestionsScreenComponent);
 export default QuestionsScreen;
 
-// ─── styles ─────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
+  mainWrapper: {
+    flex: 1,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  pressed: {
+    opacity: 0.8,
+  },
 
+  // Results toolbar
   resultsToolbar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.three,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingTop: Spacing.two,
+    paddingBottom: Spacing.one,
   },
-  resultsLabel: { fontSize: 13, fontWeight: '600' },
+  resultsLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
   filterToggleBtn: {
-    minHeight: 42,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderRadius: 6,
-    paddingHorizontal: 14,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
   },
-  filterToggleText: { fontSize: 13, fontWeight: '700' },
+  filterToggleText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
   filterCountBadge: {
-    width: 20,
-    height: 20,
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    minWidth: 16,
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 10,
   },
-  filterCountText: { fontSize: 11, fontWeight: '700' },
-  pressed: { opacity: 0.72 },
+  filterCountText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
 
   // Search
   searchContainer: {
     paddingHorizontal: Spacing.three,
-    paddingBottom: 14,
+    paddingBottom: Spacing.two,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
+    borderRadius: 10,
     borderWidth: 1,
-    borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingVertical: 8,
+    gap: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: 14,
+    padding: 0,
   },
 
-  // Filter panel
-  filterScroll: { flex: 1 },
-  filterPanel: { paddingHorizontal: Spacing.three, paddingTop: 16, paddingBottom: Spacing.five },
-  chipSection: {
-    marginBottom: 10,
+  // Active filter pills
+  activePillsContainer: {
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.two,
+    gap: 8,
   },
-  chipLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginBottom: 6,
-  },
-  chipRow: {
+  activePill: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
-    paddingRight: Spacing.three,
-  },
-  chip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
     borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
   },
-  chipText: {
-    fontSize: 13,
+  activePillText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // Filter Drawer
+  filterScroll: {
+    flex: 1,
+  },
+  filterPanel: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingBottom: 40,
   },
   resetBtn: {
-    alignSelf: 'flex-start',
-    marginVertical: 10,
-    borderRadius: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
+    marginTop: 10,
+    paddingVertical: 13,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   resetBtnText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
   },
 
-  // Question card
+  // Question Card
   card: {
     marginHorizontal: Spacing.three,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
-    padding: 16,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   badgeRow: {
     flexDirection: 'row',
@@ -529,7 +625,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   badge: {
-    borderRadius: 8,
+    borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
@@ -539,7 +635,7 @@ const styles = StyleSheet.create({
   },
   questionNum: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     fontFamily: 'monospace',
   },
   chapterLabel: {
@@ -547,14 +643,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontStyle: 'italic',
   },
-  questionText: {
-    fontSize: 15,
-    fontWeight: '500',
-    lineHeight: 22,
+  questionTextWrap: {
     marginBottom: 12,
   },
-
-  // Options
   optionsGrid: {
     gap: 8,
   },
@@ -573,38 +664,13 @@ const styles = StyleSheet.create({
     minWidth: 16,
     marginTop: 1,
   },
-  optionText: {
-    fontSize: 14,
+  optionTextWrap: {
     flex: 1,
-    lineHeight: 20,
-  },
-
-  // Explanation
-  explanationToggle: {
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    alignItems: 'center',
-  },
-  explanationBox: {
-    marginTop: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    padding: 12,
-  },
-  explanationText: {
-    fontSize: 14,
-    lineHeight: 21,
-  },
-  sourceText: {
-    fontSize: 11,
-    marginTop: 6,
-    fontStyle: 'italic',
   },
 
   // List
   listContent: {
-    paddingTop: 12,
+    paddingTop: 8,
   },
 
   // Loader / empty
@@ -614,6 +680,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     paddingHorizontal: Spacing.four,
+    paddingVertical: 40,
   },
   loadingText: {
     marginTop: 8,
@@ -627,5 +694,6 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     fontSize: 14,
     textAlign: 'center',
+    maxWidth: 280,
   },
 });

@@ -12,6 +12,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
+import { MathText } from '@/components/math-text';
+import { Explanation } from '@/components/explanation';
+import { DropdownSelect } from '@/components/dropdown-select';
 import { getPalette, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { DifficultyLevel, ExamRoom, Question } from '@/types/pcmb';
@@ -160,11 +163,6 @@ function ExamRoomDetailsContent({
             </View>
             <View style={[styles.statDivider, { backgroundColor: palette.border }]} />
             <View style={styles.statItem}>
-              <Text style={[styles.statVal, { color: palette.primary }]}>{currentRoom.durationMinutes}m</Text>
-              <Text style={[styles.statLbl, { color: palette.mutedForeground }]}>Duration</Text>
-            </View>
-            <View style={[styles.statDivider, { backgroundColor: palette.border }]} />
-            <View style={styles.statItem}>
               <Text style={[styles.statVal, { color: palette.primary }]}>{currentRoom.totalMarks}</Text>
               <Text style={[styles.statLbl, { color: palette.mutedForeground }]}>Total Marks</Text>
             </View>
@@ -225,7 +223,9 @@ function ExamRoomDetailsContent({
               </View>
 
               {/* Question Text */}
-              <Text style={[styles.questionBodyText, { color: palette.foreground }]}>{q.questionText}</Text>
+              <View style={styles.questionTextWrap}>
+                <MathText text={q.questionText} fontSize={14} color={palette.foreground} />
+              </View>
 
               {/* Options Grid */}
               <View style={styles.optionsList}>
@@ -257,9 +257,9 @@ function ExamRoomDetailsContent({
                           {optKey}
                         </Text>
                       </View>
-                      <Text style={[styles.optionContentText, { color: isCorrect ? palette.successInk : palette.foreground }]}>
-                        {optText}
-                      </Text>
+                      <View style={styles.optionContentWrap}>
+                        <MathText text={optText} fontSize={13} color={isCorrect ? palette.successInk : palette.foreground} />
+                      </View>
                       {isCorrect && (
                         <View style={[styles.correctTag, { backgroundColor: palette.success }]}>
                           <Text style={{ color: palette.onPrimary, fontSize: 10, fontWeight: '800' }}>CORRECT</Text>
@@ -270,12 +270,14 @@ function ExamRoomDetailsContent({
                 })}
               </View>
 
-              {/* Explanation section if available */}
+              {/* Explanation section — rendered with proper math formatting */}
               {q.explanation ? (
-                <View style={[styles.explanationBox, { backgroundColor: palette.secondary, borderLeftColor: palette.primary }]}>
-                  <Text style={[styles.explanationLabel, { color: palette.primary }]}>EXPLANATION</Text>
-                  <Text style={[styles.explanationText, { color: palette.foreground }]}>{q.explanation}</Text>
-                </View>
+                <Explanation
+                  text={q.explanation}
+                  source={q.source}
+                  correctAnswer={q.correctAnswer}
+                  defaultCollapsed={false}
+                />
               ) : null}
             </View>
           ))
@@ -341,69 +343,70 @@ function QuestionEditorSheet({
         <View style={[styles.editModalContent, { backgroundColor: palette.card, borderColor: palette.border }]}>
           <View style={styles.editModalHeader}>
             <Text style={[styles.editModalTitle, { color: palette.foreground }]}>Edit Room Question</Text>
-            <Pressable onPress={onCancel}>
+            <Pressable onPress={onCancel} hitSlop={8}>
               <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} tintColor={palette.mutedForeground} size={20} />
             </Pressable>
           </View>
 
           <ScrollView contentContainerStyle={styles.editModalScroll} showsVerticalScrollIndicator={false}>
             {/* Difficulty Selector */}
-            <Text style={[styles.fieldLabel, { color: palette.mutedForeground }]}>DIFFICULTY LEVEL</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-              {DIFFICULTIES.map((d) => (
-                <Pressable
-                  key={d}
-                  onPress={() => setDifficulty(d)}
-                  style={[
-                    styles.diffChip,
-                    {
-                      backgroundColor: difficulty === d ? palette.primary : palette.background,
-                      borderColor: difficulty === d ? palette.primary : palette.border,
-                    },
-                  ]}>
-                  <Text style={{ color: difficulty === d ? palette.onPrimary : palette.foreground, fontWeight: '700', fontSize: 12 }}>
-                    {d}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+            <DropdownSelect
+              label="DIFFICULTY LEVEL"
+              options={DIFFICULTIES}
+              selected={difficulty}
+              onSelect={(val) => setDifficulty(val as DifficultyLevel)}
+            />
 
             {/* Question Text */}
-            <Text style={[styles.fieldLabel, { color: palette.mutedForeground }]}>QUESTION TEXT</Text>
+            <Text style={[styles.fieldLabel, { color: palette.mutedForeground, marginTop: 8 }]}>QUESTION TEXT (LaTeX supported)</Text>
             <TextInput
               value={questionText}
               onChangeText={setQuestionText}
               multiline
               style={[styles.multilineInput, { backgroundColor: palette.background, borderColor: palette.border, color: palette.foreground }]}
             />
+            {questionText.trim().length > 0 && (
+              <View style={[styles.inlinePreviewBox, { backgroundColor: palette.secondary, borderColor: palette.border }]}>
+                <Text style={[styles.inlinePreviewTitle, { color: palette.primary }]}>LIVE FORMULA PREVIEW</Text>
+                <MathText text={questionText} fontSize={14} color={palette.foreground} />
+              </View>
+            )}
 
             {/* Options */}
+            <Text style={[styles.fieldLabel, { color: palette.mutedForeground, marginTop: 12 }]}>OPTIONS</Text>
             {(['A', 'B', 'C', 'D'] as const).map((opt) => {
               const val = opt === 'A' ? optionA : opt === 'B' ? optionB : opt === 'C' ? optionC : optionD;
               const setter = opt === 'A' ? setOptionA : opt === 'B' ? setOptionB : opt === 'C' ? setOptionC : setOptionD;
               const isCorrect = correctAnswer === opt;
 
               return (
-                <View key={opt} style={styles.editOptRow}>
-                  <Pressable
-                    onPress={() => setCorrectAnswer(opt)}
-                    style={[
-                      styles.correctCheckBadge,
-                      {
-                        backgroundColor: isCorrect ? palette.success : palette.secondary,
-                      },
-                    ]}>
-                    <Text style={{ color: isCorrect ? palette.onPrimary : palette.foreground, fontWeight: '700', fontSize: 12 }}>
-                      {opt} {isCorrect ? '✓' : ''}
-                    </Text>
-                  </Pressable>
-                  <TextInput
-                    value={val}
-                    onChangeText={setter}
-                    placeholder={`Option ${opt}`}
-                    placeholderTextColor={palette.mutedForeground}
-                    style={[styles.textInput, { flex: 1, backgroundColor: palette.background, borderColor: isCorrect ? palette.success : palette.border, color: palette.foreground }]}
-                  />
+                <View key={opt} style={{ marginBottom: 8 }}>
+                  <View style={styles.editOptRow}>
+                    <Pressable
+                      onPress={() => setCorrectAnswer(opt)}
+                      style={[
+                        styles.correctCheckBadge,
+                        {
+                          backgroundColor: isCorrect ? palette.success : palette.secondary,
+                        },
+                      ]}>
+                      <Text style={{ color: isCorrect ? palette.onPrimary : palette.foreground, fontWeight: '700', fontSize: 12 }}>
+                        {opt} {isCorrect ? '✓' : ''}
+                      </Text>
+                    </Pressable>
+                    <TextInput
+                      value={val}
+                      onChangeText={setter}
+                      placeholder={`Option ${opt}`}
+                      placeholderTextColor={palette.mutedForeground}
+                      style={[styles.textInput, { flex: 1, backgroundColor: palette.background, borderColor: isCorrect ? palette.success : palette.border, color: palette.foreground }]}
+                    />
+                  </View>
+                  {val.trim().length > 0 && (
+                    <View style={{ paddingLeft: 46, paddingTop: 2 }}>
+                      <MathText text={val} fontSize={12.5} color={isCorrect ? palette.successInk : palette.mutedForeground} />
+                    </View>
+                  )}
                 </View>
               );
             })}
@@ -418,6 +421,12 @@ function QuestionEditorSheet({
               placeholderTextColor={palette.mutedForeground}
               style={[styles.multilineInput, { backgroundColor: palette.background, borderColor: palette.border, color: palette.foreground }]}
             />
+            {explanation.trim().length > 0 && (
+              <View style={[styles.inlinePreviewBox, { backgroundColor: palette.secondary, borderColor: palette.border, marginTop: 8 }]}>
+                <Text style={[styles.inlinePreviewTitle, { color: palette.primary }]}>EXPLANATION PREVIEW</Text>
+                <MathText text={explanation} fontSize={13.5} color={palette.foreground} />
+              </View>
+            )}
           </ScrollView>
 
           <View style={[styles.editModalActions, { borderTopColor: palette.border }]}>
@@ -620,6 +629,12 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontWeight: '500',
   },
+  questionTextWrap: {
+    marginBottom: 2,
+  },
+  optionContentWrap: {
+    flex: 1,
+  },
   optionsList: {
     gap: 8,
   },
@@ -639,29 +654,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  optionContentText: {
-    fontSize: 13,
-    flex: 1,
-  },
   correctTag: {
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
-  },
-  explanationBox: {
-    padding: 10,
-    borderRadius: 6,
-    borderLeftWidth: 3,
-    gap: 4,
-  },
-  explanationLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-  },
-  explanationText: {
-    fontSize: 12,
-    lineHeight: 18,
   },
 
   // Edit modal
@@ -682,6 +678,20 @@ const styles = StyleSheet.create({
   },
   editModalTitle: { fontSize: 17, fontWeight: '700' },
   editModalScroll: { padding: 20, gap: 12, paddingBottom: 40 },
+  inlinePreviewBox: {
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 6,
+    marginBottom: 8,
+  },
+  inlinePreviewTitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
   fieldLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6 },
   textInput: {
     height: 48,

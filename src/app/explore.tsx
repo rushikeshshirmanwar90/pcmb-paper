@@ -18,7 +18,8 @@ import { CreateExamModal } from '@/components/create-exam-modal';
 import { ExamRoomDetailsModal } from '@/components/exam-room-details-modal';
 import { EditPaperModal } from '@/components/edit-paper-modal';
 import { EditRoomModal } from '@/components/edit-room-modal';
-import { Colors, getPalette, Spacing, BottomTabInset } from '@/constants/theme';
+import { DropdownSelect } from '@/components/dropdown-select';
+import { Colors, getPalette, Spacing, BottomTabInset, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { ExamCategory, ExamRoom, FilterState, Paper, Standard, Subject } from '@/types/pcmb';
 import { fetchPapers, MOCK_QUESTIONS } from '@/services/apiService';
@@ -62,49 +63,7 @@ const INITIAL_EXAM_ROOMS: ExamRoom[] = [
   },
 ];
 
-function chipColor(selected: boolean, dark: boolean) {
-  const palette = getPalette(dark);
-  if (selected) return { bg: palette.primary, text: palette.onPrimary };
-  return { bg: palette.card, text: palette.inkSoft };
-}
 
-function ChipRow({
-  label,
-  options,
-  selected,
-  onSelect,
-  dark,
-}: {
-  label: string;
-  options: string[];
-  selected: string;
-  onSelect: (v: string) => void;
-  dark: boolean;
-}) {
-  const palette = getPalette(dark);
-  return (
-    <View style={styles.chipSection}>
-      <Text style={[styles.chipLabel, { color: palette.mutedForeground }]}>{label}</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-        {['All', ...options].map((opt) => {
-          const isSelected = selected === opt;
-          const c = chipColor(isSelected, dark);
-          return (
-            <Pressable
-              key={opt}
-              onPress={() => onSelect(opt)}
-              style={[styles.chip, { backgroundColor: c.bg, borderColor: isSelected ? palette.primary : palette.border }]}
-            >
-              <Text style={[styles.chipText, { color: c.text, fontWeight: isSelected ? '700' : '500' }]}>
-                {opt}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-    </View>
-  );
-}
 
 function ExamRoomCard({
   room,
@@ -190,11 +149,6 @@ function ExamRoomCard({
           <View style={[styles.roomStatPill, { backgroundColor: palette.secondary }]}>
             <Text style={[styles.roomStatPillText, { color: palette.foreground }]}>
               {room.questions.length} Questions
-            </Text>
-          </View>
-          <View style={[styles.roomStatPill, { backgroundColor: palette.secondary }]}>
-            <Text style={[styles.roomStatPillText, { color: palette.foreground }]}>
-              {room.durationMinutes} mins
             </Text>
           </View>
           <View style={[styles.roomStatPill, { backgroundColor: palette.secondary }]}>
@@ -556,43 +510,46 @@ function PapersScreenComponent() {
 
       <SideDrawer
         visible={showFilters}
-        title="Paper filters"
-        subtitle="Find a paper for your study track"
+        title="Filter Papers & Rooms"
+        subtitle="Find content for your study track"
         onClose={() => setShowFilters(false)}>
           <ScrollView style={styles.filterScroll} contentContainerStyle={styles.filterPanel} showsVerticalScrollIndicator={false} nestedScrollEnabled>
-            <ChipRow
+            <DropdownSelect
               label="Competitive Exam"
               options={['Foundation', 'JEE/NEET']}
               selected={filters.examCategory}
               onSelect={(v) => updateFilter('examCategory', v as any)}
-              dark={dark}
+              icon={{ ios: 'graduationcap', android: 'school', web: 'school' }}
             />
-            <ChipRow
+            <DropdownSelect
               label="Standard / Grade"
               options={availableStandards}
               selected={filters.standard}
               onSelect={(v) => updateFilter('standard', v as any)}
-              dark={dark}
+              icon={{ ios: 'number', android: 'pin', web: 'pin' }}
             />
-            <ChipRow
+            <DropdownSelect
               label="Subject"
               options={availableSubjects}
               selected={filters.subject}
               onSelect={(v) => updateFilter('subject', v as any)}
-              dark={dark}
+              icon={{ ios: 'atom', android: 'science', web: 'science' }}
             />
-            <ChipRow
-              label="Level"
+            <DropdownSelect
+              label="Difficulty Level"
               options={['Easy', 'Mid', 'Hard']}
               selected={filters.level}
               onSelect={(v) => updateFilter('level', v as any)}
-              dark={dark}
+              icon={{ ios: 'speedometer', android: 'speed', web: 'speed' }}
             />
             <Pressable
-              onPress={() => setFilters({ examCategory: 'All', standard: 'All', subject: 'All', chapter: 'All', topic: 'All', level: 'All', searchQuery: '' })}
-              style={[styles.resetBtn, { backgroundColor: palette.primary }]}
+              onPress={() => {
+                setFilters({ examCategory: 'All', standard: 'All', subject: 'All', chapter: 'All', topic: 'All', level: 'All', searchQuery: '' });
+                setShowFilters(false);
+              }}
+              style={[styles.resetBtn, { backgroundColor: palette.primary, marginTop: 8 }]}
             >
-              <Text style={[styles.resetBtnText, { color: palette.onPrimary }]}>Reset all filters</Text>
+              <Text style={[styles.resetBtnText, { color: palette.onPrimary }]}>Reset All Filters</Text>
             </Pressable>
           </ScrollView>
       </SideDrawer>
