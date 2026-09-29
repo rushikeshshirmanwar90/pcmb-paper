@@ -58,3 +58,19 @@ export interface FilterOptions {
   topics: string[];
   levels: DifficultyLevel[];
 }
+
+export interface ExamRoom {
+  _id: string;
+  roomCode: string;
+  title: string;
+  examCategory: ExamCategory | "All";
+  standard: Standard | "All";
+  subject: Subject | "All";
+  difficulty: DifficultyLevel | "All";
+  durationMinutes: number;
+  totalMarks: number;
+  questions: Question[];
+  createdAt: string;
+  status: "active" | "completed";
+}
+

@@ -7,15 +7,21 @@ import {
   StyleSheet,
   Text,
   View,
+  Alert,
+  Share,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 import { AppHeader } from '@/components/app-header';
 import { SideDrawer } from '@/components/side-drawer';
+import { CreateExamModal } from '@/components/create-exam-modal';
+import { ExamRoomDetailsModal } from '@/components/exam-room-details-modal';
+import { EditPaperModal } from '@/components/edit-paper-modal';
+import { EditRoomModal } from '@/components/edit-room-modal';
 import { Colors, getPalette, Spacing, BottomTabInset } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import type { ExamCategory, FilterState, Paper, Standard, Subject } from '@/types/pcmb';
-import { fetchPapers } from '@/services/apiService';
+import type { ExamCategory, ExamRoom, FilterState, Paper, Standard, Subject } from '@/types/pcmb';
+import { fetchPapers, MOCK_QUESTIONS } from '@/services/apiService';
 
 const FOUNDATION_STANDARDS: Standard[] = ['9th', '10th'];
 const JEE_NEET_STANDARDS: Standard[] = ['11th', '12th'];
@@ -23,6 +29,38 @@ const SUBJECT_MAP: Record<ExamCategory, Subject[]> = {
   Foundation: ['Science', 'Mathematics', 'Physics', 'Chemistry'],
   'JEE/NEET': ['Physics', 'Chemistry', 'Mathematics', 'Biology'],
 };
+
+// Initial demo rooms populated with mock questions
+const INITIAL_EXAM_ROOMS: ExamRoom[] = [
+  {
+    _id: 'room-demo-1',
+    roomCode: 'NEET-7842',
+    title: 'NEET 2026 Physics & Chemistry Weekly Test',
+    examCategory: 'JEE/NEET',
+    standard: '12th',
+    subject: 'Physics',
+    difficulty: 'Mid',
+    durationMinutes: 45,
+    totalMarks: 16,
+    questions: MOCK_QUESTIONS.filter((q) => q.examCategory === 'JEE/NEET'),
+    createdAt: new Date().toISOString(),
+    status: 'active',
+  },
+  {
+    _id: 'room-demo-2',
+    roomCode: 'FOUND-3910',
+    title: 'Class 10 Foundation Math & Science Quiz',
+    examCategory: 'Foundation',
+    standard: '10th',
+    subject: 'Mathematics',
+    difficulty: 'Easy',
+    durationMinutes: 30,
+    totalMarks: 12,
+    questions: MOCK_QUESTIONS.filter((q) => q.examCategory === 'Foundation'),
+    createdAt: new Date().toISOString(),
+    status: 'active',
+  },
+];
 
 function chipColor(selected: boolean, dark: boolean) {
   const palette = getPalette(dark);
@@ -68,7 +106,144 @@ function ChipRow({
   );
 }
 
-function PaperCard({ paper, dark }: { paper: Paper; dark: boolean }) {
+function ExamRoomCard({
+  room,
+  dark,
+  onOpenDetails,
+  onEditRoom,
+  onDeleteRoom,
+}: {
+  room: ExamRoom;
+  dark: boolean;
+  onOpenDetails: (room: ExamRoom) => void;
+  onEditRoom: (room: ExamRoom) => void;
+  onDeleteRoom: (roomId: string) => void;
+}) {
+  const palette = getPalette(dark);
+
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: `Join the Exam Room "${room.title}" on PCMB Paper app using Room Code: ${room.roomCode}`,
+      });
+    } catch {
+      Alert.alert('Share', `Room Code: ${room.roomCode}`);
+    }
+  };
+
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete Exam Room',
+      `Are you sure you want to delete "${room.title}" (${room.roomCode})?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => onDeleteRoom(room._id) },
+      ]
+    );
+  };
+
+  return (
+    <View style={[styles.paperCard, { backgroundColor: palette.card, borderColor: palette.border }]}>
+      <View style={[styles.accentStrip, { backgroundColor: palette.primary }]} />
+      <View style={styles.paperCardBody}>
+        <View style={styles.roomHeaderRow}>
+          <View style={[styles.roomCodeBadge, { backgroundColor: palette.primarySoft, borderColor: palette.primaryBorder }]}>
+            <SymbolView name={{ ios: 'key.fill', android: 'vpn_key', web: 'vpn_key' }} tintColor={palette.primary} size={13} />
+            <Text style={[styles.roomCodeText, { color: palette.primary }]}>{room.roomCode}</Text>
+          </View>
+
+          <View style={styles.roomHeaderActions}>
+            <View style={[styles.badge, { backgroundColor: room.status === 'completed' ? palette.secondary : palette.successSoft }]}>
+              <Text style={[styles.badgeText, { color: room.status === 'completed' ? palette.mutedForeground : palette.successInk }]}>
+                {room.status === 'completed' ? 'Completed' : 'Active'}
+              </Text>
+            </View>
+
+            {/* Quick Edit Room Settings button */}
+            <Pressable
+              onPress={() => onEditRoom(room)}
+              style={({ pressed }) => [styles.iconActionBtn, { backgroundColor: palette.primarySoft }, pressed && styles.pressed]}>
+              <SymbolView name={{ ios: 'gearshape.fill', android: 'settings', web: 'settings' }} tintColor={palette.primary} size={14} />
+            </Pressable>
+
+            {/* Quick Delete Room button */}
+            <Pressable
+              onPress={confirmDelete}
+              style={({ pressed }) => [styles.iconActionBtn, { backgroundColor: palette.dangerSoft }, pressed && styles.pressed]}>
+              <SymbolView name={{ ios: 'trash.fill', android: 'delete', web: 'delete' }} tintColor={palette.dangerInk} size={14} />
+            </Pressable>
+          </View>
+        </View>
+
+        <Text style={[styles.paperTitle, { color: palette.foreground }]} numberOfLines={2}>
+          {room.title}
+        </Text>
+
+        <View style={styles.metaRow}>
+          <Text style={[styles.metaPillText, { color: palette.mutedForeground }]}>
+            Track: {room.examCategory} · Grade: {room.standard} · Subject: {room.subject}
+          </Text>
+        </View>
+
+        {/* Stats Row */}
+        <View style={styles.roomStatsPillRow}>
+          <View style={[styles.roomStatPill, { backgroundColor: palette.secondary }]}>
+            <Text style={[styles.roomStatPillText, { color: palette.foreground }]}>
+              {room.questions.length} Questions
+            </Text>
+          </View>
+          <View style={[styles.roomStatPill, { backgroundColor: palette.secondary }]}>
+            <Text style={[styles.roomStatPillText, { color: palette.foreground }]}>
+              {room.durationMinutes} mins
+            </Text>
+          </View>
+          <View style={[styles.roomStatPill, { backgroundColor: palette.secondary }]}>
+            <Text style={[styles.roomStatPillText, { color: palette.foreground }]}>
+              {room.totalMarks || room.questions.length * 4} Marks
+            </Text>
+          </View>
+        </View>
+
+        {/* Footer Actions */}
+        <View style={[styles.paperFooter, { borderTopColor: palette.border, marginTop: 12 }]}>
+          <Pressable
+            onPress={() => onOpenDetails(room)}
+            style={({ pressed }) => [
+              styles.viewEditBtn,
+              { backgroundColor: palette.primary },
+              pressed && styles.pressed,
+            ]}>
+            <SymbolView name={{ ios: 'square.and.pencil', android: 'edit_note', web: 'edit_note' }} tintColor={palette.onPrimary} size={15} />
+            <Text style={[styles.viewEditBtnText, { color: palette.onPrimary }]}>View & Edit Questions</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={handleShare}
+            style={({ pressed }) => [
+              styles.shareBtn,
+              { backgroundColor: palette.secondary, borderColor: palette.border },
+              pressed && styles.pressed,
+            ]}>
+            <SymbolView name={{ ios: 'square.and.arrow.up', android: 'share', web: 'share' }} tintColor={palette.primary} size={14} />
+            <Text style={[styles.shareBtnText, { color: palette.primary }]}>Share</Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function PaperCard({
+  paper,
+  dark,
+  onEditPaper,
+  onDeletePaper,
+}: {
+  paper: Paper;
+  dark: boolean;
+  onEditPaper: (paper: Paper) => void;
+  onDeletePaper: (paperId: string) => void;
+}) {
   const palette = getPalette(dark);
   const cardBg = palette.card;
   const borderColor = palette.border;
@@ -90,13 +265,24 @@ function PaperCard({ paper, dark }: { paper: Paper; dark: boolean }) {
     year: 'numeric',
   });
 
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete Question Paper',
+      `Are you sure you want to delete "${paper.title}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => onDeletePaper(paper._id) },
+      ]
+    );
+  };
+
   return (
     <View style={[styles.paperCard, { backgroundColor: cardBg, borderColor }]}>
       {/* Accent strip */}
       <View style={[styles.accentStrip, { backgroundColor: examColor.grad }]} />
 
       <View style={styles.paperCardBody}>
-        {/* Badges row */}
+        {/* Badges row with Edit & Delete actions */}
         <View style={styles.paperBadgeRow}>
           <View style={[styles.badge, { backgroundColor: examColor.grad }]}>
             <Text style={[styles.badgeText, { color: examColor.text }]}>{paper.examCategory}</Text>
@@ -109,6 +295,19 @@ function PaperCard({ paper, dark }: { paper: Paper; dark: boolean }) {
               <Text style={[styles.badgeText, { color: diffColor.text }]}>{paper.difficulty}</Text>
             </View>
           )}
+
+          <View style={styles.paperCardHeaderActions}>
+            <Pressable
+              onPress={() => onEditPaper(paper)}
+              style={({ pressed }) => [styles.iconActionBtn, { backgroundColor: palette.primarySoft }, pressed && styles.pressed]}>
+              <SymbolView name={{ ios: 'pencil', android: 'edit', web: 'edit' }} tintColor={palette.primary} size={14} />
+            </Pressable>
+            <Pressable
+              onPress={confirmDelete}
+              style={({ pressed }) => [styles.iconActionBtn, { backgroundColor: palette.dangerSoft }, pressed && styles.pressed]}>
+              <SymbolView name={{ ios: 'trash.fill', android: 'delete', web: 'delete' }} tintColor={palette.dangerInk} size={14} />
+            </Pressable>
+          </View>
         </View>
 
         {/* Title */}
@@ -144,7 +343,7 @@ function PaperCard({ paper, dark }: { paper: Paper; dark: boolean }) {
           </View>
         )}
 
-        {/* Footer: questions count + date */}
+        {/* Footer: questions count + date + Edit shortcut */}
         <View style={[styles.paperFooter, { borderTopColor: borderColor }]}>
           <View style={[styles.qCountBadge, { backgroundColor: palette.primary }]}>
             <SymbolView name={{ ios: 'doc.text', android: 'description', web: 'description' }} tintColor={palette.onPrimary} size={14} />
@@ -164,6 +363,18 @@ function PapersScreenComponent() {
   const colors = Colors[dark ? 'dark' : 'light'];
   const insets = useSafeAreaInsets();
 
+  const [activeSegment, setActiveSegment] = useState<'papers' | 'rooms'>('papers');
+  const [examRooms, setExamRooms] = useState<ExamRoom[]>(INITIAL_EXAM_ROOMS);
+  const [papers, setPapers] = useState<Paper[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Modals state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedRoomForDetails, setSelectedRoomForDetails] = useState<ExamRoom | null>(null);
+  const [selectedPaperForEdit, setSelectedPaperForEdit] = useState<Paper | null>(null);
+  const [selectedRoomForEdit, setSelectedRoomForEdit] = useState<ExamRoom | null>(null);
+
   const [filters, setFilters] = useState<FilterState>({
     examCategory: 'All',
     standard: 'All',
@@ -173,10 +384,6 @@ function PapersScreenComponent() {
     level: 'All',
     searchQuery: '',
   });
-
-  const [papers, setPapers] = useState<Paper[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
 
   const availableStandards =
     filters.examCategory === 'Foundation'
@@ -220,29 +427,131 @@ function PapersScreenComponent() {
     filters.level !== 'All',
   ].filter(Boolean).length;
 
+  const handleRoomCreated = (newRoom: ExamRoom) => {
+    setExamRooms((prev) => [newRoom, ...prev]);
+    setActiveSegment('rooms');
+  };
+
+  const handleUpdateRoom = (updatedRoom: ExamRoom) => {
+    setExamRooms((prev) =>
+      prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r))
+    );
+    setSelectedRoomForDetails(updatedRoom);
+  };
+
+  const handleDeleteRoom = (roomId: string) => {
+    setExamRooms((prev) => prev.filter((r) => r._id !== roomId));
+    if (selectedRoomForDetails?._id === roomId) {
+      setSelectedRoomForDetails(null);
+    }
+  };
+
+  const handleSavePaper = (updatedPaper: Paper) => {
+    setPapers((prev) =>
+      prev.map((p) => (p._id === updatedPaper._id ? updatedPaper : p))
+    );
+  };
+
+  const handleDeletePaper = (paperId: string) => {
+    setPapers((prev) => prev.filter((p) => p._id !== paperId));
+  };
+
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: bg }]}>
-      <AppHeader title="Papers" subtitle="Browse question papers by track and subject" />
+      <AppHeader title="Papers & Exams" subtitle="Browse question papers or host live exam rooms" />
+
+      {/* ── Segment Selector + Action Row ── */}
+      <View style={styles.topControlSection}>
+        <View style={[styles.segmentedControl, { backgroundColor: palette.secondary, borderColor: palette.border }]}>
+          <Pressable
+            onPress={() => setActiveSegment('papers')}
+            style={[
+              styles.segmentBtn,
+              activeSegment === 'papers' && { backgroundColor: palette.card },
+            ]}>
+            <Text
+              style={[
+                styles.segmentText,
+                { color: activeSegment === 'papers' ? palette.primary : palette.mutedForeground, fontWeight: activeSegment === 'papers' ? '700' : '500' },
+              ]}>
+              Question Papers ({papers.length})
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setActiveSegment('rooms')}
+            style={[
+              styles.segmentBtn,
+              activeSegment === 'rooms' && { backgroundColor: palette.card },
+            ]}>
+            <Text
+              style={[
+                styles.segmentText,
+                { color: activeSegment === 'rooms' ? palette.primary : palette.mutedForeground, fontWeight: activeSegment === 'rooms' ? '700' : '500' },
+              ]}>
+              Exam Rooms ({examRooms.length})
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* ── Toolbar: Filter Button + Create (+) Button ── */}
       <View style={styles.resultsToolbar}>
-        <Text style={[styles.resultsLabel, { color: colors.textSecondary }]}>
-          {loading ? 'Loading papers…' : `${papers.length} papers`}
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ expanded: showFilters }}
-          onPress={() => setShowFilters((visible) => !visible)}
-          style={({ pressed }) => [styles.filterToggleBtn, { backgroundColor: palette.primary }, pressed && styles.pressed]}>
-          <SymbolView
-            name={{ ios: 'slider.horizontal.3', android: 'tune', web: 'tune' }}
-            tintColor={palette.onPrimary}
-            size={17} />
-          <Text style={[styles.filterToggleText, { color: palette.onPrimary }]}>{showFilters ? 'Hide filters' : 'Filters'}</Text>
-          {activeFilterCount > 0 && (
-            <View style={[styles.filterCountBadge, { backgroundColor: palette.primaryInk }]}>
-              <Text style={[styles.filterCountText, { color: palette.onPrimary }]}>{activeFilterCount}</Text>
+        {activeSegment === 'papers' ? (
+          <>
+            <Text style={[styles.resultsLabel, { color: colors.textSecondary }]}>
+              {loading ? 'Loading papers…' : `${papers.length} papers available`}
+            </Text>
+            <View style={styles.toolbarRightActions}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: showFilters }}
+                onPress={() => setShowFilters((visible) => !visible)}
+                style={({ pressed }) => [styles.filterToggleBtn, { backgroundColor: palette.card, borderColor: palette.border }, pressed && styles.pressed]}>
+                <SymbolView
+                  name={{ ios: 'slider.horizontal.3', android: 'tune', web: 'tune' }}
+                  tintColor={palette.primary}
+                  size={16} />
+                <Text style={[styles.filterToggleText, { color: palette.primary }]}>{showFilters ? 'Hide' : 'Filters'}</Text>
+                {activeFilterCount > 0 && (
+                  <View style={[styles.filterCountBadge, { backgroundColor: palette.primary }]}>
+                    <Text style={[styles.filterCountText, { color: palette.onPrimary }]}>{activeFilterCount}</Text>
+                  </View>
+                )}
+              </Pressable>
+
+              {/* Plus Button to Launch Exam Room creation */}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Create Exam Room"
+                onPress={() => setShowCreateModal(true)}
+                style={({ pressed }) => [styles.createExamPlusBtn, { backgroundColor: palette.primary }, pressed && styles.pressed]}>
+                <SymbolView
+                  name={{ ios: 'plus', android: 'add', web: 'add' }}
+                  tintColor={palette.onPrimary}
+                  size={18} />
+                <Text style={[styles.createExamBtnText, { color: palette.onPrimary }]}>Create Exam</Text>
+              </Pressable>
             </View>
-          )}
-        </Pressable>
+          </>
+        ) : (
+          <>
+            <Text style={[styles.resultsLabel, { color: colors.textSecondary }]}>
+              {examRooms.length} Active Exam Rooms
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Create Exam Room"
+              onPress={() => setShowCreateModal(true)}
+              style={({ pressed }) => [styles.createExamPlusBtn, { backgroundColor: palette.primary }, pressed && styles.pressed]}>
+              <SymbolView
+                name={{ ios: 'plus', android: 'add', web: 'add' }}
+                tintColor={palette.onPrimary}
+                size={18} />
+              <Text style={[styles.createExamBtnText, { color: palette.onPrimary }]}>Create Room</Text>
+            </Pressable>
+          </>
+        )}
       </View>
 
       <SideDrawer
@@ -288,25 +597,54 @@ function PapersScreenComponent() {
           </ScrollView>
       </SideDrawer>
 
-      {/* Papers list */}
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={palette.primary} />
-          <Text style={[{ color: colors.textSecondary, marginTop: 8, fontSize: 14 }]}>Loading papers…</Text>
-        </View>
-      ) : papers.length === 0 ? (
-        <View style={styles.center}>
-          <SymbolView name={{ ios: 'doc.text', android: 'description', web: 'description' }} tintColor={palette.mutedForeground} size={36} />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>No papers found</Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            Adjust filters or upload a paper from the web app
-          </Text>
-        </View>
+      {/* ── Main Content: Papers list OR Exam Rooms List ── */}
+      {activeSegment === 'papers' ? (
+        loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={palette.primary} />
+            <Text style={[{ color: colors.textSecondary, marginTop: 8, fontSize: 14 }]}>Loading papers…</Text>
+          </View>
+        ) : papers.length === 0 ? (
+          <View style={styles.center}>
+            <SymbolView name={{ ios: 'doc.text', android: 'description', web: 'description' }} tintColor={palette.mutedForeground} size={36} />
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>No papers found</Text>
+            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+              Adjust filters or upload a paper from the web app
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={papers}
+            keyExtractor={(p) => p._id}
+            renderItem={({ item }) => (
+              <PaperCard
+                paper={item}
+                dark={dark}
+                onEditPaper={(p) => setSelectedPaperForEdit(p)}
+                onDeletePaper={handleDeletePaper}
+              />
+            )}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: insets.bottom + BottomTabInset + Spacing.three },
+            ]}
+            showsVerticalScrollIndicator={false}
+            ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+          />
+        )
       ) : (
         <FlatList
-          data={papers}
-          keyExtractor={(p) => p._id}
-          renderItem={({ item }) => <PaperCard paper={item} dark={dark} />}
+          data={examRooms}
+          keyExtractor={(r) => r._id}
+          renderItem={({ item }) => (
+            <ExamRoomCard
+              room={item}
+              dark={dark}
+              onOpenDetails={(r) => setSelectedRoomForDetails(r)}
+              onEditRoom={(r) => setSelectedRoomForEdit(r)}
+              onDeleteRoom={handleDeleteRoom}
+            />
+          )}
           contentContainerStyle={[
             styles.listContent,
             { paddingBottom: insets.bottom + BottomTabInset + Spacing.three },
@@ -315,6 +653,39 @@ function PapersScreenComponent() {
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         />
       )}
+
+      {/* ── Create Exam Modal ── */}
+      <CreateExamModal
+        visible={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onRoomCreated={handleRoomCreated}
+      />
+
+      {/* ── Exam Room Details & Question Editor Modal ── */}
+      <ExamRoomDetailsModal
+        room={selectedRoomForDetails}
+        visible={!!selectedRoomForDetails}
+        onClose={() => setSelectedRoomForDetails(null)}
+        onUpdateRoom={handleUpdateRoom}
+      />
+
+      {/* ── Edit Question Paper Modal ── */}
+      <EditPaperModal
+        paper={selectedPaperForEdit}
+        visible={!!selectedPaperForEdit}
+        onClose={() => setSelectedPaperForEdit(null)}
+        onSave={handleSavePaper}
+        onDelete={handleDeletePaper}
+      />
+
+      {/* ── Edit Exam Room Settings Modal ── */}
+      <EditRoomModal
+        room={selectedRoomForEdit}
+        visible={!!selectedRoomForEdit}
+        onClose={() => setSelectedRoomForEdit(null)}
+        onSave={handleUpdateRoom}
+        onDelete={handleDeleteRoom}
+      />
     </SafeAreaView>
   );
 }
@@ -324,35 +695,70 @@ export default ExploreScreen;
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  topControlSection: {
+    paddingHorizontal: Spacing.three,
+    paddingTop: 12,
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 3,
+  },
+  segmentBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentText: {
+    fontSize: 13,
+  },
   resultsToolbar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.three,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingTop: 12,
+    paddingBottom: 10,
   },
   resultsLabel: { fontSize: 13, fontWeight: '600' },
+  toolbarRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   filterToggleBtn: {
-    minHeight: 42,
+    minHeight: 38,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     borderRadius: 6,
-    paddingHorizontal: 14,
+    borderWidth: 1,
+    paddingHorizontal: 12,
   },
   filterToggleText: { fontSize: 13, fontWeight: '700' },
   filterCountBadge: {
-    width: 20,
-    height: 20,
+    width: 18,
+    height: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 10,
+    borderRadius: 9,
   },
-  filterCountText: { fontSize: 11, fontWeight: '700' },
-  pressed: { opacity: 0.72 },
+  filterCountText: { fontSize: 10, fontWeight: '700' },
+  createExamPlusBtn: {
+    minHeight: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 6,
+    paddingHorizontal: 14,
+  },
+  createExamBtnText: { fontSize: 13, fontWeight: '700' },
+  pressed: { opacity: 0.75 },
 
   filterScroll: { flex: 1 },
   filterPanel: { paddingHorizontal: Spacing.three, paddingTop: 16, paddingBottom: Spacing.five },
@@ -364,7 +770,7 @@ const styles = StyleSheet.create({
   resetBtn: { alignSelf: 'flex-start', marginVertical: 10, borderRadius: 6, paddingHorizontal: 14, paddingVertical: 11 },
   resetBtnText: { fontSize: 13, fontWeight: '700' },
 
-  listContent: { paddingTop: 12 },
+  listContent: { paddingTop: 6 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: Spacing.four },
   emptyTitle: { fontSize: 18, fontWeight: '700', textAlign: 'center' },
   emptySubtitle: { fontSize: 14, textAlign: 'center' },
@@ -379,9 +785,21 @@ const styles = StyleSheet.create({
   },
   accentStrip: { width: 5 },
   paperCardBody: { flex: 1, padding: 14 },
-  paperBadgeRow: { flexDirection: 'row', gap: 6, marginBottom: 8, flexWrap: 'wrap' },
+  paperBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' },
   badge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
   badgeText: { fontSize: 11, fontWeight: '700' },
+  paperCardHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginLeft: 'auto',
+  },
+  iconActionBtn: {
+    padding: 6,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   paperTitle: { fontSize: 15, fontWeight: '700', lineHeight: 21, marginBottom: 4 },
   paperMeta: { fontSize: 12, marginBottom: 8, fontStyle: 'italic' },
   subjectPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
@@ -398,4 +816,77 @@ const styles = StyleSheet.create({
   qCountBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 6, paddingHorizontal: 9, paddingVertical: 5 },
   qCountText: { fontSize: 12, fontWeight: '700' },
   dateText: { fontSize: 11 },
+
+  // Room Card
+  roomHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  roomCodeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  roomCodeText: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  roomHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  metaRow: {
+    marginBottom: 6,
+  },
+  metaPillText: {
+    fontSize: 12,
+  },
+  roomStatsPillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 4,
+  },
+  roomStatPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  roomStatPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  viewEditBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 6,
+  },
+  viewEditBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  shareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  shareBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
 });

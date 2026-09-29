@@ -357,12 +357,40 @@ export async function fetchQuestions(filters: FilterState): Promise<Question[]> 
     const res = await fetch(`${API_BASE_URL}/questions?${query.toString()}`);
     if (res.ok) {
       const data = await res.json();
-      if (data.questions && data.questions.length > 0) {
-        return data.questions;
+      const rawList = Array.isArray(data) ? data : data.questions;
+      if (Array.isArray(rawList) && rawList.length > 0) {
+        return rawList.map((raw: any, idx: number): Question => {
+          const diffMap: Record<string, "Easy" | "Mid" | "Hard"> = {
+            Easy: "Easy",
+            Medium: "Mid",
+            Mid: "Mid",
+            Hard: "Hard",
+          };
+          const difficulty = diffMap[raw.difficulty] || "Mid";
+          return {
+            _id: raw._id || `q-api-${idx}`,
+            paperId: raw.paperId || "",
+            questionNumber: raw.questionNumber ?? idx + 1,
+            examCategory: raw.examCategory || "JEE/NEET",
+            standard: raw.standard || "12th",
+            subject: raw.subject || "Physics",
+            chapter: raw.chapter || "",
+            topic: raw.topic || "",
+            difficulty,
+            questionText: raw.questionText || "",
+            optionA: raw.optionA || "",
+            optionB: raw.optionB || "",
+            optionC: raw.optionC || "",
+            optionD: raw.optionD || "",
+            correctAnswer: raw.correctAnswer || "A",
+            explanation: raw.explanation || "",
+            source: raw.source || "",
+          };
+        });
       }
     }
   } catch {
-    // Offline / backend unavailable -> use local mock filtering
+    // Fallback to local mock dataset
   }
 
   // Filter local mock data
