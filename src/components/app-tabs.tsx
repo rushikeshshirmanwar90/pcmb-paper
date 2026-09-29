@@ -1,43 +1,281 @@
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { useColorScheme } from 'react-native';
+import React, { useRef, useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  Animated,
+  LayoutChangeEvent,
+} from 'react-native';
+import PagerView from 'react-native-pager-view';
+import { SymbolView } from 'expo-symbols';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getPalette, MaxContentWidth } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTabNavigation } from '@/context/tab-context';
 
-import { Colors } from '@/constants/theme';
+import { HomeScreen } from '@/app/index';
+import { QuestionsScreen } from '@/app/questions';
+import { ExploreScreen } from '@/app/explore';
+import { ProfileScreen } from '@/app/profile';
+
+const TABS = [
+  {
+    key: 'home',
+    label: 'Home',
+    icon: {
+      sf: { default: 'house', selected: 'house.fill' },
+      md: 'home',
+    },
+  },
+  {
+    key: 'questions',
+    label: 'Questions',
+    icon: {
+      sf: { default: 'questionmark.circle', selected: 'questionmark.circle.fill' },
+      md: 'quiz',
+    },
+  },
+  {
+    key: 'explore',
+    label: 'Papers',
+    icon: {
+      sf: { default: 'doc.text', selected: 'doc.text.fill' },
+      md: 'description',
+    },
+  },
+  {
+    key: 'profile',
+    label: 'Profile',
+    icon: {
+      sf: { default: 'person.crop.circle', selected: 'person.crop.circle.fill' },
+      md: 'account_circle',
+    },
+  },
+] as const;
+
+const PILL_WIDTH = 64;
+const PILL_HEIGHT = 32;
+const TAB_BAR_HEIGHT = 56;
 
 export default function AppTabs() {
   const scheme = useColorScheme();
-  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+  const palette = getPalette(scheme === 'dark');
+  const insets = useSafeAreaInsets();
+  const { activeTab, setActiveTab, pagerRef } = useTabNavigation();
+  const internalPagerRef = useRef<PagerView>(null);
+
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [pillTranslateX] = useState(() => new Animated.Value(0));
+
+  useEffect(() => {
+    pagerRef.current = {
+      setPage: (page: number) => {
+        internalPagerRef.current?.setPage(page);
+      },
+      setPageWithoutAnimation: (page: number) => {
+        internalPagerRef.current?.setPageWithoutAnimation(page);
+      },
+    };
+  }, [pagerRef]);
+
+  // Animate sliding pill background whenever activeTab or containerWidth changes
+  useEffect(() => {
+    if (containerWidth > 0) {
+      const tabWidth = containerWidth / TABS.length;
+      const targetX = activeTab * tabWidth + (tabWidth - PILL_WIDTH) / 2;
+      Animated.spring(pillTranslateX, {
+        toValue: targetX,
+        useNativeDriver: true,
+        friction: 8,
+        tension: 70,
+      }).start();
+    }
+  }, [activeTab, containerWidth, pillTranslateX]);
+
+  const handleTabPress = (index: number) => {
+    setActiveTab(index);
+    internalPagerRef.current?.setPageWithoutAnimation(index);
+  };
+
+  const handleLayout = (e: LayoutChangeEvent) => {
+    const width = e.nativeEvent.layout.width;
+    setContainerWidth(width);
+  };
 
   return (
-    <NativeTabs
-      backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}>
+    <View style={[styles.container, { backgroundColor: palette.background }]}>
+      {/* ── Native Slider (PagerView) ── */}
+      <PagerView
+        ref={internalPagerRef}
+        style={styles.pager}
+        initialPage={0}
+        orientation="horizontal"
+        offscreenPageLimit={3}
+        onPageSelected={(e) => {
+          setActiveTab(e.nativeEvent.position);
+        }}>
+        <View key="home-page" style={styles.page}>
+          <HomeScreen />
+        </View>
+        <View key="questions-page" style={styles.page}>
+          <QuestionsScreen />
+        </View>
+        <View key="explore-page" style={styles.page}>
+          <ExploreScreen />
+        </View>
+        <View key="profile-page" style={styles.page}>
+          <ProfileScreen />
+        </View>
+      </PagerView>
 
-      <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/home.png')}
-          renderingMode="template"
-        />
-      </NativeTabs.Trigger>
+      {/* ── Bottom Navigation Bar ── */}
+      <View
+        style={[
+          styles.tabBarContainer,
+          {
+            backgroundColor: palette.card,
+            borderTopColor: palette.border,
+            paddingBottom: Math.max(insets.bottom, 8),
+          },
+        ]}>
+        <View style={styles.tabBarInner} onLayout={handleLayout}>
+          {/* ── Sliding Active Background Pill ── */}
+          {containerWidth > 0 && (
+            <Animated.View
+              style={[
+                styles.slidingPill,
+                {
+                  backgroundColor: palette.primarySoft,
+                  transform: [{ translateX: pillTranslateX }],
+                },
+              ]}
+            />
+          )}
 
-      <NativeTabs.Trigger name="questions">
-        <NativeTabs.Trigger.Label>Questions</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
-          renderingMode="template"
-        />
-      </NativeTabs.Trigger>
+          {/* ── Tab Triggers ── */}
+          {TABS.map((tab, index) => {
+            const isSelected = activeTab === index;
+            const iconName = isSelected ? tab.icon.sf.selected : tab.icon.sf.default;
+            const iconColor = isSelected ? palette.primary : palette.mutedForeground;
+            const labelColor = isSelected ? palette.foreground : palette.mutedForeground;
 
-      <NativeTabs.Trigger name="explore">
-        <NativeTabs.Trigger.Label>Papers</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
-          renderingMode="template"
-        />
-      </NativeTabs.Trigger>
+            return (
+              <Pressable
+                key={tab.key}
+                accessibilityRole="button"
+                accessibilityLabel={tab.label}
+                accessibilityState={{ selected: isSelected }}
+                onPress={() => handleTabPress(index)}
+                style={({ pressed }) => [
+                  styles.tabButton,
+                  pressed && styles.tabButtonPressed,
+                ]}>
+                <View style={styles.tabContent}>
+                  {/* Icon Slot */}
+                  <View style={styles.iconSlot}>
+                    <SymbolView
+                      name={{
+                        ios: iconName,
+                        android: tab.icon.md,
+                        web: tab.icon.md,
+                      }}
+                      tintColor={iconColor}
+                      size={25}
+                    />
+                  </View>
 
-    </NativeTabs>
+                  {/* Label */}
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.tabLabel,
+                      {
+                        color: labelColor,
+                        fontWeight: isSelected ? '700' : '500',
+                      },
+                    ]}>
+                    {tab.label}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    </View>
   );
 }
 
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  pager: {
+    flex: 1,
+  },
+  page: {
+    flex: 1,
+  },
+  tabBarContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopWidth: 1,
+    paddingTop: 4,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+  },
+  tabBarInner: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    height: TAB_BAR_HEIGHT,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+    position: 'relative',
+  },
+  slidingPill: {
+    position: 'absolute',
+    top: (TAB_BAR_HEIGHT - (PILL_HEIGHT + 18)) / 2,
+    left: 0,
+    width: PILL_WIDTH,
+    height: PILL_HEIGHT,
+    borderRadius: 16,
+    zIndex: 0,
+  },
+  tabButton: {
+    flex: 1,
+    height: TAB_BAR_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  tabButtonPressed: {
+    opacity: 0.75,
+  },
+  tabContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  iconSlot: {
+    width: PILL_WIDTH,
+    height: PILL_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+  },
+  tabLabel: {
+    fontSize: 11.5,
+    letterSpacing: 0.1,
+    marginTop: 2,
+    textAlign: 'center',
+    alignSelf: 'center',
+    width: '100%',
+  },
+});

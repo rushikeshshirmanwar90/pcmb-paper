@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "pcmb",
+    "name": "PCMB Practice",
     "slug": "pcmb",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -17,7 +17,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.codewithrushi.pcmb"
     },
     "web": {
       "output": "static",
@@ -28,15 +29,26 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#FAF9F5",
+          "dark": {
+            "image": "./assets/images/splash-icon.png",
+            "backgroundColor": "#262624"
+          }
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "eeb7934a-7b9c-4060-bfce-8afd633a1a31"
+      }
     }
   }
 }

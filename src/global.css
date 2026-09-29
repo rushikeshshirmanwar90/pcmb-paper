@@ -1,4 +1,46 @@
 :root {
+  color-scheme: light;
+  --primary: #c6613f;
+  --primary-hover: #ac5032;
+  --primary-soft: #f6e8e1;
+  --primary-border: #e7c1b1;
+  --primary-ink: #71351f;
+  --on-primary: #ffffff;
+  --brand: #e8a55a;
+  --secondary: #efe9de;
+  --background: #faf9f5;
+  --card: #ffffff;
+  --card-foreground: #282622;
+  --popover: #ffffff;
+  --navy: #181715;
+  --navy-2: #252320;
+  --sidebar: #f4f0e8;
+  --sidebar-foreground: #36332e;
+  --sidebar-hover: #e9e2d7;
+  --sidebar-active: #e9d6c9;
+  --sidebar-border: #ded6ca;
+  --foreground: #282622;
+  --muted-foreground: #77736b;
+  --muted: #f0eee9;
+  --border: #e5e0d7;
+  --border-strong: #cfc8bc;
+  --input: #d8d1c6;
+  --success: #36745b;
+  --success-soft: #e6f1eb;
+  --success-border: #b9d7c5;
+  --success-ink: #24563f;
+  --warning: #b7792e;
+  --warning-soft: #f8efdf;
+  --warning-border: #e9d3ac;
+  --warning-ink: #7a4d19;
+  --danger: #b84e45;
+  --danger-soft: #f7e7e3;
+  --danger-border: #e6bdb5;
+  --danger-ink: #79332d;
+  --violet: #78678e;
+  --violet-soft: #eeeaF2;
+  --violet-border: #d5cadf;
+  --radius: 0.625rem;
   --font-display:
     Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji,
     Segoe UI Symbol, Noto Color Emoji;
@@ -7,3 +49,48 @@
   --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
   --font-serif: Georgia, 'Times New Roman', serif;
 }
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --primary: #d97757;
+  --primary-hover: #e48c6d;
+  --primary-soft: #4a3028;
+  --primary-border: #754939;
+  --primary-ink: #f0b39a;
+  --on-primary: #262624;
+  --brand: #d89a54;
+  --secondary: #3a3936;
+  --background: #262624;
+  --card: #302f2c;
+  --card-foreground: #f2efe9;
+  --popover: #34332f;
+  --navy: #181715;
+  --navy-2: #252320;
+  --sidebar: #2d2c29;
+  --sidebar-foreground: #e7e2d9;
+  --sidebar-hover: #3b3934;
+  --sidebar-active: #4a3730;
+  --sidebar-border: #45423c;
+  --foreground: #f2efe9;
+  --muted-foreground: #aaa49a;
+  --muted: #3a3936;
+  --border: #45423c;
+  --border-strong: #5c574f;
+  --input: #575249;
+  --success: #65a884;
+  --success-soft: #263b31;
+  --success-border: #3c634e;
+  --success-ink: #a5d3b7;
+  --warning: #d5a254;
+  --warning-soft: #413625;
+  --warning-border: #6f5935;
+  --warning-ink: #e9c68f;
+  --danger: #d4776e;
+  --danger-soft: #432b29;
+  --danger-border: #71413b;
+  --danger-ink: #e8aaa3;
+  --violet: #b19cc6;
+  --violet-soft: #3a3340;
+  --violet-border: #5b4d66;
+}
+

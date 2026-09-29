@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState, memo } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -7,11 +7,14 @@ import {
   StyleSheet,
   Text,
   View,
-  useColorScheme,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, Spacing, BottomTabInset } from '@/constants/theme';
-import type { DifficultyLevel, ExamCategory, FilterState, Paper, Standard, Subject } from '@/types/pcmb';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SymbolView } from 'expo-symbols';
+import { AppHeader } from '@/components/app-header';
+import { SideDrawer } from '@/components/side-drawer';
+import { Colors, getPalette, Spacing, BottomTabInset } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import type { ExamCategory, FilterState, Paper, Standard, Subject } from '@/types/pcmb';
 import { fetchPapers } from '@/services/apiService';
 
 const FOUNDATION_STANDARDS: Standard[] = ['9th', '10th'];
@@ -21,22 +24,10 @@ const SUBJECT_MAP: Record<ExamCategory, Subject[]> = {
   'JEE/NEET': ['Physics', 'Chemistry', 'Mathematics', 'Biology'],
 };
 
-const DIFF_COLORS: Record<string, { bg: string; text: string }> = {
-  Easy: { bg: '#D1FAE5', text: '#065F46' },
-  Mid: { bg: '#FEF3C7', text: '#92400E' },
-  Hard: { bg: '#FEE2E2', text: '#991B1B' },
-};
-
-const EXAM_COLORS: Record<string, { grad: string; text: string }> = {
-  Foundation: { grad: '#6366F1', text: '#FFFFFF' },
-  'JEE/NEET': { grad: '#0EA5E9', text: '#FFFFFF' },
-  JEE: { grad: '#8B5CF6', text: '#FFFFFF' },
-  NEET: { grad: '#10B981', text: '#FFFFFF' },
-};
-
 function chipColor(selected: boolean, dark: boolean) {
-  if (selected) return { bg: '#6366F1', text: '#FFFFFF' };
-  return { bg: dark ? '#2A2A2E' : '#F1F5F9', text: dark ? '#CBD5E1' : '#475569' };
+  const palette = getPalette(dark);
+  if (selected) return { bg: palette.primary, text: palette.onPrimary };
+  return { bg: palette.card, text: palette.inkSoft };
 }
 
 function ChipRow({
@@ -52,9 +43,10 @@ function ChipRow({
   onSelect: (v: string) => void;
   dark: boolean;
 }) {
+  const palette = getPalette(dark);
   return (
     <View style={styles.chipSection}>
-      <Text style={[styles.chipLabel, { color: dark ? '#94A3B8' : '#64748B' }]}>{label}</Text>
+      <Text style={[styles.chipLabel, { color: palette.mutedForeground }]}>{label}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
         {['All', ...options].map((opt) => {
           const isSelected = selected === opt;
@@ -63,7 +55,7 @@ function ChipRow({
             <Pressable
               key={opt}
               onPress={() => onSelect(opt)}
-              style={[styles.chip, { backgroundColor: c.bg }]}
+              style={[styles.chip, { backgroundColor: c.bg, borderColor: isSelected ? palette.primary : palette.border }]}
             >
               <Text style={[styles.chipText, { color: c.text, fontWeight: isSelected ? '700' : '500' }]}>
                 {opt}
@@ -77,13 +69,20 @@ function ChipRow({
 }
 
 function PaperCard({ paper, dark }: { paper: Paper; dark: boolean }) {
-  const cardBg = dark ? '#1C1C1E' : '#FFFFFF';
-  const borderColor = dark ? '#2D2D30' : '#E2E8F0';
-  const textColor = dark ? '#F1F5F9' : '#1E293B';
-  const mutedColor = dark ? '#94A3B8' : '#64748B';
+  const palette = getPalette(dark);
+  const cardBg = palette.card;
+  const borderColor = palette.border;
+  const textColor = palette.cardForeground;
+  const mutedColor = palette.mutedForeground;
 
-  const examColor = EXAM_COLORS[paper.examCategory] ?? EXAM_COLORS['JEE/NEET'];
-  const diffColor = paper.difficulty ? (DIFF_COLORS[paper.difficulty] ?? DIFF_COLORS.Mid) : null;
+  const examColor = { grad: palette.primary, text: palette.onPrimary };
+  const diffColor = paper.difficulty === 'Easy'
+    ? { bg: palette.successSoft, text: palette.successInk }
+    : paper.difficulty === 'Hard'
+      ? { bg: palette.dangerSoft, text: palette.dangerInk }
+      : paper.difficulty
+        ? { bg: palette.warningSoft, text: palette.warningInk }
+        : null;
 
   const date = new Date(paper.uploadedDate).toLocaleDateString('en-IN', {
     day: '2-digit',
@@ -102,7 +101,7 @@ function PaperCard({ paper, dark }: { paper: Paper; dark: boolean }) {
           <View style={[styles.badge, { backgroundColor: examColor.grad }]}>
             <Text style={[styles.badgeText, { color: examColor.text }]}>{paper.examCategory}</Text>
           </View>
-          <View style={[styles.badge, { backgroundColor: dark ? '#2A2A2E' : '#F1F5F9' }]}>
+          <View style={[styles.badge, { backgroundColor: palette.secondary }]}>
             <Text style={[styles.badgeText, { color: mutedColor }]}>{paper.standard}</Text>
           </View>
           {diffColor && (
@@ -128,8 +127,8 @@ function PaperCard({ paper, dark }: { paper: Paper; dark: boolean }) {
         {paper.subjectBreakdown && paper.subjectBreakdown.length > 0 ? (
           <View style={styles.subjectPills}>
             {paper.subjectBreakdown.map((sb) => (
-              <View key={sb.subject} style={[styles.subjectPill, { backgroundColor: dark ? '#27272A' : '#EEF2FF' }]}>
-                <Text style={[styles.subjectPillText, { color: dark ? '#A5B4FC' : '#4338CA' }]}>
+              <View key={sb.subject} style={[styles.subjectPill, { backgroundColor: palette.violetSoft }]}>
+                <Text style={[styles.subjectPillText, { color: palette.violet }]}>
                   {sb.subject}: {sb.count}
                 </Text>
               </View>
@@ -138,8 +137,8 @@ function PaperCard({ paper, dark }: { paper: Paper; dark: boolean }) {
         ) : (
           <View style={styles.subjectPills}>
             {paper.subjects.map((s) => (
-              <View key={s} style={[styles.subjectPill, { backgroundColor: dark ? '#27272A' : '#EEF2FF' }]}>
-                <Text style={[styles.subjectPillText, { color: dark ? '#A5B4FC' : '#4338CA' }]}>{s}</Text>
+              <View key={s} style={[styles.subjectPill, { backgroundColor: palette.violetSoft }]}>
+                <Text style={[styles.subjectPillText, { color: palette.violet }]}>{s}</Text>
               </View>
             ))}
           </View>
@@ -147,8 +146,9 @@ function PaperCard({ paper, dark }: { paper: Paper; dark: boolean }) {
 
         {/* Footer: questions count + date */}
         <View style={[styles.paperFooter, { borderTopColor: borderColor }]}>
-          <View style={styles.qCountBadge}>
-            <Text style={styles.qCountText}>📄 {paper.totalQuestions} Qs</Text>
+          <View style={[styles.qCountBadge, { backgroundColor: palette.primary }]}>
+            <SymbolView name={{ ios: 'doc.text', android: 'description', web: 'description' }} tintColor={palette.onPrimary} size={14} />
+            <Text style={[styles.qCountText, { color: palette.onPrimary }]}>{paper.totalQuestions} questions</Text>
           </View>
           <Text style={[styles.dateText, { color: mutedColor }]}>{date}</Text>
         </View>
@@ -157,9 +157,10 @@ function PaperCard({ paper, dark }: { paper: Paper; dark: boolean }) {
   );
 }
 
-export default function PapersScreen() {
+function PapersScreenComponent() {
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
+  const palette = getPalette(dark);
   const colors = Colors[dark ? 'dark' : 'light'];
   const insets = useSafeAreaInsets();
 
@@ -175,7 +176,7 @@ export default function PapersScreen() {
 
   const [papers, setPapers] = useState<Paper[]>([]);
   const [loading, setLoading] = useState(false);
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
 
   const availableStandards =
     filters.examCategory === 'Foundation'
@@ -198,48 +199,58 @@ export default function PapersScreen() {
     });
   }
 
-  const loadPapers = useCallback(async () => {
-    setLoading(true);
-    try {
-      const ps = await fetchPapers(filters);
-      setPapers(ps);
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    let isCancelled = false;
+    fetchPapers(filters).then((ps) => {
+      if (!isCancelled) {
+        setPapers(ps);
+        setLoading(false);
+      }
+    });
+    return () => {
+      isCancelled = true;
+    };
   }, [filters]);
 
-  useEffect(() => { loadPapers(); }, [loadPapers]);
-
   const bg = colors.background;
-  const borderColor = dark ? '#2D2D30' : '#E2E8F0';
-  const filterBg = dark ? '#111113' : '#F8FAFC';
+  const activeFilterCount = [
+    filters.examCategory !== 'All',
+    filters.standard !== 'All',
+    filters.subject !== 'All',
+    filters.level !== 'All',
+  ].filter(Boolean).length;
 
   return (
-    <View style={[styles.root, { backgroundColor: bg, paddingTop: insets.top }]}>
-      {/* Top bar */}
-      <View style={[styles.topBar, { borderBottomColor: borderColor, backgroundColor: bg }]}>
-        <View style={styles.topBarLeft}>
-          <Text style={[styles.screenTitle, { color: colors.text }]}>Papers</Text>
-          {papers.length > 0 && !loading && (
-            <View style={styles.countBadge}>
-              <Text style={styles.countBadgeText}>{papers.length}</Text>
+    <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: bg }]}>
+      <AppHeader title="Papers" subtitle="Browse question papers by track and subject" />
+      <View style={styles.resultsToolbar}>
+        <Text style={[styles.resultsLabel, { color: colors.textSecondary }]}>
+          {loading ? 'Loading papers…' : `${papers.length} papers`}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showFilters }}
+          onPress={() => setShowFilters((visible) => !visible)}
+          style={({ pressed }) => [styles.filterToggleBtn, { backgroundColor: palette.primary }, pressed && styles.pressed]}>
+          <SymbolView
+            name={{ ios: 'slider.horizontal.3', android: 'tune', web: 'tune' }}
+            tintColor={palette.onPrimary}
+            size={17} />
+          <Text style={[styles.filterToggleText, { color: palette.onPrimary }]}>{showFilters ? 'Hide filters' : 'Filters'}</Text>
+          {activeFilterCount > 0 && (
+            <View style={[styles.filterCountBadge, { backgroundColor: palette.primaryInk }]}>
+              <Text style={[styles.filterCountText, { color: palette.onPrimary }]}>{activeFilterCount}</Text>
             </View>
           )}
-        </View>
-        <Pressable
-          onPress={() => setShowFilters((v) => !v)}
-          style={[styles.filterToggleBtn, { backgroundColor: showFilters ? '#6366F1' : (dark ? '#27272A' : '#F1F5F9') }]}
-        >
-          <Text style={{ fontSize: 13, color: showFilters ? '#FFF' : colors.textSecondary, fontWeight: '600' }}>
-            {showFilters ? '▲ Filters' : '▼ Filters'}
-          </Text>
         </Pressable>
       </View>
 
-      {/* Filter panel */}
-      {showFilters && (
-        <View style={[styles.filterPanel, { backgroundColor: filterBg, borderBottomColor: borderColor }]}>
-          <ScrollView showsVerticalScrollIndicator={false}>
+      <SideDrawer
+        visible={showFilters}
+        title="Paper filters"
+        subtitle="Find a paper for your study track"
+        onClose={() => setShowFilters(false)}>
+          <ScrollView style={styles.filterScroll} contentContainerStyle={styles.filterPanel} showsVerticalScrollIndicator={false} nestedScrollEnabled>
             <ChipRow
               label="Competitive Exam"
               options={['Foundation', 'JEE/NEET']}
@@ -270,23 +281,22 @@ export default function PapersScreen() {
             />
             <Pressable
               onPress={() => setFilters({ examCategory: 'All', standard: 'All', subject: 'All', chapter: 'All', topic: 'All', level: 'All', searchQuery: '' })}
-              style={styles.resetBtn}
+              style={[styles.resetBtn, { backgroundColor: palette.primary }]}
             >
-              <Text style={styles.resetBtnText}>↺  Reset All Filters</Text>
+              <Text style={[styles.resetBtnText, { color: palette.onPrimary }]}>Reset all filters</Text>
             </Pressable>
           </ScrollView>
-        </View>
-      )}
+      </SideDrawer>
 
       {/* Papers list */}
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#6366F1" />
+          <ActivityIndicator size="large" color={palette.primary} />
           <Text style={[{ color: colors.textSecondary, marginTop: 8, fontSize: 14 }]}>Loading papers…</Text>
         </View>
       ) : papers.length === 0 ? (
         <View style={styles.center}>
-          <Text style={{ fontSize: 48 }}>📂</Text>
+          <SymbolView name={{ ios: 'doc.text', android: 'description', web: 'description' }} tintColor={palette.mutedForeground} size={36} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>No papers found</Text>
           <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
             Adjust filters or upload a paper from the web app
@@ -305,40 +315,54 @@ export default function PapersScreen() {
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
+export const ExploreScreen = memo(PapersScreenComponent);
+export default ExploreScreen;
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  topBar: {
+  resultsToolbar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.three,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    paddingTop: 16,
+    paddingBottom: 12,
   },
-  topBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  screenTitle: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
-  countBadge: { backgroundColor: '#6366F1', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2 },
-  countBadgeText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
-  filterToggleBtn: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7 },
+  resultsLabel: { fontSize: 13, fontWeight: '600' },
+  filterToggleBtn: {
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 6,
+    paddingHorizontal: 14,
+  },
+  filterToggleText: { fontSize: 13, fontWeight: '700' },
+  filterCountBadge: {
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 10,
+  },
+  filterCountText: { fontSize: 11, fontWeight: '700' },
+  pressed: { opacity: 0.72 },
 
-  filterPanel: {
-    maxHeight: 260,
-    borderBottomWidth: 1,
-    paddingHorizontal: Spacing.three,
-    paddingTop: 8,
-    paddingBottom: 4,
-  },
+  filterScroll: { flex: 1 },
+  filterPanel: { paddingHorizontal: Spacing.three, paddingTop: 16, paddingBottom: Spacing.five },
   chipSection: { marginBottom: 10 },
   chipLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 6 },
   chipRow: { flexDirection: 'row', gap: 6, paddingRight: Spacing.three },
-  chip: { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  chip: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6 },
   chipText: { fontSize: 13 },
-  resetBtn: { alignSelf: 'center', marginVertical: 10, backgroundColor: '#FEE2E2', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 8 },
-  resetBtnText: { color: '#991B1B', fontSize: 13, fontWeight: '700' },
+  resetBtn: { alignSelf: 'flex-start', marginVertical: 10, borderRadius: 6, paddingHorizontal: 14, paddingVertical: 11 },
+  resetBtnText: { fontSize: 13, fontWeight: '700' },
 
   listContent: { paddingTop: 12 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: Spacing.four },
@@ -348,7 +372,7 @@ const styles = StyleSheet.create({
   // Paper card
   paperCard: {
     marginHorizontal: Spacing.three,
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 1,
     overflow: 'hidden',
     flexDirection: 'row',
@@ -371,7 +395,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     marginTop: 2,
   },
-  qCountBadge: { backgroundColor: '#EEF2FF', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  qCountText: { color: '#4338CA', fontSize: 12, fontWeight: '700' },
+  qCountBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 6, paddingHorizontal: 9, paddingVertical: 5 },
+  qCountText: { fontSize: 12, fontWeight: '700' },
   dateText: { fontSize: 11 },
 });
