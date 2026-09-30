@@ -19,6 +19,7 @@ import { ExamRoomDetailsModal } from '@/components/exam-room-details-modal';
 import { EditPaperModal } from '@/components/edit-paper-modal';
 import { EditRoomModal } from '@/components/edit-room-modal';
 import { DropdownSelect } from '@/components/dropdown-select';
+import { useChapterTopicOptions } from '@/hooks/use-chapter-topic-options';
 import { Colors, getPalette, Spacing, BottomTabInset, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { ExamCategory, ExamRoom, FilterState, Paper, Standard, Subject } from '@/types/pcmb';
@@ -356,9 +357,13 @@ function PapersScreenComponent() {
       const next = { ...prev, [key]: value };
       if (key === 'examCategory') { next.standard = 'All'; next.subject = 'All'; }
       if (key === 'standard') { next.subject = 'All'; }
+      if (key === 'examCategory' || key === 'standard' || key === 'subject') { next.chapter = 'All'; }
+      if (key !== 'topic' && key !== 'level' && key !== 'searchQuery') { next.topic = 'All'; }
       return next;
     });
   }
+
+  const { chapters, topics } = useChapterTopicOptions(filters);
 
   useEffect(() => {
     let isCancelled = false;
@@ -378,6 +383,8 @@ function PapersScreenComponent() {
     filters.examCategory !== 'All',
     filters.standard !== 'All',
     filters.subject !== 'All',
+    filters.chapter !== 'All',
+    filters.topic !== 'All',
     filters.level !== 'All',
   ].filter(Boolean).length;
 
@@ -534,6 +541,24 @@ function PapersScreenComponent() {
               selected={filters.subject}
               onSelect={(v) => updateFilter('subject', v as any)}
               icon={{ ios: 'atom', android: 'science', web: 'science' }}
+            />
+            <DropdownSelect
+              label="Chapter"
+              options={chapters}
+              emptyText="No chapters uploaded for this selection"
+              selected={filters.chapter}
+              onSelect={(v) => updateFilter('chapter', v)}
+              searchable
+              icon={{ ios: 'book', android: 'menu_book', web: 'menu_book' }}
+            />
+            <DropdownSelect
+              label="Topic"
+              options={topics}
+              emptyText="No topics uploaded for this selection"
+              selected={filters.topic}
+              onSelect={(v) => updateFilter('topic', v)}
+              searchable
+              icon={{ ios: 'list.bullet', android: 'list', web: 'list' }}
             />
             <DropdownSelect
               label="Difficulty Level"

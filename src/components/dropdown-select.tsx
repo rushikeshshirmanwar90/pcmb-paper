@@ -22,6 +22,8 @@ export interface DropdownSelectProps {
   placeholder?: string;
   icon?: any;
   searchable?: boolean;
+  /** Shown, greyed out and not tappable, when there are no options to pick. */
+  emptyText?: string;
 }
 
 export function DropdownSelect({
@@ -32,6 +34,7 @@ export function DropdownSelect({
   placeholder = 'Select option',
   icon,
   searchable = false,
+  emptyText,
 }: DropdownSelectProps) {
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
@@ -43,6 +46,7 @@ export function DropdownSelect({
   const [searchQuery, setSearchQuery] = useState('');
 
   const isSelected = selected && selected !== 'All';
+  const isEmpty = !!emptyText && !isSelected && options.filter((o) => o !== 'All').length === 0;
 
   // All options including 'All'
   const allOptions = useMemo(() => {
@@ -74,13 +78,15 @@ export function DropdownSelect({
       <Pressable
         accessibilityRole="combobox"
         accessibilityLabel={`${label}: ${selected || 'All'}`}
+        accessibilityState={{ disabled: isEmpty }}
+        disabled={isEmpty}
         onPress={() => setIsOpen(true)}
         style={({ pressed }) => [
           styles.trigger,
           {
             backgroundColor: isSelected ? (dark ? palette.primarySoft : '#FFF8F4') : palette.card,
             borderColor: isSelected ? palette.primary : palette.border,
-            opacity: pressed ? 0.78 : 1,
+            opacity: isEmpty ? 0.55 : pressed ? 0.78 : 1,
           },
         ]}
       >
@@ -104,7 +110,7 @@ export function DropdownSelect({
               },
             ]}
           >
-            {selected || placeholder}
+            {isEmpty ? emptyText : selected || placeholder}
           </Text>
         </View>
 

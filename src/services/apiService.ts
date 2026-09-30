@@ -295,7 +295,24 @@ export const MOCK_PAPERS: Paper[] = [
   },
 ];
 
-async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 2000): Promise<Response> {
+// The backend serves uploaded diagrams at site-relative paths ("/api/files/…");
+// the app needs them absolute.
+const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "");
+const absoluteUrl = (url: string) => (/^https?:\/\//.test(url) ? url : `${API_ORIGIN}${url.startsWith("/") ? "" : "/"}${url}`);
+const urlList = (urls: unknown): string[] =>
+  Array.isArray(urls) ? urls.filter((u): u is string => typeof u === "string" && u !== "").map(absoluteUrl) : [];
+
+function matchesSearch(q: Question, searchQuery: string): boolean {
+  const sq = searchQuery.trim().toLowerCase();
+  if (!sq) return true;
+  return [q.questionText, q.chapter, q.topic, q.explanation, q.optionA, q.optionB, q.optionC, q.optionD].some((s) =>
+    (s || "").toLowerCase().includes(sq)
+  );
+}
+
+// Vercel cold starts plus a MongoDB connection can take several seconds; a
+// short timeout here would silently swap real questions for the mock set.
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 15000): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -305,16 +322,67 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
   }
 }
 
-export async function fetchFilterOptions(): Promise<FilterOptions> {
-  try {
-    const res = await fetchWithTimeout(`${API_BASE_URL}/filters`, { headers: { Accept: "application/json" } });
-    if (res.ok) {
-      const data = await res.json();
-      return data;
-    }
-  } catch {
-    // Fallback to static offline filter structure
+/**
+ * Filter dropdown options. With no scope, chapters and topics cover every
+ * uploaded paper; passing a selection narrows them to it.
+ */
+export async function fetchFilterOptions(
+  scope: Partial<Pick<FilterState, "examCategory" | "standard" | "subject" | "chapter">> = {}
+): Promise<FilterOptions> {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(scope)) {
+    if (value && value !== "All") query.set(key, value);
   }
+  const getJson = async (url: string) => {
+    try {
+      const res = await fetchWithTimeout(url, { headers: { Accept: "application/json" } });
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Chapters and topics also come from the papers list: every uploaded paper
+  // carries the chapter/topic it was tagged with, so the dropdowns fill even
+  // when /filters is serving a stale or empty list.
+  // The papers query leaves the chapter out, so the chapter list still offers
+  // every chapter under the selection; topics are narrowed to it below.
+  const paperQuery = new URLSearchParams(query);
+  paperQuery.delete("chapter");
+  const [filterData, paperData] = await Promise.all([
+    getJson(`${API_BASE_URL}/filters?${query.toString()}`),
+    getJson(`${API_BASE_URL}/papers?${paperQuery.toString()}`),
+  ]);
+
+  if (filterData || paperData) {
+    const papers: any[] = Array.isArray(paperData) ? paperData : [];
+    const chosenChapter = scope.chapter && scope.chapter !== "All" ? scope.chapter.toLowerCase() : null;
+    const papersInChapter = chosenChapter
+      ? papers.filter((p) => (p.chapter || "").toLowerCase() === chosenChapter)
+      : papers;
+    const merge = (fromFilters: unknown, fromPapers: unknown[]) =>
+      Array.from(
+        new Set(
+          [...(Array.isArray(fromFilters) ? fromFilters : []), ...fromPapers].filter(
+            (v): v is string => typeof v === "string" && v.trim() !== ""
+          )
+        )
+      ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+    return {
+      examCategories: filterData?.examCategories ?? ["Foundation", "JEE/NEET"],
+      standards: filterData?.standards ?? [
+        { category: "Foundation", values: ["9th", "10th"] },
+        { category: "JEE/NEET", values: ["11th", "12th"] },
+      ],
+      subjects: filterData?.subjects ?? ["Physics", "Chemistry", "Mathematics", "Biology", "Science"],
+      chapters: merge(filterData?.chapters, papers.map((p) => p.chapter)),
+      topics: merge(filterData?.topics, papersInChapter.map((p) => p.topic)),
+      levels: filterData?.levels ?? ["Easy", "Mid", "Hard"],
+    };
+  }
+
+  // Backend unreachable — fall back to the static offline filter structure.
 
   return {
     examCategories: ["Foundation", "JEE/NEET"],
@@ -368,8 +436,10 @@ export async function fetchQuestions(filters: FilterState): Promise<Question[]> 
     if (res.ok) {
       const data = await res.json();
       const rawList = Array.isArray(data) ? data : data.questions;
-      if (Array.isArray(rawList) && rawList.length > 0) {
-        return rawList.map((raw: any, idx: number): Question => {
+      // A successful response is the truth, even when empty — only fall back
+      // to the mock set when the backend can't be reached at all.
+      if (Array.isArray(rawList)) {
+        const questions = rawList.map((raw: any, idx: number): Question => {
           const diffMap: Record<string, "Easy" | "Mid" | "Hard"> = {
             Easy: "Easy",
             Medium: "Mid",
@@ -392,11 +462,28 @@ export async function fetchQuestions(filters: FilterState): Promise<Question[]> 
             optionB: raw.optionB || "",
             optionC: raw.optionC || "",
             optionD: raw.optionD || "",
-            correctAnswer: raw.correctAnswer || "A",
+            correctAnswer: raw.correctAnswer || "",
+            answerType: raw.answerType || "MCQ",
             explanation: raw.explanation || "",
             source: raw.source || "",
+            diagramUrls: urlList(raw.diagramUrls),
+            optionDiagramUrls: {
+              A: urlList(raw.optionDiagramUrls?.A),
+              B: urlList(raw.optionDiagramUrls?.B),
+              C: urlList(raw.optionDiagramUrls?.C),
+              D: urlList(raw.optionDiagramUrls?.D),
+            },
+            explanationDiagramUrls: urlList(raw.explanationDiagramUrls),
           };
         });
+        // Questions from different papers share numbers; keep each paper's
+        // questions together and in order.
+        questions.sort((a, b) =>
+          (a.paperId || "") === (b.paperId || "")
+            ? a.questionNumber - b.questionNumber
+            : (a.paperId || "").localeCompare(b.paperId || "")
+        );
+        return questions.filter((q) => matchesSearch(q, filters.searchQuery));
       }
     }
   } catch {
@@ -415,16 +502,7 @@ export async function fetchQuestions(filters: FilterState): Promise<Question[]> 
       return false;
     }
     if (filters.level !== "All" && q.difficulty !== filters.level) return false;
-    if (filters.searchQuery) {
-      const sq = filters.searchQuery.toLowerCase();
-      const match =
-        q.questionText.toLowerCase().includes(sq) ||
-        q.chapter.toLowerCase().includes(sq) ||
-        q.topic.toLowerCase().includes(sq) ||
-        q.explanation.toLowerCase().includes(sq);
-      if (!match) return false;
-    }
-    return true;
+    return matchesSearch(q, filters.searchQuery);
   });
 }
 
@@ -441,8 +519,16 @@ export async function fetchPapers(filters: FilterState): Promise<Paper[]> {
     const res = await fetchWithTimeout(`${API_BASE_URL}/papers?${query.toString()}`);
     if (res.ok) {
       const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        return data;
+      if (Array.isArray(data)) {
+        const diffMap: Record<string, "Easy" | "Mid" | "Hard"> = { Easy: "Easy", Medium: "Mid", Mid: "Mid", Hard: "Hard" };
+        const sq = filters.searchQuery.trim().toLowerCase();
+        return data
+          .map((p: any): Paper => ({
+            ...p,
+            difficulty: p.difficulty ? diffMap[p.difficulty] || "Mid" : undefined,
+            pdfUrl: p.pdfUrl ? absoluteUrl(p.pdfUrl) : undefined,
+          }))
+          .filter((p) => !sq || p.title.toLowerCase().includes(sq) || (p.chapter || "").toLowerCase().includes(sq));
       }
     }
   } catch {

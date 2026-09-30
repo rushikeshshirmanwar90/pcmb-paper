@@ -230,7 +230,9 @@ function buildKaTeXHTML(
               displayMode: !!p.display,
               throwOnError: false,
               strict: 'ignore',
-              output: 'htmlAndMathml'
+              // The MathML copy is only hidden once katex.min.css has loaded;
+              // until then it renders visibly and inflates the measured height.
+              output: 'html'
             });
           } catch(e) {
             span.textContent = p.value;
@@ -242,14 +244,24 @@ function buildKaTeXHTML(
       document.getElementById('content').textContent = '';
     }
 
+    // The first measurement happens before the stylesheet and math fonts have
+    // loaded (and sometimes before the view has its final width), so it is
+    // usually far too tall. Re-measure whenever the content actually changes
+    // size, so the view settles on the real rendered height.
+    var lastHeight = -1;
     function sendHeight() {
-      var h = document.getElementById('content').scrollHeight;
-      if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({ height: h }));
-      }
+      var h = Math.ceil(document.getElementById('content').getBoundingClientRect().height);
+      if (h === lastHeight || !window.ReactNativeWebView) return;
+      lastHeight = h;
+      window.ReactNativeWebView.postMessage(JSON.stringify({ height: h }));
     }
     sendHeight();
+    if (window.ResizeObserver) {
+      new ResizeObserver(sendHeight).observe(document.getElementById('content'));
+    }
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(sendHeight);
     window.addEventListener('load', function() { setTimeout(sendHeight, 50); });
+    window.addEventListener('resize', sendHeight);
   <\/script>
 </body>
 </html>`;
@@ -280,8 +292,8 @@ function KaTeXView({
   const onMessage = useCallback((event: { nativeEvent: { data: string } }) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      if (data.height && typeof data.height === 'number') {
-        setHeight(Math.ceil(data.height) + 4);
+      if (typeof data.height === 'number' && data.height > 0) {
+        setHeight(Math.ceil(data.height) + 2);
       }
     } catch {
       // ignore
@@ -322,12 +334,15 @@ export interface MathTextProps {
   style?: any;
 }
 
-export function MathText({ text, fontSize = 14, color, style }: MathTextProps) {
+export function MathText({ text: rawText, fontSize = 14, color, style }: MathTextProps) {
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
   const palette = getPalette(dark);
   const textColor = color ?? palette.foreground;
 
+  // Text extracted from PDFs often ends in stray blank lines, which render as
+  // empty rows between a question and its options.
+  const text = (rawText || '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   if (!text) return null;
 
   // Web path: render KaTeX directly into DOM

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { MathText } from './math-text';
+import { Diagrams } from './diagrams';
 import { parseExplanation, type ExplanationBlock, type ExplanationChunk } from '@/shared/explanation';
 import { hasLatex } from '@/shared/latex';
 import { getPalette } from '@/constants/theme';
@@ -12,6 +13,8 @@ interface ExplanationProps {
   defaultCollapsed?: boolean;
   source?: string;
   correctAnswer?: string;
+  /** Figures printed inside the worked solution. */
+  diagramUrls?: string[];
 }
 
 /**
@@ -120,6 +123,7 @@ export function Explanation({
   defaultCollapsed = true,
   source,
   correctAnswer,
+  diagramUrls,
 }: ExplanationProps) {
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
@@ -204,6 +208,8 @@ export function Explanation({
           ) : (
             <ExtractedExplanationView blocks={parsed.blocks} palette={palette} dark={dark} />
           )}
+
+          <Diagrams urls={diagramUrls} />
 
           {/* Source Attribution */}
           {source ? (

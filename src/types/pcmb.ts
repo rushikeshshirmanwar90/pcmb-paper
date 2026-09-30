@@ -29,8 +29,14 @@ export interface Question {
   optionC: string;
   optionD: string;
   correctAnswer: "A" | "B" | "C" | "D" | string;
+  /** "Numerical" questions have no options — the answer is a value. */
+  answerType?: "MCQ" | "Numerical" | "Bonus";
   explanation: string;
   source?: string;
+  /** Figures cut from the paper, as absolute URLs. */
+  diagramUrls?: string[];
+  optionDiagramUrls?: Partial<Record<"A" | "B" | "C" | "D", string[]>>;
+  explanationDiagramUrls?: string[];
 }
 
 export interface Paper {

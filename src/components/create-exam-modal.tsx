@@ -18,6 +18,7 @@ import { getPalette, Spacing, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useResponsive } from '@/hooks/use-responsive';
 import { DropdownSelect } from '@/components/dropdown-select';
+import { useChapterTopicOptions } from '@/hooks/use-chapter-topic-options';
 import { MathText } from './math-text';
 import { Explanation } from './explanation';
 import type {
@@ -214,7 +215,10 @@ function CreateExamModalContent({
   const [examCategory, setExamCategory] = useState<string>('All');
   const [standard, setStandard] = useState<string>('All');
   const [subject, setSubject] = useState<string>('All');
+  const [chapter, setChapter] = useState<string>('All');
+  const [topic, setTopic] = useState<string>('All');
   const [difficulty, setDifficulty] = useState<string>('All');
+  const { chapters, topics } = useChapterTopicOptions({ examCategory, standard, subject, chapter });
   const [questionCount, setQuestionCount] = useState<number>(10);
 
   // Questions fetching & curation
@@ -255,8 +259,8 @@ function CreateExamModalContent({
         examCategory: (examCategory as ExamCategory) || 'All',
         standard: (standard as Standard) || 'All',
         subject: (subject as Subject) || 'All',
-        chapter: 'All',
-        topic: 'All',
+        chapter,
+        topic,
         level: (difficulty as DifficultyLevel) || 'All',
         searchQuery: '',
       };
@@ -400,6 +404,8 @@ function CreateExamModalContent({
                 setExamCategory(val);
                 setStandard('All');
                 setSubject('All');
+                setChapter('All');
+                setTopic('All');
               }}
               icon={{ ios: 'graduationcap', android: 'school', web: 'school' }}
             />
@@ -409,7 +415,11 @@ function CreateExamModalContent({
               label="Standard / Grade"
               options={availableStandards}
               selected={standard}
-              onSelect={setStandard}
+              onSelect={(val) => {
+                setStandard(val);
+                setChapter('All');
+                setTopic('All');
+              }}
               icon={{ ios: 'number', android: 'pin', web: 'pin' }}
             />
 
@@ -418,8 +428,37 @@ function CreateExamModalContent({
               label="Subject"
               options={availableSubjects}
               selected={subject}
-              onSelect={setSubject}
+              onSelect={(val) => {
+                setSubject(val);
+                setChapter('All');
+                setTopic('All');
+              }}
               icon={{ ios: 'atom', android: 'science', web: 'science' }}
+            />
+
+            {/* Dropdown: Chapter */}
+            <DropdownSelect
+              label="Chapter"
+              options={chapters}
+              emptyText="No chapters uploaded for this selection"
+              selected={chapter}
+              onSelect={(val) => {
+                setChapter(val);
+                setTopic('All');
+              }}
+              searchable
+              icon={{ ios: 'book', android: 'menu_book', web: 'menu_book' }}
+            />
+
+            {/* Dropdown: Topic */}
+            <DropdownSelect
+              label="Topic"
+              options={topics}
+              emptyText="No topics uploaded for this selection"
+              selected={topic}
+              onSelect={setTopic}
+              searchable
+              icon={{ ios: 'list.bullet', android: 'list', web: 'list' }}
             />
 
             {/* Dropdown: Difficulty Level */}

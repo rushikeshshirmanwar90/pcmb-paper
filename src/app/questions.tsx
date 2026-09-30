@@ -15,13 +15,15 @@ import { AppHeader } from '@/components/app-header';
 import { SideDrawer } from '@/components/side-drawer';
 import { MathText } from '@/components/math-text';
 import { Explanation } from '@/components/explanation';
+import { Diagrams } from '@/components/diagrams';
 import { DropdownSelect } from '@/components/dropdown-select';
 import { Colors, getPalette, Spacing, BottomTabInset, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTabNavigation } from '@/context/tab-context';
 import { useResponsive } from '@/hooks/use-responsive';
 import type { ExamCategory, FilterState, Question, Standard, Subject } from '@/types/pcmb';
-import { fetchFilterOptions, fetchQuestions } from '@/services/apiService';
+import { fetchQuestions } from '@/services/apiService';
+import { useChapterTopicOptions } from '@/hooks/use-chapter-topic-options';
 
 // ─── constants ──────────────────────────────────────────────────────────────
 
@@ -87,11 +89,28 @@ function QuestionCard({ question, dark }: { question: Question; dark: boolean })
       {/* Question text */}
       <View style={styles.questionTextWrap}>
         <MathText text={question.questionText} fontSize={15} color={textColor} />
+        <Diagrams urls={question.diagramUrls} />
       </View>
 
-      {/* Options */}
+      {/* Numerical questions have no options — show the answer value instead. */}
+      {question.answerType === 'Numerical' ? (
+        question.correctAnswer ? (
+          <View
+            style={[
+              styles.optionBox,
+              { backgroundColor: palette.successSoft, borderColor: palette.successBorder },
+            ]}
+          >
+            <Text style={[styles.optionKey, { color: palette.success }]}>Ans</Text>
+            <View style={styles.optionTextWrap}>
+              <MathText text={question.correctAnswer} fontSize={14} color={palette.successInk} />
+            </View>
+          </View>
+        ) : null
+      ) : (
       <View style={styles.optionsGrid}>
         {options.map(([key, text]) => {
+          const optionImages = question.optionDiagramUrls?.[key as 'A' | 'B' | 'C' | 'D'] ?? [];
           const isCorrect = question.correctAnswer === key;
           const optBg = isCorrect ? palette.successSoft : palette.background;
           const optBorder = isCorrect ? palette.successBorder : palette.border;
@@ -114,18 +133,21 @@ function QuestionCard({ question, dark }: { question: Question; dark: boolean })
               </Text>
               <View style={styles.optionTextWrap}>
                 <MathText text={text} fontSize={14} color={optTextColor} />
+                <Diagrams urls={optionImages} maxHeight={160} />
               </View>
             </View>
           );
         })}
       </View>
+      )}
 
       {/* Explanation */}
       {question.explanation ? (
         <Explanation
           text={question.explanation}
           source={question.source}
-          correctAnswer={question.correctAnswer}
+          correctAnswer={question.answerType === 'Numerical' ? undefined : question.correctAnswer}
+          diagramUrls={question.explanationDiagramUrls}
           defaultCollapsed
         />
       ) : null}
@@ -144,8 +166,6 @@ function QuestionsScreenComponent() {
   const { isTablet, isDesktop } = useResponsive();
   const { questionFilters: filters, setQuestionFilters: setFilters } = useTabNavigation();
 
-  const [chapters, setChapters] = useState<string[]>([]);
-  const [topics, setTopics] = useState<string[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -163,13 +183,7 @@ function QuestionsScreenComponent() {
       ? SUBJECT_MAP[filters.examCategory as ExamCategory]
       : ['Physics', 'Chemistry', 'Mathematics', 'Biology', 'Science'];
 
-  // Load filter options from backend
-  useEffect(() => {
-    fetchFilterOptions().then((opts) => {
-      setChapters(opts.chapters || []);
-      setTopics(opts.topics || []);
-    });
-  }, []);
+  const { chapters, topics } = useChapterTopicOptions(filters);
 
   // Load questions whenever filters change
   useEffect(() => {
@@ -410,6 +424,7 @@ function QuestionsScreenComponent() {
             <DropdownSelect
               label="Chapter"
               options={chapters}
+              emptyText="No chapters uploaded for this selection"
               selected={filters.chapter}
               onSelect={(v) => updateFilter('chapter', v as any)}
               searchable
@@ -420,6 +435,7 @@ function QuestionsScreenComponent() {
             <DropdownSelect
               label="Topic"
               options={topics}
+              emptyText="No topics uploaded for this selection"
               selected={filters.topic}
               onSelect={(v) => updateFilter('topic', v as any)}
               searchable
