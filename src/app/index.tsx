@@ -1,11 +1,14 @@
-import React, { memo } from 'react';
+import React, { memo, useEffect, useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 import { AppHeader } from '@/components/app-header';
+import { PdfBuilderScreen } from '@/components/pdf-builder-screen';
+import { SideDrawer } from '@/components/side-drawer';
 import { Colors, getPalette, Spacing, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTabNavigation } from '@/context/tab-context';
+import { useAppearance } from '@/context/appearance-context';
 import type { DifficultyLevel, ExamCategory, Standard, Subject } from '@/types/pcmb';
 
 const CATEGORIES = [
@@ -41,6 +44,37 @@ const QUICK_FILTERS = [
   { label: 'Hard', level: 'Hard' as DifficultyLevel },
 ];
 
+type HomeShortcut = {
+  label: string;
+  destination: 1 | 2 | 3;
+  accent: 'primary' | 'violet';
+  icon: React.ComponentProps<typeof SymbolView>['name'];
+};
+
+const ACADEMY_SHORTCUTS: HomeShortcut[] = [
+  { label: 'PDF', destination: 2, accent: 'primary', icon: { ios: 'doc.text', android: 'picture_as_pdf', web: 'picture_as_pdf' } },
+  { label: 'PDF Lite', destination: 2, accent: 'primary', icon: { ios: 'doc.text.magnifyingglass', android: 'description', web: 'description' } },
+  { label: 'OMR Users', destination: 3, accent: 'violet', icon: { ios: 'person.3.fill', android: 'groups', web: 'groups' } },
+  { label: 'Theory', destination: 1, accent: 'violet', icon: { ios: 'text.book.closed.fill', android: 'menu_book', web: 'menu_book' } },
+  { label: 'PYQ Practice', destination: 1, accent: 'primary', icon: { ios: 'clock.arrow.circlepath', android: 'history', web: 'history' } },
+  { label: 'Question Bank', destination: 1, accent: 'violet', icon: { ios: 'books.vertical.fill', android: 'library_books', web: 'library_books' } },
+  { label: 'Demo Videos', destination: 2, accent: 'primary', icon: { ios: 'play.rectangle.fill', android: 'play_circle', web: 'play_circle' } },
+  { label: 'Question Count', destination: 1, accent: 'violet', icon: { ios: 'number', android: 'numbers', web: 'numbers' } },
+  { label: 'Bookmark', destination: 1, accent: 'primary', icon: { ios: 'bookmark.fill', android: 'bookmark', web: 'bookmark' } },
+  { label: 'Referral', destination: 3, accent: 'violet', icon: { ios: 'person.2.fill', android: 'share', web: 'share' } },
+];
+
+const MANAGE_SHORTCUTS: HomeShortcut[] = [
+  { label: 'Subscription', destination: 3, accent: 'primary', icon: { ios: 'creditcard.fill', android: 'payments', web: 'payments' } },
+  { label: 'Price Calculator', destination: 3, accent: 'violet', icon: { ios: 'function', android: 'calculate', web: 'calculate' } },
+  { label: 'Bank Details', destination: 3, accent: 'primary', icon: { ios: 'building.columns.fill', android: 'account_balance', web: 'account_balance' } },
+  { label: 'Discount Codes', destination: 3, accent: 'violet', icon: { ios: 'tag.fill', android: 'sell', web: 'sell' } },
+  { label: 'User Setting', destination: 3, accent: 'primary', icon: { ios: 'person.crop.circle', android: 'manage_accounts', web: 'manage_accounts' } },
+  { label: 'Device Management', destination: 3, accent: 'violet', icon: { ios: 'iphone.gen3', android: 'devices', web: 'devices' } },
+  { label: 'Issue List', destination: 3, accent: 'primary', icon: { ios: 'exclamationmark.bubble.fill', android: 'report_problem', web: 'report_problem' } },
+  { label: 'Product List', destination: 2, accent: 'violet', icon: { ios: 'shippingbox.fill', android: 'inventory_2', web: 'inventory_2' } },
+];
+
 const SUBJECTS = [
   { name: 'Physics' as Subject, icon: { ios: 'atom', android: 'science', web: 'science' } },
   { name: 'Chemistry' as Subject, icon: { ios: 'flask', android: 'science', web: 'science' } },
@@ -49,12 +83,19 @@ const SUBJECTS = [
   { name: 'Science' as Subject, icon: { ios: 'scope', android: 'science', web: 'science' } },
 ] as const;
 
-function HomeScreenComponent() {
+function HomeScreenComponent({
+  registerOpenMenu,
+}: {
+  registerOpenMenu?: (openMenu: (() => void) | null) => void;
+}) {
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [pdfBuilderVisible, setPdfBuilderVisible] = useState(false);
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
   const palette = getPalette(dark);
   const colors = Colors[dark ? 'dark' : 'light'];
   const { goToTab } = useTabNavigation();
+  const { mode, setMode } = useAppearance();
 
   const bg = colors.background;
   const textColor = colors.text;
@@ -62,9 +103,18 @@ function HomeScreenComponent() {
   const cardBg = palette.card;
   const borderColor = palette.border;
 
+  useEffect(() => {
+    registerOpenMenu?.(() => setMenuVisible(true));
+    return () => registerOpenMenu?.(null);
+  }, [registerOpenMenu]);
+
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: bg }]}>
-      <AppHeader title="Your study desk" subtitle="PCMB Practice · Foundation to NEET" />
+      <AppHeader
+        title="Your study desk"
+        subtitle="PCMB Practice · Foundation to NEET"
+        onMenuPress={() => setMenuVisible(true)}
+      />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
@@ -171,7 +221,130 @@ function HomeScreenComponent() {
         </View>
 
       </ScrollView>
+      <SideDrawer
+        visible={menuVisible}
+        title="PCMB Paper"
+        subtitle="Your learning workspace"
+        side="left"
+        onClose={() => setMenuVisible(false)}>
+        <View style={styles.drawerContent}>
+          <ScrollView
+            style={styles.drawerMenuScroll}
+            contentContainerStyle={styles.drawerMenu}
+            showsVerticalScrollIndicator={false}>
+            <Text style={[styles.drawerSectionLabel, { color: palette.mutedForeground }]}>ACADEMY</Text>
+            <View style={styles.drawerGroup}>
+              {ACADEMY_SHORTCUTS.map((shortcut) => (
+                <DrawerItem
+                  key={shortcut.label}
+                  label={shortcut.label}
+                  icon={shortcut.icon}
+                  palette={palette}
+                  onPress={shortcut.label === 'PDF' ? () => {
+                    setMenuVisible(false);
+                    setTimeout(() => setPdfBuilderVisible(true), 220);
+                  } : undefined}
+                />
+              ))}
+            </View>
+
+            <Text style={[styles.drawerSectionLabel, styles.drawerSectionSpaced, { color: palette.mutedForeground }]}>MANAGE</Text>
+            <View style={styles.drawerGroup}>
+              {MANAGE_SHORTCUTS.map((shortcut) => (
+                <DrawerItem
+                  key={shortcut.label}
+                  label={shortcut.label}
+                  icon={shortcut.icon}
+                  palette={palette}
+                />
+              ))}
+            </View>
+          </ScrollView>
+
+          <View style={[styles.appearanceFooter, { borderTopColor: palette.sidebarBorder }]}>
+            <View style={styles.appearanceHeading}>
+              <View style={[styles.appearanceIcon, { backgroundColor: palette.primarySoft }]}>
+                <SymbolView
+                  name={{ ios: 'circle.lefthalf.filled', android: 'palette', web: 'palette' }}
+                  tintColor={palette.primary}
+                  size={17}
+                />
+              </View>
+              <View>
+                <Text style={[styles.appearanceTitle, { color: palette.sidebarForeground }]}>Appearance</Text>
+                <Text style={[styles.appearanceSubtitle, { color: palette.mutedForeground }]}>Choose your theme</Text>
+              </View>
+            </View>
+            <View style={[styles.themeToggle, { backgroundColor: palette.sidebarHover }]}>
+              {(['light', 'dark'] as const).map((theme) => {
+                const selected = mode === theme;
+                return (
+                  <Pressable
+                    key={theme}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${theme === 'light' ? 'Light' : 'Dark'} mode`}
+                    accessibilityState={{ selected }}
+                    onPress={() => setMode(theme)}
+                    style={({ pressed }) => [
+                      styles.themeToggleOption,
+                      selected && { backgroundColor: palette.card },
+                      pressed && styles.pressed,
+                    ]}>
+                    <SymbolView
+                      name={theme === 'light'
+                        ? { ios: 'sun.max.fill', android: 'light_mode', web: 'light_mode' }
+                        : { ios: 'moon.fill', android: 'dark_mode', web: 'dark_mode' }}
+                      tintColor={selected ? palette.primary : palette.mutedForeground}
+                      size={16}
+                    />
+                    <Text style={[
+                      styles.themeToggleText,
+                      { color: selected ? palette.foreground : palette.mutedForeground },
+                    ]}>
+                      {theme === 'light' ? 'Light' : 'Dark'}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+      </SideDrawer>
+      <PdfBuilderScreen visible={pdfBuilderVisible} onClose={() => setPdfBuilderVisible(false)} />
     </SafeAreaView>
+  );
+}
+
+function DrawerItem({
+  label,
+  icon,
+  palette,
+  onPress,
+}: {
+  label: string;
+  icon: HomeShortcut['icon'];
+  palette: ReturnType<typeof getPalette>;
+  onPress?: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={label}
+      disabled={!onPress}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.drawerItem,
+        pressed && onPress ? styles.pressed : undefined,
+      ]}>
+      <SymbolView
+        name={icon}
+        tintColor={palette.mutedForeground}
+        size={19}
+      />
+      <Text style={[styles.drawerItemLabel, { color: palette.sidebarForeground }]}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -212,6 +385,38 @@ const styles = StyleSheet.create({
   // Section title
   sectionTitle: { fontSize: 17, fontWeight: '700', marginBottom: 6 },
   sectionSubtitle: { fontSize: 13, marginBottom: 14 },
+
+  drawerContent: { flex: 1 },
+  drawerMenuScroll: { flex: 1 },
+  drawerMenu: { padding: 16, paddingBottom: 22 },
+  drawerSectionLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 1.1, marginBottom: 8 },
+  drawerSectionSpaced: { marginTop: 22 },
+  drawerGroup: { gap: 3 },
+  drawerItem: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 11,
+    borderRadius: 9,
+  },
+  drawerItemLabel: { flex: 1, fontSize: 13, fontWeight: '500' },
+  appearanceFooter: { borderTopWidth: 1, paddingHorizontal: 18, paddingTop: 14, paddingBottom: 12 },
+  appearanceHeading: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  appearanceIcon: { width: 32, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  appearanceTitle: { fontSize: 13, fontWeight: '700' },
+  appearanceSubtitle: { fontSize: 11, marginTop: 2 },
+  themeToggle: { flexDirection: 'row', padding: 3, borderRadius: 10, gap: 4 },
+  themeToggleOption: {
+    flex: 1,
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    borderRadius: 8,
+  },
+  themeToggleText: { fontSize: 12, fontWeight: '600' },
 
   // Category grid (2x2)
   categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },

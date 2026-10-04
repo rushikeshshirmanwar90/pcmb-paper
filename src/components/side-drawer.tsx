@@ -9,11 +9,12 @@ type SideDrawerProps = {
   visible: boolean;
   title: string;
   subtitle?: string;
+  side?: 'left' | 'right';
   onClose: () => void;
   children: React.ReactNode;
 };
 
-export function SideDrawer({ visible, title, subtitle, onClose, children }: SideDrawerProps) {
+export function SideDrawer({ visible, title, subtitle, side = 'right', onClose, children }: SideDrawerProps) {
   const { width: windowWidth } = useWindowDimensions();
   const scheme = useColorScheme();
   const palette = getPalette(scheme === 'dark');
@@ -54,16 +55,17 @@ export function SideDrawer({ visible, title, subtitle, onClose, children }: Side
 
   const translateX = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [drawerWidth, 0],
+    outputRange: [side === 'left' ? -drawerWidth : drawerWidth, 0],
   });
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={closeDrawer}>
-      <View style={styles.root}>
+      <View style={[styles.root, side === 'left' ? styles.alignLeft : styles.alignRight]}>
         <Pressable accessibilityLabel="Close panel" onPress={closeDrawer} style={styles.scrim} />
         <Animated.View
           style={[
             styles.drawer,
+            side === 'left' ? styles.drawerLeft : styles.drawerRight,
             {
               width: drawerWidth,
               backgroundColor: palette.sidebar,
@@ -96,9 +98,13 @@ export function SideDrawer({ visible, title, subtitle, onClose, children }: Side
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end' },
+  root: { flex: 1, flexDirection: 'row' },
+  alignLeft: { justifyContent: 'flex-start' },
+  alignRight: { justifyContent: 'flex-end' },
   scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(25, 22, 18, 0.42)' },
   drawer: { height: '100%', zIndex: 1 },
+  drawerLeft: { left: 0 },
+  drawerRight: { right: 0 },
   safeArea: { flex: 1 },
   header: {
     minHeight: 78,

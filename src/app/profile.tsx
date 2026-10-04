@@ -11,7 +11,7 @@ const EXAM_TRACKS = ['Foundation', 'JEE', 'NEET'] as const;
 const SUBJECTS = ['Physics', 'Chemistry', 'Mathematics', 'Biology', 'Science'] as const;
 
 function ProfileScreenComponent() {
-  const { mode, setMode } = useAppearance();
+  const { mode } = useAppearance();
   const palette = getPalette(mode === 'dark');
   const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
@@ -22,7 +22,7 @@ function ProfileScreenComponent() {
 
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: palette.background }]}>
-        <AppHeader title="Profile" subtitle="Manage your preferences and appearance" />
+        <AppHeader title="Profile" subtitle="Manage your study profile and preferences" />
         <ScrollView
           contentContainerStyle={[
             styles.content,
@@ -60,127 +60,6 @@ function ProfileScreenComponent() {
                   Set your study track below to personalize questions
                 </Text>
               ) : null}
-            </View>
-          </View>
-
-          {/* ── Dedicated Appearance & Theme Section ── */}
-          <View style={[styles.section, { backgroundColor: palette.card, borderColor: palette.border }]}>
-            <View style={styles.sectionHeaderRow}>
-              <View style={[styles.sectionIconWrap, { backgroundColor: palette.primarySoft }]}>
-                <SymbolView
-                  name={{ ios: 'circle.lefthalf.filled', android: 'palette', web: 'palette' }}
-                  tintColor={palette.primary}
-                  size={18}
-                />
-              </View>
-              <View style={styles.sectionHeaderCopy}>
-                <Text style={[styles.sectionTitle, { color: palette.foreground }]}>Appearance</Text>
-                <Text style={[styles.sectionSubtitle, { color: palette.mutedForeground }]}>
-                  Choose your theme preference
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.themeCardsGrid}>
-              {/* Light Theme Card */}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Light Theme"
-                accessibilityState={{ selected: mode === 'light' }}
-                onPress={() => setMode('light')}
-                style={({ pressed }) => [
-                  styles.themeCard,
-                  {
-                    backgroundColor: mode === 'light' ? palette.primarySoft : palette.card,
-                    borderColor: mode === 'light' ? palette.primary : palette.border,
-                  },
-                  pressed && styles.pressed,
-                ]}>
-                <View style={styles.themeCardTop}>
-                  <View
-                    style={[
-                      styles.themeIconBadge,
-                      {
-                        backgroundColor: mode === 'light' ? palette.primary : palette.secondary,
-                      },
-                    ]}>
-                    <SymbolView
-                      name={{ ios: 'sun.max.fill', android: 'light_mode', web: 'light_mode' }}
-                      tintColor={mode === 'light' ? palette.onPrimary : palette.mutedForeground}
-                      size={20}
-                    />
-                  </View>
-                  {mode === 'light' && (
-                    <View style={[styles.activeIndicator, { backgroundColor: palette.primary }]}>
-                      <SymbolView
-                        name={{ ios: 'checkmark', android: 'check', web: 'check' }}
-                        tintColor={palette.onPrimary}
-                        size={12}
-                      />
-                    </View>
-                  )}
-                </View>
-                <Text
-                  style={[
-                    styles.themeCardTitle,
-                    { color: mode === 'light' ? palette.primaryInk : palette.foreground },
-                  ]}>
-                  Light Mode
-                </Text>
-                <Text style={[styles.themeCardDesc, { color: palette.mutedForeground }]}>
-                  Warm paper tone
-                </Text>
-              </Pressable>
-
-              {/* Dark Theme Card */}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Dark Theme"
-                accessibilityState={{ selected: mode === 'dark' }}
-                onPress={() => setMode('dark')}
-                style={({ pressed }) => [
-                  styles.themeCard,
-                  {
-                    backgroundColor: mode === 'dark' ? palette.primarySoft : palette.card,
-                    borderColor: mode === 'dark' ? palette.primary : palette.border,
-                  },
-                  pressed && styles.pressed,
-                ]}>
-                <View style={styles.themeCardTop}>
-                  <View
-                    style={[
-                      styles.themeIconBadge,
-                      {
-                        backgroundColor: mode === 'dark' ? palette.primary : palette.secondary,
-                      },
-                    ]}>
-                    <SymbolView
-                      name={{ ios: 'moon.fill', android: 'dark_mode', web: 'dark_mode' }}
-                      tintColor={mode === 'dark' ? palette.onPrimary : palette.mutedForeground}
-                      size={20}
-                    />
-                  </View>
-                  {mode === 'dark' && (
-                    <View style={[styles.activeIndicator, { backgroundColor: palette.primary }]}>
-                      <SymbolView
-                        name={{ ios: 'checkmark', android: 'check', web: 'check' }}
-                        tintColor={palette.onPrimary}
-                        size={12}
-                      />
-                    </View>
-                  )}
-                </View>
-                <Text
-                  style={[
-                    styles.themeCardTitle,
-                    { color: mode === 'dark' ? palette.primaryInk : palette.foreground },
-                  ]}>
-                  Dark Mode
-                </Text>
-                <Text style={[styles.themeCardDesc, { color: palette.mutedForeground }]}>
-                  Sleek dark room
-                </Text>
-              </Pressable>
             </View>
           </View>
 
@@ -491,48 +370,6 @@ const styles = StyleSheet.create({
   sectionHeaderCopy: { flex: 1 },
   sectionTitle: { fontSize: 16, fontWeight: '700' },
   sectionSubtitle: { fontSize: 12, marginTop: 2 },
-
-  // Theme Cards Grid
-  themeCardsGrid: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  themeCard: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderRadius: 10,
-    padding: 14,
-    justifyContent: 'space-between',
-    minHeight: 110,
-  },
-  themeCardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  themeIconBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activeIndicator: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  themeCardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  themeCardDesc: {
-    fontSize: 11,
-  },
 
   // Form Fields & Options
   fieldLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6, marginBottom: 8 },

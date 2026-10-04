@@ -1,4 +1,4 @@
-import { FilterOptions, FilterState, Paper, Question } from "@/types/pcmb";
+import { DifficultyLevel, FilterOptions, FilterState, Paper, Question, Standard, Subject } from "@/types/pcmb";
 
 // Base API URL for @papers backend (can be configured)
 const API_BASE_URL = "https://papers-jet.vercel.app/api";
@@ -420,6 +420,118 @@ export async function fetchFilterOptions(
     ],
     levels: ["Easy", "Mid", "Hard"],
   };
+}
+
+export interface PdfQuestionSearch {
+  examCategory: Exclude<FilterState["examCategory"], "All">;
+  standards: Standard[];
+  subjects: Subject[];
+  chapter?: string;
+  topic?: string;
+  level?: DifficultyLevel;
+  year?: string;
+}
+
+export async function fetchPdfFilterOptions(
+  scope: Partial<Pick<FilterState, "examCategory" | "standard" | "subject" | "chapter">>
+): Promise<Pick<FilterOptions, "chapters" | "topics">> {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(scope)) {
+    if (value && value !== "All") query.set(key, value);
+  }
+
+  const response = await fetchWithTimeout(`${API_BASE_URL}/filters?${query.toString()}`, {
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) {
+    throw new Error(`Unable to load question filters (${response.status}).`);
+  }
+  const data: unknown = await response.json();
+  if (typeof data !== "object" || data === null || !("chapters" in data) || !("topics" in data)) {
+    throw new Error("Question filters returned an invalid response.");
+  }
+  const chapters = Array.isArray(data.chapters) ? data.chapters : [];
+  const topics = Array.isArray(data.topics) ? data.topics : [];
+  return {
+    chapters: chapters.filter((value): value is string => typeof value === "string"),
+    topics: topics.filter((value): value is string => typeof value === "string"),
+  };
+}
+
+/**
+ * Searches the live question API for PDF Studio. Unlike the general practice
+ * search, this does not silently substitute demo questions when the backend
+ * is unavailable.
+ */
+export async function searchPdfQuestions(filters: PdfQuestionSearch): Promise<Question[]> {
+  const combinations = filters.standards.flatMap((standard) =>
+    filters.subjects.map((subject) => ({ standard, subject }))
+  );
+
+  const responses = await Promise.all(combinations.map(async ({ standard, subject }) => {
+    const query = new URLSearchParams({
+      examCategory: filters.examCategory,
+      standard,
+      subject,
+    });
+    if (filters.chapter) query.set("chapter", filters.chapter);
+    if (filters.topic) query.set("topic", filters.topic);
+    if (filters.level) query.set("level", filters.level);
+    if (filters.year) query.set("year", filters.year);
+
+    const response = await fetchWithTimeout(`${API_BASE_URL}/questions?${query.toString()}`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) {
+      throw new Error(`Question search failed (${response.status}).`);
+    }
+
+    const data: unknown = await response.json();
+    const rawQuestions = Array.isArray(data)
+      ? data
+      : typeof data === "object" && data !== null && "questions" in data && Array.isArray(data.questions)
+        ? data.questions
+        : null;
+    if (!rawQuestions) {
+      throw new Error("Question search returned an invalid response.");
+    }
+
+    return rawQuestions.map((value, index): Question => {
+      const raw = value as Partial<Question> & { difficulty?: string };
+      const difficulty: DifficultyLevel =
+        raw.difficulty === "Easy" || raw.difficulty === "Hard" ? raw.difficulty : "Mid";
+      return {
+        _id: raw._id || `pdf-question-${standard}-${subject}-${index}`,
+        paperId: raw.paperId || "",
+        questionNumber: raw.questionNumber ?? index + 1,
+        examCategory: raw.examCategory || filters.examCategory,
+        standard: raw.standard || standard,
+        subject: raw.subject || subject,
+        chapter: raw.chapter || "",
+        topic: raw.topic || "",
+        difficulty,
+        questionText: raw.questionText || "",
+        optionA: raw.optionA || "",
+        optionB: raw.optionB || "",
+        optionC: raw.optionC || "",
+        optionD: raw.optionD || "",
+        correctAnswer: raw.correctAnswer || "",
+        answerType: raw.answerType || "MCQ",
+        explanation: raw.explanation || "",
+        source: raw.source || "",
+        diagramUrls: raw.diagramUrls || [],
+        optionDiagramUrls: raw.optionDiagramUrls || {},
+        explanationDiagramUrls: raw.explanationDiagramUrls || [],
+      };
+    });
+  }));
+
+  const seen = new Set<string>();
+  return responses.flat().filter((question) => {
+    if (seen.has(question._id)) return false;
+    seen.add(question._id);
+    return true;
+  });
 }
 
 export async function fetchQuestions(filters: FilterState): Promise<Question[]> {

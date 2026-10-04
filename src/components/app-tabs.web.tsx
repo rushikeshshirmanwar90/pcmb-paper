@@ -69,6 +69,11 @@ export default function AppTabs() {
   const [translateX] = useState(() => new Animated.Value(0));
   const [containerWidth, setContainerWidth] = useState(0);
   const [pillTranslateX] = useState(() => new Animated.Value(0));
+  const [openHomeMenu, setOpenHomeMenu] = useState<(() => void) | null>(null);
+
+  const registerHomeMenu = useCallback((openMenu: (() => void) | null) => {
+    setOpenHomeMenu(() => openMenu);
+  }, []);
 
   const scrollToTab = useCallback(
     (index: number, animated = true) => {
@@ -116,6 +121,11 @@ export default function AppTabs() {
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponder: (_, gesture) => {
+          const isHomeMenuSwipe =
+            activeTab === 0 && gesture.x0 <= 36 && gesture.dx > 18;
+          if (isHomeMenuSwipe) {
+            return Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.3;
+          }
           return Math.abs(gesture.dx) > 18 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5;
         },
         onPanResponderMove: (_, gesture) => {
@@ -123,6 +133,14 @@ export default function AppTabs() {
           translateX.setValue(base + gesture.dx);
         },
         onPanResponderRelease: (_, gesture) => {
+          const isHomeMenuSwipe =
+            activeTab === 0 && gesture.x0 <= 36 && gesture.dx >= 56;
+          if (isHomeMenuSwipe) {
+            openHomeMenu?.();
+            scrollToTab(0, true);
+            return;
+          }
+
           const threshold = windowWidth * 0.18;
           let targetIdx = activeTab;
 
@@ -135,7 +153,7 @@ export default function AppTabs() {
           scrollToTab(targetIdx, true);
         },
       }),
-    [activeTab, scrollToTab, translateX, windowWidth]
+    [activeTab, openHomeMenu, scrollToTab, translateX, windowWidth]
   );
 
   const handleLayout = (e: LayoutChangeEvent) => {
@@ -155,7 +173,7 @@ export default function AppTabs() {
             },
           ]}>
           <View style={[styles.page, { width: windowWidth }]}>
-            <HomeScreen />
+            <HomeScreen registerOpenMenu={registerHomeMenu} />
           </View>
           <View style={[styles.page, { width: windowWidth }]}>
             <QuestionsScreen />
