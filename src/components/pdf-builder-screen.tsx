@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -14,13 +14,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DropdownSelect } from '@/components/dropdown-select';
 import { MultiSelectDropdown } from '@/components/multi-select-dropdown';
 import { getPalette } from '@/constants/theme';
+import { isStandard, isSubject, mergeNames, SUBJECTS_BY_TRACK, syllabusOptions } from '@/constants/syllabus';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { fetchPdfFilterOptions, searchPdfQuestions } from '@/services/apiService';
 import type { DifficultyLevel, ExamCategory, Question, Standard, Subject } from '@/types/pcmb';
 
 const EXAM_TYPES = ['MCQ + MCQ', 'MCQ + Numeric', 'MCQ + Subjective'];
 const LANGUAGES = ['English'];
-const SUBJECTS = ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
 const LEVELS: DifficultyLevel[] = ['Easy', 'Mid', 'Hard'];
 const MCQ_YEARS = Array.from({ length: new Date().getFullYear() - 2010 + 1 }, (_, index) => `${new Date().getFullYear() - index}`);
 const MODULE_STANDARDS: Record<string, string[]> = {
@@ -57,6 +57,18 @@ export function PdfBuilderScreen({ visible, onClose }: { visible: boolean; onClo
 
   const availableStandards = moduleType ? MODULE_STANDARDS[moduleType] : [];
   const examCategory: ExamCategory = moduleType === 'Foundation' ? 'Foundation' : 'JEE/NEET';
+  // 9th and 10th study Science and Mathematics; 11th and 12th all four PCMB subjects.
+  const availableSubjects = moduleType ? SUBJECTS_BY_TRACK[examCategory] : [];
+
+  // Every chapter of the chosen classes and subject in syllabus order, and
+  // every topic of the chosen chapter, straight from the bundled syllabus;
+  // the server's lists add anything only uploaded papers have.
+  const syllabus = useMemo(
+    () => syllabusOptions(standards.filter(isStandard), isSubject(questionSubject) ? [questionSubject] : [], chapter),
+    [standards, questionSubject, chapter]
+  );
+  const chapterOptions = questionSubject ? mergeNames(syllabus.chapters, availableChapters) : [];
+  const topicOptions = chapter ? mergeNames(syllabus.topics, availableTopics) : [];
 
   useEffect(() => {
     if (!visible || step !== 'questions' || !moduleType || !standards.length || !questionSubject) return;
@@ -255,6 +267,10 @@ export function PdfBuilderScreen({ visible, onClose }: { visible: boolean; onClo
                   onSelect={(value) => {
                     setModuleType(value === 'All' ? '' : value);
                     setStandards([]);
+                    setSubjects([]);
+                    setQuestionSubject('');
+                    setChapter('');
+                    setTopic('');
                     setValidationError('');
                     setFilterError('');
                     setAvailableChapters([]);
@@ -307,7 +323,7 @@ export function PdfBuilderScreen({ visible, onClose }: { visible: boolean; onClo
                 />
                 <MultiSelectDropdown
                   label="Subject"
-                  options={SUBJECTS}
+                  options={availableSubjects}
                   selected={subjects}
                   onSelect={(values) => {
                     setSubjects(values);
@@ -324,6 +340,7 @@ export function PdfBuilderScreen({ visible, onClose }: { visible: boolean; onClo
                     }
                   }}
                   placeholder="Select subject(s)"
+                  emptyText={!moduleType ? 'Choose a module type first' : undefined}
                   icon={{ ios: 'atom', android: 'science', web: 'science' }}
                 />
               </View>
@@ -367,7 +384,7 @@ export function PdfBuilderScreen({ visible, onClose }: { visible: boolean; onClo
                     />
                   </View>
                 </View>
-                {filtersLoading ? (
+                {filtersLoading && chapterOptions.length === 0 ? (
                   <View style={styles.loadingRow}>
                     <ActivityIndicator color={palette.primary} />
                     <Text style={[styles.loadingText, { color: palette.mutedForeground }]}>Loading available chapters and topics…</Text>
@@ -397,13 +414,14 @@ export function PdfBuilderScreen({ visible, onClose }: { visible: boolean; onClo
                 />
                 <DropdownSelect
                   label="Chapter"
-                  options={availableChapters}
+                  options={chapterOptions}
+                  counts={syllabus.chapterCounts}
                   selected={chapter}
                   placeholder={questionSubject ? 'Select chapter' : 'Select a subject first'}
                   emptyText={
                     !questionSubject
                       ? 'Choose a subject first'
-                      : !filtersLoading && availableChapters.length === 0
+                      : !filtersLoading && chapterOptions.length === 0
                         ? 'No chapters available for this selection'
                         : undefined
                   }
@@ -419,13 +437,14 @@ export function PdfBuilderScreen({ visible, onClose }: { visible: boolean; onClo
                 />
                 <DropdownSelect
                   label="Topic"
-                  options={availableTopics}
+                  options={topicOptions}
+                  counts={syllabus.topicCounts}
                   selected={topic}
                   placeholder={chapter ? 'Select topic' : 'Select a chapter first'}
                   emptyText={
                     !chapter
                       ? 'Choose a chapter first'
-                      : !filtersLoading && availableTopics.length === 0
+                      : !filtersLoading && topicOptions.length === 0
                         ? 'No topics available for this selection'
                         : undefined
                   }

@@ -18,12 +18,20 @@ export const DEFAULT_QUESTION_FILTERS: FilterState = {
   searchQuery: '',
 };
 
+/** The Questions tab opens on the create-room form; browsing the whole bank is the alternative. */
+export type QuestionsMode = 'create' | 'browse';
+export type PapersSegment = 'papers' | 'rooms';
+
 interface TabContextValue {
   activeTab: number;
   setActiveTab: (index: number) => void;
   pagerRef: React.MutableRefObject<PagerController | null>;
   questionFilters: FilterState;
   setQuestionFilters: React.Dispatch<React.SetStateAction<FilterState>>;
+  questionsMode: QuestionsMode;
+  setQuestionsMode: (mode: QuestionsMode) => void;
+  papersSegment: PapersSegment;
+  setPapersSegment: (segment: PapersSegment) => void;
   goToTab: (tab: TabName | number, options?: { questionFilters?: Partial<FilterState> }) => void;
 }
 
@@ -39,6 +47,8 @@ const TAB_NAME_MAP: Record<TabName, number> = {
 export function TabProvider({ children }: PropsWithChildren) {
   const [activeTab, setActiveTab] = useState(0);
   const [questionFilters, setQuestionFilters] = useState<FilterState>(DEFAULT_QUESTION_FILTERS);
+  const [questionsMode, setQuestionsMode] = useState<QuestionsMode>('create');
+  const [papersSegment, setPapersSegment] = useState<PapersSegment>('papers');
   const pagerRef = useRef<PagerController | null>(null);
 
   const goToTab = useCallback((tab: TabName | number, options?: { questionFilters?: Partial<FilterState> }) => {
@@ -48,6 +58,8 @@ export function TabProvider({ children }: PropsWithChildren) {
         ...prev,
         ...options.questionFilters,
       }));
+      // Filters only mean something to the question list.
+      setQuestionsMode('browse');
     }
     setActiveTab(targetIndex);
     if (pagerRef.current) {
@@ -67,6 +79,10 @@ export function TabProvider({ children }: PropsWithChildren) {
         pagerRef,
         questionFilters,
         setQuestionFilters,
+        questionsMode,
+        setQuestionsMode,
+        papersSegment,
+        setPapersSegment,
         goToTab,
       }}>
       {children}

@@ -62,6 +62,11 @@ export interface FilterOptions {
   subjects: Subject[];
   chapters: string[];
   topics: string[];
+  /** Questions in each chapter and topic (Descriptive ones left out), when the backend sends them. */
+  chapterCounts?: Record<string, number>;
+  topicCounts?: Record<string, number>;
+  /** Each chapter's topics, when the backend sends them. */
+  chapterTopics?: Record<string, string[]>;
   levels: DifficultyLevel[];
 }
 

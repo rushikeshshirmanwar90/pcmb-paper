@@ -3,6 +3,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AppearanceProvider } from '@/context/appearance-context';
 import { TabProvider } from '@/context/tab-context';
+import { RoomsProvider } from '@/context/rooms-context';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
@@ -23,7 +24,9 @@ export default function TabLayout() {
   return (
     <AppearanceProvider>
       <TabProvider>
-        <NavigationShell />
+        <RoomsProvider>
+          <NavigationShell />
+        </RoomsProvider>
       </TabProvider>
     </AppearanceProvider>
   );

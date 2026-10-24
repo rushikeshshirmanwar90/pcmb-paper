@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getPalette, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTabNavigation } from '@/context/tab-context';
+import { TAB_BAR_HEIGHT } from '@/hooks/use-tab-bar-height';
 
 import { HomeScreen } from '@/app/index';
 import { QuestionsScreen } from '@/app/questions';
@@ -57,7 +58,6 @@ const TABS = [
 
 const PILL_WIDTH = 64;
 const PILL_HEIGHT = 32;
-const TAB_BAR_HEIGHT = 56;
 
 export default function AppTabs() {
   const { width: windowWidth } = useWindowDimensions();

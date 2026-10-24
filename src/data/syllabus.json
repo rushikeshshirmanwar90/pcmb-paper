@@ -1,0 +1,6409 @@
+{
+ "9th": {
+  "Science": [
+   {
+    "name": "MATTER IN OUR SURROUNDINGS",
+    "topics": [
+     {
+      "name": "Physical Nature of Matter",
+      "questions": 27
+     },
+     {
+      "name": "Characteristics of Particles of Matter",
+      "questions": 73
+     },
+     {
+      "name": "States of Matter",
+      "questions": 81
+     },
+     {
+      "name": "Change of State and Evaporation",
+      "questions": 182
+     },
+     {
+      "name": "Mix Examples - MATTER IN OUR SURROUNDINGS",
+      "questions": 28
+     }
+    ]
+   },
+   {
+    "name": "IS MATTER AROUND US PURE?",
+    "topics": [
+     {
+      "name": "Mixtures and their Types",
+      "questions": 24
+     },
+     {
+      "name": "Solutions, Suspensions and Colloids",
+      "questions": 152
+     },
+     {
+      "name": "Separating the Components of a Mixture",
+      "questions": 148
+     },
+     {
+      "name": "Physical and Chemical Changes, Elements and Compounds",
+      "questions": 105
+     },
+     {
+      "name": "Mix Examples - IS MATTER AROUND US PURE?",
+      "questions": 21
+     }
+    ]
+   },
+   {
+    "name": "ATOMS AND MOLECULES",
+    "topics": [
+     {
+      "name": "Laws of Chemical Combination",
+      "questions": 69
+     },
+     {
+      "name": "Atoms and Atomic Mass",
+      "questions": 120
+     },
+     {
+      "name": "Molecules and Ions",
+      "questions": 50
+     },
+     {
+      "name": "Writing Chemical Formulae",
+      "questions": 66
+     },
+     {
+      "name": "Molecular Mass",
+      "questions": 128
+     },
+     {
+      "name": "Mix Examples - ATOMS AND MOLECULES",
+      "questions": 19
+     }
+    ]
+   },
+   {
+    "name": "STRUCTURE OF THE ATOM",
+    "topics": [
+     {
+      "name": "Charged Particles in Matter",
+      "questions": 65
+     },
+     {
+      "name": "Thomson's and Rutherford's Models of an Atom",
+      "questions": 77
+     },
+     {
+      "name": "Bohr's Model of an Atom",
+      "questions": 17
+     },
+     {
+      "name": "Distribution of Electrons and Valency",
+      "questions": 94
+     },
+     {
+      "name": "Atomic Number, Mass Number, Isotopes and Isobars",
+      "questions": 149
+     },
+     {
+      "name": "Mix Examples - STRUCTURE OF THE ATOM",
+      "questions": 5
+     }
+    ]
+   },
+   {
+    "name": "THE FUNDAMENTAL UNIT OF LIFE",
+    "topics": [
+     {
+      "name": "Discovery of the Cell and Cell Theory",
+      "questions": 66
+     },
+     {
+      "name": "Structural Organisation of a Cell",
+      "questions": 240
+     },
+     {
+      "name": "Cell Organelles",
+      "questions": 229
+     },
+     {
+      "name": "Cell Division",
+      "questions": 13
+     },
+     {
+      "name": "Mix Examples - THE FUNDAMENTAL UNIT OF LIFE",
+      "questions": 8
+     }
+    ]
+   },
+   {
+    "name": "TISSUES",
+    "topics": [
+     {
+      "name": "Plant Tissues",
+      "questions": 231
+     },
+     {
+      "name": "Animal Tissues",
+      "questions": 272
+     },
+     {
+      "name": "Mix Examples - TISSUES",
+      "questions": 23
+     }
+    ]
+   },
+   {
+    "name": "MOTION",
+    "topics": [
+     {
+      "name": "Describing Motion",
+      "questions": 41
+     },
+     {
+      "name": "Speed and Velocity",
+      "questions": 66
+     },
+     {
+      "name": "Acceleration",
+      "questions": 56
+     },
+     {
+      "name": "Graphical Representation of Motion",
+      "questions": 52
+     },
+     {
+      "name": "Equations of Motion",
+      "questions": 55
+     },
+     {
+      "name": "Uniform Circular Motion",
+      "questions": 58
+     },
+     {
+      "name": "Mix Examples - MOTION",
+      "questions": 40
+     }
+    ]
+   },
+   {
+    "name": "FORCE AND LAWS OF MOTION",
+    "topics": [
+     {
+      "name": "Balanced and Unbalanced Forces",
+      "questions": 6
+     },
+     {
+      "name": "First Law of Motion and Inertia",
+      "questions": 25
+     },
+     {
+      "name": "Second Law of Motion",
+      "questions": 35
+     },
+     {
+      "name": "Third Law of Motion",
+      "questions": 19
+     },
+     {
+      "name": "Mix Examples - FORCE AND LAWS OF MOTION",
+      "questions": 20
+     }
+    ]
+   },
+   {
+    "name": "GRAVITATION",
+    "topics": [
+     {
+      "name": "Universal Law of Gravitation",
+      "questions": 29
+     },
+     {
+      "name": "Free Fall and Acceleration due to Gravity",
+      "questions": 52
+     },
+     {
+      "name": "Mass and Weight",
+      "questions": 24
+     },
+     {
+      "name": "Thrust and Pressure",
+      "questions": 9
+     },
+     {
+      "name": "Buoyancy and Archimedes' Principle",
+      "questions": 8
+     },
+     {
+      "name": "Mix Examples - GRAVITATION",
+      "questions": 4
+     }
+    ]
+   },
+   {
+    "name": "WORK AND ENERGY",
+    "topics": [
+     {
+      "name": "Work",
+      "questions": 35
+     },
+     {
+      "name": "Kinetic and Potential Energy",
+      "questions": 41
+     },
+     {
+      "name": "Law of Conservation of Energy",
+      "questions": 4
+     },
+     {
+      "name": "Power and Commercial Unit of Energy",
+      "questions": 25
+     },
+     {
+      "name": "Mix Examples - WORK AND ENERGY",
+      "questions": 7
+     }
+    ]
+   },
+   {
+    "name": "SOUND",
+    "topics": [
+     {
+      "name": "Production and Propagation of Sound",
+      "questions": 25
+     },
+     {
+      "name": "Characteristics of a Sound Wave",
+      "questions": 25
+     },
+     {
+      "name": "Reflection of Sound and Echo",
+      "questions": 19
+     },
+     {
+      "name": "Range of Hearing and Ultrasound",
+      "questions": 19
+     },
+     {
+      "name": "Mix Examples - SOUND",
+      "questions": 8
+     }
+    ]
+   },
+   {
+    "name": "IMPROVEMENT IN FOOD RESOURCES",
+    "topics": [
+     {
+      "name": "Improvement in Crop Yields",
+      "questions": 239
+     },
+     {
+      "name": "Crop Protection Management",
+      "questions": 55
+     },
+     {
+      "name": "Animal Husbandry",
+      "questions": 173
+     },
+     {
+      "name": "Mix Examples - IMPROVEMENT IN FOOD RESOURCES",
+      "questions": 25
+     }
+    ]
+   },
+   {
+    "name": "DIVERSITY IN LIVING ORGANISMS",
+    "topics": [
+     {
+      "name": "Basis of Classification",
+      "questions": 60
+     },
+     {
+      "name": "Classification and Evolution",
+      "questions": 14
+     },
+     {
+      "name": "The Five Kingdom Classification",
+      "questions": 59
+     },
+     {
+      "name": "Plantae",
+      "questions": 71
+     },
+     {
+      "name": "Animalia",
+      "questions": 224
+     },
+     {
+      "name": "Nomenclature",
+      "questions": 35
+     },
+     {
+      "name": "Mix Examples - DIVERSITY IN LIVING ORGANISMS",
+      "questions": 6
+     }
+    ]
+   },
+   {
+    "name": "NATURAL RESOURCES",
+    "topics": [
+     {
+      "name": "Air and Air Pollution",
+      "questions": 91
+     },
+     {
+      "name": "Water and Water Pollution",
+      "questions": 47
+     },
+     {
+      "name": "Mineral Riches in the Soil",
+      "questions": 59
+     },
+     {
+      "name": "Biogeochemical Cycles",
+      "questions": 45
+     },
+     {
+      "name": "The Ozone Layer",
+      "questions": 29
+     },
+     {
+      "name": "Mix Examples - NATURAL RESOURCES",
+      "questions": 25
+     }
+    ]
+   },
+   {
+    "name": "WHY DO WE FALL ILL?",
+    "topics": [
+     {
+      "name": "Health and its Failure",
+      "questions": 25
+     },
+     {
+      "name": "Disease and its Causes",
+      "questions": 81
+     },
+     {
+      "name": "Infectious Diseases and their Spread",
+      "questions": 74
+     },
+     {
+      "name": "Principles of Treatment and Prevention",
+      "questions": 56
+     },
+     {
+      "name": "Mix Examples - WHY DO WE FALL ILL?",
+      "questions": 5
+     }
+    ]
+   }
+  ],
+  "Mathematics": [
+   {
+    "name": "Number Systems",
+    "topics": [
+     {
+      "name": "Irrational Numbers",
+      "questions": 32
+     },
+     {
+      "name": "Real Numbers and their Decimal Expansions",
+      "questions": 54
+     },
+     {
+      "name": "Operations on Real Numbers",
+      "questions": 96
+     },
+     {
+      "name": "Laws of Exponents for Real Numbers",
+      "questions": 92
+     },
+     {
+      "name": "Mix Examples - Number Systems",
+      "questions": 25
+     }
+    ]
+   },
+   {
+    "name": "Polynomials",
+    "topics": [
+     {
+      "name": "Polynomials in One Variable",
+      "questions": 68
+     },
+     {
+      "name": "Zeroes of a Polynomial",
+      "questions": 43
+     },
+     {
+      "name": "Factorisation of Polynomials",
+      "questions": 114
+     },
+     {
+      "name": "Algebraic Identities",
+      "questions": 183
+     },
+     {
+      "name": "Mix Examples - Polynomials",
+      "questions": 16
+     }
+    ]
+   },
+   {
+    "name": "Coordinate Geometry",
+    "topics": [
+     {
+      "name": "Cartesian System",
+      "questions": 77
+     },
+     {
+      "name": "Plotting a Point in the Plane",
+      "questions": 14
+     },
+     {
+      "name": "Mix Examples - Coordinate Geometry",
+      "questions": 15
+     }
+    ]
+   },
+   {
+    "name": "Linear Equations in Two Variables",
+    "topics": [
+     {
+      "name": "Linear Equations",
+      "questions": 5
+     },
+     {
+      "name": "Solution of a Linear Equation",
+      "questions": 86
+     },
+     {
+      "name": "Mix Examples - Linear Equations in Two Variables",
+      "questions": 9
+     }
+    ]
+   },
+   {
+    "name": "Introduction to Euclid’s Geometry",
+    "topics": [
+     {
+      "name": "Euclid's Definitions, Axioms and Postulates",
+      "questions": 71
+     },
+     {
+      "name": "Mix Examples - Introduction to Euclid’s Geometry",
+      "questions": 4
+     }
+    ]
+   },
+   {
+    "name": "Lines and Angles",
+    "topics": [
+     {
+      "name": "Basic Terms and Definitions",
+      "questions": 11
+     },
+     {
+      "name": "Intersecting and Non-intersecting Lines",
+      "questions": 5
+     },
+     {
+      "name": "Pairs of Angles",
+      "questions": 74
+     },
+     {
+      "name": "Parallel Lines and a Transversal",
+      "questions": 52
+     },
+     {
+      "name": "Mix Examples - Lines and Angles",
+      "questions": 22
+     }
+    ]
+   },
+   {
+    "name": "Triangles",
+    "topics": [
+     {
+      "name": "Congruence of Triangles",
+      "questions": 14
+     },
+     {
+      "name": "Criteria for Congruence of Triangles",
+      "questions": 41
+     },
+     {
+      "name": "Some Properties of a Triangle",
+      "questions": 133
+     },
+     {
+      "name": "Mix Examples - Triangles",
+      "questions": 6
+     }
+    ]
+   },
+   {
+    "name": "Quadrilaterals",
+    "topics": [
+     {
+      "name": "Properties of a Parallelogram",
+      "questions": 75
+     },
+     {
+      "name": "The Mid-point Theorem",
+      "questions": 37
+     },
+     {
+      "name": "Mix Examples - Quadrilaterals",
+      "questions": 64
+     }
+    ]
+   },
+   {
+    "name": "Circles",
+    "topics": [
+     {
+      "name": "Angle Subtended by a Chord at a Point",
+      "questions": 20
+     },
+     {
+      "name": "Perpendicular from the Centre to a Chord",
+      "questions": 22
+     },
+     {
+      "name": "Equal Chords and their Distances from the Centre",
+      "questions": 21
+     },
+     {
+      "name": "Angle Subtended by an Arc of a Circle",
+      "questions": 51
+     },
+     {
+      "name": "Cyclic Quadrilaterals",
+      "questions": 56
+     },
+     {
+      "name": "Mix Examples - Circles",
+      "questions": 48
+     }
+    ]
+   },
+   {
+    "name": "Heron’s Formula",
+    "topics": [
+     {
+      "name": "Area of a Triangle by Heron's Formula",
+      "questions": 112
+     },
+     {
+      "name": "Mix Examples - Heron’s Formula",
+      "questions": 19
+     }
+    ]
+   },
+   {
+    "name": "Surface Areas and Volumes",
+    "topics": [
+     {
+      "name": "Surface Area of a Right Circular Cone",
+      "questions": 33
+     },
+     {
+      "name": "Surface Area of a Sphere",
+      "questions": 39
+     },
+     {
+      "name": "Volume of a Right Circular Cone",
+      "questions": 29
+     },
+     {
+      "name": "Volume of a Sphere",
+      "questions": 40
+     },
+     {
+      "name": "Mix Examples - Surface Areas and Volumes",
+      "questions": 206
+     }
+    ]
+   },
+   {
+    "name": "Statistics",
+    "topics": [
+     {
+      "name": "Graphical Representation of Data",
+      "questions": 27
+     },
+     {
+      "name": "Mix Examples - Statistics",
+      "questions": 86
+     }
+    ]
+   },
+   {
+    "name": "Areas of Parallelograms and Triangles",
+    "topics": [
+     {
+      "name": "Textbook - Areas of Parallelograms and Triangles",
+      "questions": 0
+     },
+     {
+      "name": "Mix Examples - Areas of Parallelograms and Triangles",
+      "questions": 21
+     }
+    ]
+   },
+   {
+    "name": "Constructions",
+    "topics": [
+     {
+      "name": "Textbook - Constructions",
+      "questions": 0
+     },
+     {
+      "name": "Mix Examples - Constructions",
+      "questions": 7
+     }
+    ]
+   },
+   {
+    "name": "Probability",
+    "topics": [
+     {
+      "name": "Textbook - Probability",
+      "questions": 14
+     },
+     {
+      "name": "Mix Examples - Probability",
+      "questions": 66
+     }
+    ]
+   }
+  ]
+ },
+ "10th": {
+  "Science": [
+   {
+    "name": "Chemical Reactions and Equations",
+    "topics": [
+     {
+      "name": "Chemical Equations and Balancing",
+      "questions": 69
+     },
+     {
+      "name": "Types of Chemical Reactions",
+      "questions": 188
+     },
+     {
+      "name": "Oxidation and Reduction",
+      "questions": 75
+     },
+     {
+      "name": "Corrosion and Rancidity",
+      "questions": 48
+     },
+     {
+      "name": "Mix Examples - Chemical Reactions and Equations",
+      "questions": 92
+     }
+    ]
+   },
+   {
+    "name": "Acids, Bases and Salts",
+    "topics": [
+     {
+      "name": "Chemical Properties of Acids and Bases",
+      "questions": 198
+     },
+     {
+      "name": "Strength of Acids and Bases (pH Scale)",
+      "questions": 131
+     },
+     {
+      "name": "Salts and their Uses",
+      "questions": 182
+     },
+     {
+      "name": "Mix Examples - Acids, Bases and Salts",
+      "questions": 84
+     }
+    ]
+   },
+   {
+    "name": "Metals and Non-metals",
+    "topics": [
+     {
+      "name": "Physical Properties of Metals and Non-metals",
+      "questions": 119
+     },
+     {
+      "name": "Chemical Properties of Metals",
+      "questions": 225
+     },
+     {
+      "name": "Reaction of Metals and Non-metals (Ionic Compounds)",
+      "questions": 93
+     },
+     {
+      "name": "Occurrence and Extraction of Metals",
+      "questions": 187
+     },
+     {
+      "name": "Corrosion and its Prevention",
+      "questions": 44
+     },
+     {
+      "name": "Mix Examples - Metals and Non-metals",
+      "questions": 62
+     }
+    ]
+   },
+   {
+    "name": "Carbon and its Compounds",
+    "topics": [
+     {
+      "name": "Bonding in Carbon - The Covalent Bond",
+      "questions": 103
+     },
+     {
+      "name": "Versatile Nature of Carbon (Hydrocarbons, Functional Groups, Homologous Series, Nomenclature)",
+      "questions": 221
+     },
+     {
+      "name": "Chemical Properties of Carbon Compounds",
+      "questions": 117
+     },
+     {
+      "name": "Ethanol and Ethanoic Acid",
+      "questions": 167
+     },
+     {
+      "name": "Soaps and Detergents",
+      "questions": 66
+     },
+     {
+      "name": "Mix Examples - Carbon and its Compounds",
+      "questions": 39
+     }
+    ]
+   },
+   {
+    "name": "Life Processes",
+    "topics": [
+     {
+      "name": "Nutrition",
+      "questions": 224
+     },
+     {
+      "name": "Respiration",
+      "questions": 132
+     },
+     {
+      "name": "Transportation",
+      "questions": 138
+     },
+     {
+      "name": "Excretion",
+      "questions": 80
+     },
+     {
+      "name": "Mix Examples - Life Processes",
+      "questions": 23
+     }
+    ]
+   },
+   {
+    "name": "Control and Coordination",
+    "topics": [
+     {
+      "name": "Animals - Nervous System",
+      "questions": 168
+     },
+     {
+      "name": "Coordination in Plants",
+      "questions": 153
+     },
+     {
+      "name": "Hormones in Animals",
+      "questions": 134
+     },
+     {
+      "name": "Mix Examples - Control and Coordination",
+      "questions": 10
+     }
+    ]
+   },
+   {
+    "name": "How do Organisms Reproduce?",
+    "topics": [
+     {
+      "name": "Modes of Asexual Reproduction",
+      "questions": 182
+     },
+     {
+      "name": "Sexual Reproduction in Flowering Plants",
+      "questions": 90
+     },
+     {
+      "name": "Reproduction in Human Beings",
+      "questions": 183
+     },
+     {
+      "name": "Reproductive Health",
+      "questions": 46
+     },
+     {
+      "name": "Mix Examples - How do Organisms Reproduce?",
+      "questions": 25
+     }
+    ]
+   },
+   {
+    "name": "Heredity",
+    "topics": [
+     {
+      "name": "Accumulation of Variation during Reproduction",
+      "questions": 127
+     },
+     {
+      "name": "Heredity and Mendel's Contributions",
+      "questions": 141
+     },
+     {
+      "name": "Sex Determination",
+      "questions": 52
+     },
+     {
+      "name": "Mix Examples - Heredity",
+      "questions": 72
+     }
+    ]
+   },
+   {
+    "name": "Light – Reflection and Refraction",
+    "topics": [
+     {
+      "name": "Reflection of Light and Spherical Mirrors",
+      "questions": 266
+     },
+     {
+      "name": "Mirror Formula and Magnification",
+      "questions": 93
+     },
+     {
+      "name": "Refraction of Light",
+      "questions": 143
+     },
+     {
+      "name": "Spherical Lenses, Lens Formula and Power",
+      "questions": 242
+     },
+     {
+      "name": "Mix Examples - Light – Reflection and Refraction",
+      "questions": 31
+     }
+    ]
+   },
+   {
+    "name": "The Human Eye and the Colourful World",
+    "topics": [
+     {
+      "name": "The Human Eye and Defects of Vision",
+      "questions": 357
+     },
+     {
+      "name": "Refraction through a Prism and Dispersion",
+      "questions": 129
+     },
+     {
+      "name": "Atmospheric Refraction",
+      "questions": 43
+     },
+     {
+      "name": "Scattering of Light",
+      "questions": 80
+     },
+     {
+      "name": "Mix Examples - The Human Eye and the Colourful World",
+      "questions": 19
+     }
+    ]
+   },
+   {
+    "name": "Electricity",
+    "topics": [
+     {
+      "name": "Electric Current and Circuit",
+      "questions": 151
+     },
+     {
+      "name": "Electric Potential and Potential Difference",
+      "questions": 58
+     },
+     {
+      "name": "Ohm's Law and Resistance",
+      "questions": 155
+     },
+     {
+      "name": "Resistors in Series and Parallel",
+      "questions": 125
+     },
+     {
+      "name": "Heating Effect of Electric Current and Electric Power",
+      "questions": 220
+     },
+     {
+      "name": "Mix Examples - Electricity",
+      "questions": 22
+     }
+    ]
+   },
+   {
+    "name": "Magnetic Effects of Electric Current",
+    "topics": [
+     {
+      "name": "Magnetic Field and Field Lines",
+      "questions": 147
+     },
+     {
+      "name": "Magnetic Field due to a Current-carrying Conductor",
+      "questions": 102
+     },
+     {
+      "name": "Force on a Current-carrying Conductor in a Magnetic Field",
+      "questions": 110
+     },
+     {
+      "name": "Domestic Electric Circuits",
+      "questions": 113
+     },
+     {
+      "name": "Mix Examples - Magnetic Effects of Electric Current",
+      "questions": 68
+     }
+    ]
+   },
+   {
+    "name": "Our Environment",
+    "topics": [
+     {
+      "name": "Ecosystem and its Components",
+      "questions": 119
+     },
+     {
+      "name": "Food Chains and Webs",
+      "questions": 153
+     },
+     {
+      "name": "Human Activities and the Environment",
+      "questions": 164
+     },
+     {
+      "name": "Mix Examples - Our Environment",
+      "questions": 11
+     }
+    ]
+   },
+   {
+    "name": "Periodic Classification of Elements",
+    "topics": [
+     {
+      "name": "Dobereiner's Triads and Newlands' Law of Octaves",
+      "questions": 30
+     },
+     {
+      "name": "Mendeleev's Periodic Table",
+      "questions": 43
+     },
+     {
+      "name": "The Modern Periodic Table",
+      "questions": 111
+     },
+     {
+      "name": "Trends in the Modern Periodic Table",
+      "questions": 141
+     },
+     {
+      "name": "Mix Examples - Periodic Classification of Elements",
+      "questions": 19
+     }
+    ]
+   },
+   {
+    "name": "Sources of Energy",
+    "topics": [
+     {
+      "name": "What is a Good Source of Energy",
+      "questions": 165
+     },
+     {
+      "name": "Conventional Sources of Energy",
+      "questions": 75
+     },
+     {
+      "name": "Non-conventional Sources of Energy",
+      "questions": 124
+     },
+     {
+      "name": "Environmental Consequences",
+      "questions": 34
+     },
+     {
+      "name": "Mix Examples - Sources of Energy",
+      "questions": 20
+     }
+    ]
+   },
+   {
+    "name": "Sustainable Management of Natural Resources",
+    "topics": [
+     {
+      "name": "Why Manage Our Resources (Reduce, Reuse, Recycle)",
+      "questions": 70
+     },
+     {
+      "name": "Forests and Wildlife",
+      "questions": 112
+     },
+     {
+      "name": "Water for All (Dams and Water Harvesting)",
+      "questions": 88
+     },
+     {
+      "name": "Coal and Petroleum",
+      "questions": 65
+     },
+     {
+      "name": "Mix Examples - Sustainable Management of Natural Resources",
+      "questions": 2
+     }
+    ]
+   }
+  ],
+  "Mathematics": [
+   {
+    "name": "Real Numbers",
+    "topics": [
+     {
+      "name": "HCF and LCM by Prime Factorisation",
+      "questions": 381
+     },
+     {
+      "name": "Revisiting Irrational Numbers",
+      "questions": 111
+     },
+     {
+      "name": "Mix Examples - Real Numbers",
+      "questions": 89
+     },
+     {
+      "name": "Fundamental Theorem of Arithmetic",
+      "questions": 181
+     }
+    ]
+   },
+   {
+    "name": "Polynomials",
+    "topics": [
+     {
+      "name": "Geometrical Meaning of the Zeroes of a Polynomial",
+      "questions": 79
+     },
+     {
+      "name": "Relationship between Zeroes and Coefficients of a Polynomial",
+      "questions": 268
+     },
+     {
+      "name": "Mix Examples - Polynomials",
+      "questions": 77
+     }
+    ]
+   },
+   {
+    "name": "Pair of Linear Equations in Two Variables",
+    "topics": [
+     {
+      "name": "Graphical Method of Solution",
+      "questions": 125
+     },
+     {
+      "name": "Substitution Method",
+      "questions": 44
+     },
+     {
+      "name": "Elimination Method",
+      "questions": 62
+     },
+     {
+      "name": "Mix Examples - Pair of Linear Equations in Two Variables",
+      "questions": 393
+     }
+    ]
+   },
+   {
+    "name": "Quadratic Equations",
+    "topics": [
+     {
+      "name": "Quadratic Equations",
+      "questions": 275
+     },
+     {
+      "name": "Solution of a Quadratic Equation by Factorisation",
+      "questions": 139
+     },
+     {
+      "name": "Nature of Roots",
+      "questions": 181
+     },
+     {
+      "name": "Mix Examples - Quadratic Equations",
+      "questions": 61
+     }
+    ]
+   },
+   {
+    "name": "Arithmetic Progressions",
+    "topics": [
+     {
+      "name": "Arithmetic Progressions",
+      "questions": 118
+     },
+     {
+      "name": "nth Term of an AP",
+      "questions": 220
+     },
+     {
+      "name": "Sum of First n Terms of an AP",
+      "questions": 204
+     },
+     {
+      "name": "Mix Examples - Arithmetic Progressions",
+      "questions": 64
+     }
+    ]
+   },
+   {
+    "name": "Triangles",
+    "topics": [
+     {
+      "name": "Similar Figures",
+      "questions": 19
+     },
+     {
+      "name": "Similarity of Triangles and Basic Proportionality Theorem",
+      "questions": 318
+     },
+     {
+      "name": "Criteria for Similarity of Triangles",
+      "questions": 331
+     },
+     {
+      "name": "Mix Examples - Triangles",
+      "questions": 107
+     }
+    ]
+   },
+   {
+    "name": "Coordinate Geometry",
+    "topics": [
+     {
+      "name": "Distance Formula",
+      "questions": 163
+     },
+     {
+      "name": "Section Formula",
+      "questions": 121
+     },
+     {
+      "name": "Mix Examples - Coordinate Geometry",
+      "questions": 106
+     }
+    ]
+   },
+   {
+    "name": "Introduction to Trigonometry",
+    "topics": [
+     {
+      "name": "Trigonometric Ratios",
+      "questions": 93
+     },
+     {
+      "name": "Trigonometric Ratios of Some Specific Angles",
+      "questions": 126
+     },
+     {
+      "name": "Trigonometric Identities",
+      "questions": 154
+     },
+     {
+      "name": "Mix Examples - Introduction to Trigonometry",
+      "questions": 2
+     }
+    ]
+   },
+   {
+    "name": "Some Applications of Trigonometry",
+    "topics": [
+     {
+      "name": "Heights and Distances",
+      "questions": 244
+     },
+     {
+      "name": "Mix Examples - Some Applications of Trigonometry",
+      "questions": 4
+     }
+    ]
+   },
+   {
+    "name": "Circles",
+    "topics": [
+     {
+      "name": "Tangent to a Circle",
+      "questions": 306
+     },
+     {
+      "name": "Number of Tangents from a Point on a Circle",
+      "questions": 183
+     },
+     {
+      "name": "Mix Examples - Circles",
+      "questions": 34
+     }
+    ]
+   },
+   {
+    "name": "Areas Related to Circles",
+    "topics": [
+     {
+      "name": "Areas of Sector and Segment of a Circle",
+      "questions": 412
+     },
+     {
+      "name": "Mix Examples - Areas Related to Circles",
+      "questions": 122
+     }
+    ]
+   },
+   {
+    "name": "Surface Areas and Volumes",
+    "topics": [
+     {
+      "name": "Surface Area of a Combination of Solids",
+      "questions": 226
+     },
+     {
+      "name": "Volume of a Combination of Solids",
+      "questions": 414
+     },
+     {
+      "name": "Mix Examples - Surface Areas and Volumes",
+      "questions": 43
+     }
+    ]
+   },
+   {
+    "name": "Statistics",
+    "topics": [
+     {
+      "name": "Mean of Grouped Data",
+      "questions": 192
+     },
+     {
+      "name": "Mode of Grouped Data",
+      "questions": 70
+     },
+     {
+      "name": "Median of Grouped Data",
+      "questions": 111
+     },
+     {
+      "name": "Mix Examples - Statistics",
+      "questions": 76
+     }
+    ]
+   },
+   {
+    "name": "Probability",
+    "topics": [
+     {
+      "name": "Theoretical Probability",
+      "questions": 420
+     },
+     {
+      "name": "Complementary Events and Simple Problems",
+      "questions": 64
+     },
+     {
+      "name": "Mix Examples - Probability",
+      "questions": 26
+     }
+    ]
+   },
+   {
+    "name": "Constructions",
+    "topics": [
+     {
+      "name": "Division of a Line Segment",
+      "questions": 6
+     },
+     {
+      "name": "Construction of Similar Triangles",
+      "questions": 4
+     },
+     {
+      "name": "Construction of Tangents to a Circle",
+      "questions": 2
+     },
+     {
+      "name": "Mix Examples - Constructions",
+      "questions": 0
+     }
+    ]
+   }
+  ]
+ },
+ "11th": {
+  "Physics": [
+   {
+    "name": "Units and Measurements",
+    "topics": [
+     {
+      "name": "Units",
+      "questions": 97
+     },
+     {
+      "name": "Measurement",
+      "questions": 35
+     },
+     {
+      "name": "Dimensions and Dimensional Formula",
+      "questions": 212
+     },
+     {
+      "name": "Dimensional Analysis, Uses and Limitations",
+      "questions": 295
+     },
+     {
+      "name": "Significant Figures",
+      "questions": 91
+     },
+     {
+      "name": "Errors of Measurement",
+      "questions": 269
+     },
+     {
+      "name": "Vernier Calipers, Micrometer screw gauge",
+      "questions": 104
+     },
+     {
+      "name": "Mix Examples-Units, Dimensions and Measurement",
+      "questions": 150
+     }
+    ]
+   },
+   {
+    "name": "Motion in a Straight Line",
+    "topics": [
+     {
+      "name": "Position, Path Length and Displacement",
+      "questions": 29
+     },
+     {
+      "name": "Average Velocity and Average Speed",
+      "questions": 73
+     },
+     {
+      "name": "Instantaneous Velocity and Speed and Velocity-time Graph",
+      "questions": 222
+     },
+     {
+      "name": "Acceleration and its graph",
+      "questions": 67
+     },
+     {
+      "name": "Uniformly Accelerated Motion",
+      "questions": 288
+     },
+     {
+      "name": "Motion Under Gravity",
+      "questions": 307
+     },
+     {
+      "name": "Relative Motion in One Dimension",
+      "questions": 57
+     },
+     {
+      "name": "Mix Examples-Motion in Straight Line",
+      "questions": 86
+     }
+    ]
+   },
+   {
+    "name": "1 Motion in a Plane: Vectors",
+    "topics": [
+     {
+      "name": "Fundamentals of Vectors",
+      "questions": 151
+     },
+     {
+      "name": "Addition and Subtraction of Vectors",
+      "questions": 205
+     },
+     {
+      "name": "Resolution of a Vector into Rectangular Components",
+      "questions": 51
+     },
+     {
+      "name": "Multiplication of Vectors",
+      "questions": 172
+     },
+     {
+      "name": "Mix Examples-Vectors",
+      "questions": 21
+     }
+    ]
+   },
+   {
+    "name": "2 Motion in a Plane",
+    "topics": [
+     {
+      "name": "Motion In Two And Three Dimension",
+      "questions": 33
+     },
+     {
+      "name": "Relative Velocity (river boat, rain, wind)",
+      "questions": 163
+     },
+     {
+      "name": "Horizontal Projectile Motion",
+      "questions": 464
+     },
+     {
+      "name": "Projectile Motion from Hight",
+      "questions": 65
+     },
+     {
+      "name": "Projectile Motion on an Inclined Plane",
+      "questions": 16
+     },
+     {
+      "name": "Angular Variables and Basic of Uniform Circular Motion",
+      "questions": 164
+     },
+     {
+      "name": "Kinematics Circular Motion (Uniform Angular Accelaration)",
+      "questions": 115
+     },
+     {
+      "name": "Non-uniform Circular Motion (Centrifugal/Centripetal and tangential Accelaration)",
+      "questions": 82
+     },
+     {
+      "name": "Dynamics of circular Motion (Centrifugal force) and Pendulum and Motion on Curved path",
+      "questions": 137
+     },
+     {
+      "name": "Mix Examples-Motion in Plane",
+      "questions": 372
+     }
+    ]
+   },
+   {
+    "name": "Laws of Motion",
+    "topics": [
+     {
+      "name": "Newton's First Law: Mass and Inertia",
+      "questions": 42
+     },
+     {
+      "name": "Second Law of Motion",
+      "questions": 94
+     },
+     {
+      "name": "Variable Mass System and Rocket Problem",
+      "questions": 84
+     },
+     {
+      "name": "Third Law of Motion and Momentum and Impulse",
+      "questions": 189
+     },
+     {
+      "name": "Conservation of Linear Momentum",
+      "questions": 188
+     },
+     {
+      "name": "The Common Forces and Equilibrium of Concurrent Forces",
+      "questions": 112
+     },
+     {
+      "name": "Tension Force and Pulley Block System",
+      "questions": 156
+     },
+     {
+      "name": "Spring Force",
+      "questions": 82
+     },
+     {
+      "name": "Motion of Body (or Connected Bodies in horizontal or vertical) (by String or Contact)",
+      "questions": 144
+     },
+     {
+      "name": "Motion of Body (or Connected Bodies) on an inclined plane",
+      "questions": 63
+     },
+     {
+      "name": "Apparent weight and Pseudo Force",
+      "questions": 152
+     },
+     {
+      "name": "Constrained Motion",
+      "questions": 47
+     },
+     {
+      "name": "Circular Motion Turning on Road without Friction",
+      "questions": 27
+     },
+     {
+      "name": "Static and Limiting Friction and Minimum Force Required to Move",
+      "questions": 88
+     },
+     {
+      "name": "Kinetic Friction and Motion on Rough Horizontal Surface",
+      "questions": 147
+     },
+     {
+      "name": "Motion (or rest) on Rough Inclined Surface",
+      "questions": 222
+     },
+     {
+      "name": "Block on Block System, psudo force and Constrained Motion In Friction",
+      "questions": 65
+     },
+     {
+      "name": "Circular motion with Friction",
+      "questions": 118
+     },
+     {
+      "name": "Mix Examples-Newton's Laws of Motion and Friction",
+      "questions": 285
+     }
+    ]
+   },
+   {
+    "name": "Work, Energy and Power",
+    "topics": [
+     {
+      "name": "Work Done by Constant Force",
+      "questions": 155
+     },
+     {
+      "name": "Work Done by Variable Force and Force-Displacement Graph",
+      "questions": 121
+     },
+     {
+      "name": "Kinetic Energy",
+      "questions": 136
+     },
+     {
+      "name": "Potential Energy",
+      "questions": 81
+     },
+     {
+      "name": "Work Done by Spring and Potential Energy of Spring",
+      "questions": 116
+     },
+     {
+      "name": "Conservative and Non-Conservative forces and Potential Energy",
+      "questions": 51
+     },
+     {
+      "name": "Work Energy Theorem and Conservation of Mechanical Energy",
+      "questions": 189
+     },
+     {
+      "name": "Vertical Circular Motion",
+      "questions": 156
+     },
+     {
+      "name": "Power",
+      "questions": 168
+     },
+     {
+      "name": "Elastic Collision",
+      "questions": 205
+     },
+     {
+      "name": "Perfectly Inelastic Collision",
+      "questions": 106
+     },
+     {
+      "name": "Inelastic Collision",
+      "questions": 133
+     },
+     {
+      "name": "Mix Examples-Work, Energy, Power and Collision",
+      "questions": 365
+     }
+    ]
+   },
+   {
+    "name": "System of Particles and Rotational Motion",
+    "topics": [
+     {
+      "name": "Centre of mass (Point Mass)",
+      "questions": 208
+     },
+     {
+      "name": "Centre of Mass of Composite Bodies and Cavity Problen of Centre of mass",
+      "questions": 67
+     },
+     {
+      "name": "Motion of Centre of Mass",
+      "questions": 141
+     },
+     {
+      "name": "Effect of Internal and External Force on Centre of Mass",
+      "questions": 20
+     },
+     {
+      "name": "System of particles momentum and Energy",
+      "questions": 8
+     },
+     {
+      "name": "Rotation Motion Basic, Motion of Connected Mass",
+      "questions": 124
+     },
+     {
+      "name": "Moment of Inertia and Radius of gyration",
+      "questions": 363
+     },
+     {
+      "name": "Moment of Inertia of Compound Bodies and Theorem of Moment of Inertia",
+      "questions": 210
+     },
+     {
+      "name": "Torque and Couple",
+      "questions": 89
+     },
+     {
+      "name": "Rotational Equilibrium",
+      "questions": 48
+     },
+     {
+      "name": "Relation between Torque and Angular acceleration and it's Application",
+      "questions": 173
+     },
+     {
+      "name": "Angular Momentum and Angular Impulse",
+      "questions": 109
+     },
+     {
+      "name": "Conservation of angular momentum (combined translation and rotational motion)",
+      "questions": 202
+     },
+     {
+      "name": "Rotational Kinetic Energy",
+      "questions": 71
+     },
+     {
+      "name": "Energy conservation, Kinetic Energy, Work and Power of Rotational Motion",
+      "questions": 46
+     },
+     {
+      "name": "Rolling motion on horizontal Surface",
+      "questions": 134
+     },
+     {
+      "name": "Rolling On Inclined Plane",
+      "questions": 233
+     },
+     {
+      "name": "Toppling and Instantaneous Axis of Rotation",
+      "questions": 17
+     },
+     {
+      "name": "Mix Example - System of Particles and Rotational Motion",
+      "questions": 245
+     }
+    ]
+   },
+   {
+    "name": "Gravitation",
+    "topics": [
+     {
+      "name": "Newton’s Law of Gravitation",
+      "questions": 94
+     },
+     {
+      "name": "Acceleration Due to Gravity and its Variation",
+      "questions": 413
+     },
+     {
+      "name": "Gravitational Intensity",
+      "questions": 60
+     },
+     {
+      "name": "Gravitational Potential and Potential Energy of system",
+      "questions": 108
+     },
+     {
+      "name": "Change in Gravitational Potential Energy, Energy Conservation",
+      "questions": 56
+     },
+     {
+      "name": "Escape Velocity and Escape Energy",
+      "questions": 222
+     },
+     {
+      "name": "Motion of Satellites in Circular Orbits and Planets in Elliptical Orbits",
+      "questions": 302
+     },
+     {
+      "name": "Energy consideration in Planetary and Satellite motion",
+      "questions": 70
+     },
+     {
+      "name": "Kepler’s laws of Planetary Motion",
+      "questions": 128
+     },
+     {
+      "name": "Mix Examples-Gravitation",
+      "questions": 136
+     }
+    ]
+   },
+   {
+    "name": "Mechanical Properties of Solids",
+    "topics": [
+     {
+      "name": "Basic of Elasticity, Stress and Strain relationship and Graphical analysis",
+      "questions": 121
+     },
+     {
+      "name": "Young’s Modulus",
+      "questions": 371
+     },
+     {
+      "name": "Bulk Modulus",
+      "questions": 113
+     },
+     {
+      "name": "Rigidity Modulus",
+      "questions": 39
+     },
+     {
+      "name": "Work Done in Stretching a Wire",
+      "questions": 89
+     },
+     {
+      "name": "Poisson's Ratio and relation between Modulus",
+      "questions": 58
+     },
+     {
+      "name": "Stress Strain relationship and Graphical analysis",
+      "questions": 25
+     },
+     {
+      "name": "Mix Examples-Mechanical Properties of Solids",
+      "questions": 62
+     }
+    ]
+   },
+   {
+    "name": "Mechanical Properties of Fluids",
+    "topics": [
+     {
+      "name": "Pressure and Density (of Mixure)",
+      "questions": 103
+     },
+     {
+      "name": "Pascal's Law",
+      "questions": 31
+     },
+     {
+      "name": "Force due to Liquid in pipe",
+      "questions": 20
+     },
+     {
+      "name": "Pressure due to Liquid Column and Barometer",
+      "questions": 67
+     },
+     {
+      "name": "Buoyancy, Archimedes' Principle and Laws of Floatation",
+      "questions": 240
+     },
+     {
+      "name": "Types of Flow, Equation of Continuity and Flow Rate",
+      "questions": 74
+     },
+     {
+      "name": "Bernoulli's Theorem and Applications of Bernoulli's Theory",
+      "questions": 147
+     },
+     {
+      "name": "Velocity of Efflux and Torricelli's law",
+      "questions": 112
+     },
+     {
+      "name": "Newton's Law of Viscosity",
+      "questions": 46
+     },
+     {
+      "name": "Viscosity and Stoke's Law and Terminal Velocity",
+      "questions": 183
+     },
+     {
+      "name": "Reynold's Number and Poiseuille's Equation",
+      "questions": 66
+     },
+     {
+      "name": "Basic of Surface tenstion , Adhesive force and Cohesive force",
+      "questions": 25
+     },
+     {
+      "name": "Surface Tension",
+      "questions": 112
+     },
+     {
+      "name": "Surface Energy",
+      "questions": 143
+     },
+     {
+      "name": "Excess Pressure and coalesce of Bubble and drop",
+      "questions": 238
+     },
+     {
+      "name": "Angle of Contact",
+      "questions": 38
+     },
+     {
+      "name": "Capillary Tube and Capillarity",
+      "questions": 194
+     },
+     {
+      "name": "Mix Examples-Fluid Mechanics and Surface Tension",
+      "questions": 124
+     }
+    ]
+   },
+   {
+    "name": "1 Thermal Properties of Matter: Thermometry, Expansion and Calorimetry",
+    "topics": [
+     {
+      "name": "Temperature and Temperature scales",
+      "questions": 119
+     },
+     {
+      "name": "Thermal Expansion for Solid",
+      "questions": 211
+     },
+     {
+      "name": "Thermal Expansion for fluid",
+      "questions": 51
+     },
+     {
+      "name": "Heat Capacity, Specific Heat and Molar Specific Heat",
+      "questions": 84
+     },
+     {
+      "name": "Latent Heat and Heating Curve",
+      "questions": 51
+     },
+     {
+      "name": "Principle of Calorimetry and Water Equivalent",
+      "questions": 171
+     },
+     {
+      "name": "Mix Examples-Thermometry, Thermal Expansion and Calorimetry",
+      "questions": 189
+     }
+    ]
+   },
+   {
+    "name": "2 Thermal Properties of Matter: Heat Transfer",
+    "topics": [
+     {
+      "name": "Basic of Heat Transfer and Conduction",
+      "questions": 37
+     },
+     {
+      "name": "Heat Conduction and Thermal Conductivity",
+      "questions": 222
+     },
+     {
+      "name": "Thermal Resistance and it's Combination",
+      "questions": 131
+     },
+     {
+      "name": "Convection",
+      "questions": 21
+     },
+     {
+      "name": "Radiation (General, Kirchoff's law, Black body, Prevost's Theory)",
+      "questions": 121
+     },
+     {
+      "name": "Radiation by Stefan's Boltzmann Law",
+      "questions": 251
+     },
+     {
+      "name": "Newton's Law of Cooling",
+      "questions": 181
+     },
+     {
+      "name": "Spectral Emissive Power and Wien's Displacement Law",
+      "questions": 143
+     },
+     {
+      "name": "Mix Examples-Heat Transfer",
+      "questions": 37
+     }
+    ]
+   },
+   {
+    "name": "Thermodynamics",
+    "topics": [
+     {
+      "name": "Basic of Thermodynamics and Zeroth Law",
+      "questions": 35
+     },
+     {
+      "name": "First Law of Thermodynamics",
+      "questions": 121
+     },
+     {
+      "name": "Isobaric and Isochoric Processes",
+      "questions": 121
+     },
+     {
+      "name": "Isothermal Process",
+      "questions": 84
+     },
+     {
+      "name": "Adiabatic Process",
+      "questions": 310
+     },
+     {
+      "name": "Polytropic Process",
+      "questions": 62
+     },
+     {
+      "name": "Heat, Work done and Internal Energy from Graph",
+      "questions": 178
+     },
+     {
+      "name": "Reversible and Irreversible process , Free Expansion",
+      "questions": 33
+     },
+     {
+      "name": "Second Law of Thermodynamics and Entropy",
+      "questions": 24
+     },
+     {
+      "name": "Heat Engine and Carnot Cycle",
+      "questions": 231
+     },
+     {
+      "name": "Refrigerator",
+      "questions": 57
+     },
+     {
+      "name": "Mix Examples-Thermodynamics",
+      "questions": 300
+     }
+    ]
+   },
+   {
+    "name": "Kinetic Theory",
+    "topics": [
+     {
+      "name": "Ideal gas concept",
+      "questions": 30
+     },
+     {
+      "name": "Gas Laws (Charles, Boyle's, Avagadro's, Gay Lussacs and Dalton's law) and Ideal gas Equation",
+      "questions": 362
+     },
+     {
+      "name": "Pressure and Energy",
+      "questions": 195
+     },
+     {
+      "name": "Speed (velocity) of Gas (rms, mean and Most probable speed)",
+      "questions": 281
+     },
+     {
+      "name": "Degree of Freedom",
+      "questions": 84
+     },
+     {
+      "name": "Molar Specific Heat of gas and relation between them (Mayer's formula)",
+      "questions": 197
+     },
+     {
+      "name": "Mixture of Gases",
+      "questions": 147
+     },
+     {
+      "name": "Mean Free Path and Real Gases",
+      "questions": 76
+     },
+     {
+      "name": "Mix Examples-Kinetic Theory of Gases",
+      "questions": 186
+     }
+    ]
+   },
+   {
+    "name": "Oscillations",
+    "topics": [
+     {
+      "name": "Periodic, Oscillatory motion and its characteristics and types of SHM and Equation of SHM",
+      "questions": 180
+     },
+     {
+      "name": "Position of a Particle in SHM, Displacement and Phase",
+      "questions": 88
+     },
+     {
+      "name": "Velocity of Simple Harmonic Motion",
+      "questions": 167
+     },
+     {
+      "name": "Acceleration and Force of Simple Harmonic Motion",
+      "questions": 97
+     },
+     {
+      "name": "Energy of Simple Harmonic Motion",
+      "questions": 217
+     },
+     {
+      "name": "Method to determine Time Period and Frequency for diffrent type of Object of SHM",
+      "questions": 78
+     },
+     {
+      "name": "SHM of Spring Mass System",
+      "questions": 318
+     },
+     {
+      "name": "SHM of Simple Pendulum",
+      "questions": 315
+     },
+     {
+      "name": "Different types of oscillations (Free, Damped, Forced Oscillation and Resonance)",
+      "questions": 71
+     },
+     {
+      "name": "Superposition of S.H.M.",
+      "questions": 54
+     },
+     {
+      "name": "Mix Examples-Oscillations",
+      "questions": 55
+     }
+    ]
+   },
+   {
+    "name": "Waves",
+    "topics": [
+     {
+      "name": "Introduction and Classification of Waves",
+      "questions": 24
+     },
+     {
+      "name": "Wave Equation and Characteristics of Waves",
+      "questions": 295
+     },
+     {
+      "name": "Energy and Intensity of Waves",
+      "questions": 57
+     },
+     {
+      "name": "Speed of Mechanical Wave on String (Transverse wave)",
+      "questions": 100
+     },
+     {
+      "name": "Sound Waves (Longitudinal wave) and it’s Characteristics (Speed etc.)",
+      "questions": 190
+     },
+     {
+      "name": "Progressive Waves",
+      "questions": 44
+     },
+     {
+      "name": "Principle of superposition of waves",
+      "questions": 93
+     },
+     {
+      "name": "Beats and Tuning fork",
+      "questions": 208
+     },
+     {
+      "name": "Stationary Waves (Standing wave)",
+      "questions": 172
+     },
+     {
+      "name": "Transverse Stationary Waves and Sonometer",
+      "questions": 216
+     },
+     {
+      "name": "Longitudinal Stationary Waves (Organ Pipes) and Resonance Tube",
+      "questions": 349
+     },
+     {
+      "name": "Doppler’s Effect",
+      "questions": 308
+     },
+     {
+      "name": "Musical Sound (Loudness, Intensity, pitch and Quality)",
+      "questions": 46
+     },
+     {
+      "name": "Mix Examples-Waves and Sound",
+      "questions": 63
+     }
+    ]
+   },
+   {
+    "name": "Basic Maths",
+    "topics": [
+     {
+      "name": "Basic Maths",
+      "questions": 46
+     }
+    ]
+   }
+  ],
+  "Chemistry": [
+   {
+    "name": "Some Basic Concepts of Chemistry",
+    "topics": [
+     {
+      "name": "Significant figures and Units for measurement",
+      "questions": 109
+     },
+     {
+      "name": "Matter and Separation of mixture",
+      "questions": 60
+     },
+     {
+      "name": "Laws of chemical combination",
+      "questions": 86
+     },
+     {
+      "name": "The mole concept",
+      "questions": 352
+     },
+     {
+      "name": "Atomic, Molecular and Equivalent masses",
+      "questions": 265
+     },
+     {
+      "name": "Percentage composition and Molecular formula",
+      "questions": 283
+     },
+     {
+      "name": "Chemical equation and limiting reagent",
+      "questions": 149
+     },
+     {
+      "name": "Chemical stoichiometry",
+      "questions": 788
+     },
+     {
+      "name": "Mix Examples of Some Basic Concept of Chemistry",
+      "questions": 138
+     }
+    ]
+   },
+   {
+    "name": "Structure of Atom",
+    "topics": [
+     {
+      "name": "Discovery and Properties of anode, cathode rays neutron and Nuclear structure",
+      "questions": 114
+     },
+     {
+      "name": "Atomic number, Mass number, Atomic species",
+      "questions": 214
+     },
+     {
+      "name": "Nature of radiation",
+      "questions": 158
+     },
+     {
+      "name": "Atomic models and Planck's quantum theory",
+      "questions": 763
+     },
+     {
+      "name": "De Broglie's principle",
+      "questions": 187
+     },
+     {
+      "name": "Uncertainty principle and Schrodinger wave equation",
+      "questions": 125
+     },
+     {
+      "name": "Quantum number, Electronic configuration and Shape of orbitals",
+      "questions": 936
+     },
+     {
+      "name": "Mix Examples-Structure of atom",
+      "questions": 29
+     }
+    ]
+   },
+   {
+    "name": "Classification of Elements and Periodicity in Properties",
+    "topics": [
+     {
+      "name": "History of periodic table",
+      "questions": 30
+     },
+     {
+      "name": "Extended or long form of periodic table",
+      "questions": 106
+     },
+     {
+      "name": "Screening effect and effective nuclear charge",
+      "questions": 21
+     },
+     {
+      "name": "Atomic and Ionic radii",
+      "questions": 267
+     },
+     {
+      "name": "Ionisation energy",
+      "questions": 370
+     },
+     {
+      "name": "Electron affinity",
+      "questions": 162
+     },
+     {
+      "name": "Electronegativity",
+      "questions": 117
+     },
+     {
+      "name": "Valency and oxidation state",
+      "questions": 65
+     },
+     {
+      "name": "Chemical Reactivity",
+      "questions": 233
+     },
+     {
+      "name": "Mix Examples - Classification of Elements and Periodicity in Properties",
+      "questions": 164
+     }
+    ]
+   },
+   {
+    "name": "Chemical Bonding and Molecular Structure",
+    "topics": [
+     {
+      "name": "Electrovalent bonding",
+      "questions": 138
+     },
+     {
+      "name": "Polarisation and Fajan’s rule",
+      "questions": 140
+     },
+     {
+      "name": "Covalent bonding",
+      "questions": 205
+     },
+     {
+      "name": "Co-ordinate or Dative bonding",
+      "questions": 67
+     },
+     {
+      "name": "Dipole moment",
+      "questions": 286
+     },
+     {
+      "name": "Overlaping - s and p- bonds",
+      "questions": 86
+     },
+     {
+      "name": "Hybridisation",
+      "questions": 465
+     },
+     {
+      "name": "Resonance",
+      "questions": 147
+     },
+     {
+      "name": "VSEPR Theory",
+      "questions": 665
+     },
+     {
+      "name": "Molecular orbital theory",
+      "questions": 445
+     },
+     {
+      "name": "Hydrogen bonding",
+      "questions": 222
+     },
+     {
+      "name": "Types of bonding and Forces in solid",
+      "questions": 140
+     },
+     {
+      "name": "Mix Examples-Chemical Bonding",
+      "questions": 442
+     }
+    ]
+   },
+   {
+    "name": "Thermodynamics",
+    "topics": [
+     {
+      "name": "Basic concepts",
+      "questions": 363
+     },
+     {
+      "name": "First law of thermodynamics",
+      "questions": 283
+     },
+     {
+      "name": "Heat capacity",
+      "questions": 31
+     },
+     {
+      "name": "Heat of reaction, Bond energy and Hess law",
+      "questions": 641
+     },
+     {
+      "name": "2 nd Law of thermodynamics and Entropy",
+      "questions": 241
+     },
+     {
+      "name": "Free energy and Work",
+      "questions": 188
+     },
+     {
+      "name": "3 rd Law of thermodynamics",
+      "questions": 10
+     },
+     {
+      "name": "Mix Examples-Thermodynamics and Thermochemistry",
+      "questions": 362
+     }
+    ]
+   },
+   {
+    "name": "1 Equilibrium: Chemical Equilibrium",
+    "topics": [
+     {
+      "name": "Reversible and Irreversible reaction",
+      "questions": 14
+     },
+     {
+      "name": "Equilibrium state and Characteristics of K",
+      "questions": 89
+     },
+     {
+      "name": "Law of mass action",
+      "questions": 11
+     },
+     {
+      "name": "Law of equilibrium and Equilibrium constant",
+      "questions": 186
+     },
+     {
+      "name": "Kp and Kc Relationship",
+      "questions": 348
+     },
+     {
+      "name": "Standard free energy",
+      "questions": 92
+     },
+     {
+      "name": "Degree of dissociation and Vapour density",
+      "questions": 100
+     },
+     {
+      "name": "Le-Chaterlier principle and It’s application",
+      "questions": 280
+     },
+     {
+      "name": "Mix Examples- 6-1.Equilibrium (Chemical Equilibrium)",
+      "questions": 242
+     }
+    ]
+   },
+   {
+    "name": "2 Equilibrium: Ionic Equilibrium",
+    "topics": [
+     {
+      "name": "Electrical conductors and Ostwald’s dilution law",
+      "questions": 67
+     },
+     {
+      "name": "Acids and Bases",
+      "questions": 439
+     },
+     {
+      "name": "Water hydrolysis and pH scale",
+      "questions": 172
+     },
+     {
+      "name": "pH of strong Acids and strong Bases",
+      "questions": 219
+     },
+     {
+      "name": "pH of weak Acids and weak Bases",
+      "questions": 175
+     },
+     {
+      "name": "Salt hydrolysis",
+      "questions": 296
+     },
+     {
+      "name": "Solubility product",
+      "questions": 562
+     },
+     {
+      "name": "Common ion effect",
+      "questions": 86
+     },
+     {
+      "name": "Buffer solution",
+      "questions": 284
+     },
+     {
+      "name": "Acid and base indicators",
+      "questions": 52
+     },
+     {
+      "name": "Mix Examples-Ionic Equilibrium",
+      "questions": 197
+     }
+    ]
+   },
+   {
+    "name": "Redox Reactions",
+    "topics": [
+     {
+      "name": "Oxidation, Reduction",
+      "questions": 57
+     },
+     {
+      "name": "Oxidizing and Reducing agent",
+      "questions": 137
+     },
+     {
+      "name": "Oxidation number and Oxidation state",
+      "questions": 390
+     },
+     {
+      "name": "Auto oxidation and Disproportionation",
+      "questions": 142
+     },
+     {
+      "name": "Redox reaction and Method for balancing Redox reaction",
+      "questions": 348
+     },
+     {
+      "name": "Mix Examples-Redox Reactions",
+      "questions": 304
+     }
+    ]
+   },
+   {
+    "name": "1 Organic Chemistry: Classification and Nomenclature of Organic Compounds",
+    "topics": [
+     {
+      "name": "Classification of organic compounds",
+      "questions": 39
+     },
+     {
+      "name": "Bonding and hybridisation in organic compounds",
+      "questions": 91
+     },
+     {
+      "name": "Nomenclature of organic compounds",
+      "questions": 716
+     },
+     {
+      "name": "Mix Examples of 8-1.Organic Chemistry : Classification and Nomenclature of Organic compounds",
+      "questions": 44
+     }
+    ]
+   },
+   {
+    "name": "2 Organic Chemistry: Isomerism",
+    "topics": [
+     {
+      "name": "Structural isomerism",
+      "questions": 256
+     },
+     {
+      "name": "Conformational isomerism",
+      "questions": 90
+     },
+     {
+      "name": "Geometrical isomerism",
+      "questions": 138
+     },
+     {
+      "name": "Optical isomerism",
+      "questions": 316
+     },
+     {
+      "name": "Mix Examples-General Organic Chemistry",
+      "questions": 312
+     }
+    ]
+   },
+   {
+    "name": "3 Organic Chemistry: Purification and Characterisation",
+    "topics": [
+     {
+      "name": "Purification of Organic Compounds",
+      "questions": 136
+     },
+     {
+      "name": "Qualitative Analysis",
+      "questions": 18
+     },
+     {
+      "name": "Quantitative Analysis",
+      "questions": 132
+     },
+     {
+      "name": "Chemical analysis of organic compounds",
+      "questions": 100
+     }
+    ]
+   },
+   {
+    "name": "4 Organic Chemistry: Reaction Mechanism",
+    "topics": [
+     {
+      "name": "Attacking reagents",
+      "questions": 53
+     },
+     {
+      "name": "Reactive Intermediates",
+      "questions": 259
+     },
+     {
+      "name": "Electronic Displacement in covalent bond",
+      "questions": 178
+     },
+     {
+      "name": "Types of organic reactions",
+      "questions": 60
+     },
+     {
+      "name": "Dipole moment and resonance",
+      "questions": 32
+     }
+    ]
+   },
+   {
+    "name": "Hydrocarbons",
+    "topics": [
+     {
+      "name": "Alkane",
+      "questions": 654
+     },
+     {
+      "name": "Alkene",
+      "questions": 1010
+     },
+     {
+      "name": "Alkyne",
+      "questions": 512
+     },
+     {
+      "name": "Aromatic hydrocarbon",
+      "questions": 781
+     },
+     {
+      "name": "Mix Examples-Hydrocarbon",
+      "questions": 284
+     }
+    ]
+   },
+   {
+    "name": "p-Block Elements (Class 11)",
+    "topics": [
+     {
+      "name": "Boron family",
+      "questions": 457
+     },
+     {
+      "name": "Carbon family",
+      "questions": 566
+     }
+    ]
+   },
+   {
+    "name": "States of Matter",
+    "topics": [
+     {
+      "name": "Characteristics and Measurable properties of gases",
+      "questions": 283
+     },
+     {
+      "name": "Ideal gas equation and Related gas laws",
+      "questions": 516
+     },
+     {
+      "name": "Kinetic molecular theory of gases and Molecular collisions",
+      "questions": 142
+     },
+     {
+      "name": "Molecular speeds",
+      "questions": 180
+     },
+     {
+      "name": "Real gases and Vander waal’s equation",
+      "questions": 244
+     },
+     {
+      "name": "Critical state and Liquefaction of gases",
+      "questions": 65
+     },
+     {
+      "name": "Mix Examples- States of Matter",
+      "questions": 144
+     }
+    ]
+   },
+   {
+    "name": "Hydrogen",
+    "topics": [
+     {
+      "name": "Hydrogen",
+      "questions": 443
+     },
+     {
+      "name": "Water or hydride of oxygen",
+      "questions": 220
+     },
+     {
+      "name": "Hydrogen peroxide",
+      "questions": 301
+     },
+     {
+      "name": "Mix Examples-Hydrogen and Its compounds",
+      "questions": 15
+     }
+    ]
+   },
+   {
+    "name": "s-Block Elements",
+    "topics": [
+     {
+      "name": "Alkali metals",
+      "questions": 872
+     },
+     {
+      "name": "Alkaline earth metals",
+      "questions": 525
+     },
+     {
+      "name": "Mix Examples of s-Block Elements",
+      "questions": 116
+     }
+    ]
+   },
+   {
+    "name": "Environmental Chemistry",
+    "topics": [
+     {
+      "name": "Environmental Study",
+      "questions": 524
+     }
+    ]
+   }
+  ],
+  "Mathematics": [
+   {
+    "name": "Sets",
+    "topics": [
+     {
+      "name": "Basic of Set theory",
+      "questions": 145
+     },
+     {
+      "name": "Venn Diagram and Operation on Sets",
+      "questions": 119
+     },
+     {
+      "name": "Complement of a Set",
+      "questions": 40
+     },
+     {
+      "name": "Word Problem - Set Theory",
+      "questions": 177
+     },
+     {
+      "name": "Mix Examples of Set Theory",
+      "questions": 27
+     }
+    ]
+   },
+   {
+    "name": "Relations and Functions",
+    "topics": [
+     {
+      "name": "Cartesian Products of Sets",
+      "questions": 42
+     },
+     {
+      "name": "Relations",
+      "questions": 45
+     },
+     {
+      "name": "Defination of Function",
+      "questions": 20
+     },
+     {
+      "name": "Different types of Function",
+      "questions": 33
+     }
+    ]
+   },
+   {
+    "name": "Trigonometric Functions",
+    "topics": [
+     {
+      "name": "Fundamental trigonometrical ratios and functions, Trigonometrical ratio of allied angles",
+      "questions": 178
+     },
+     {
+      "name": "Trigonometrical ratios of sum and difference of two and three angles",
+      "questions": 146
+     },
+     {
+      "name": "Trigonometrical ratios of multiple and sub-multiple angles",
+      "questions": 194
+     },
+     {
+      "name": "Maximum and minimum values of trigonometrical functions, Conditional trigonometrical identities",
+      "questions": 234
+     },
+     {
+      "name": "Mix Examples-Trigonometrical Ratios, Functions and Identities",
+      "questions": 635
+     }
+    ]
+   },
+   {
+    "name": "1 Complex Numbers and Quadratic Equations: Complex Numbers",
+    "topics": [
+     {
+      "name": "Integral power of iota, Algebraic operations and Equality of complex numbers",
+      "questions": 147
+     },
+     {
+      "name": "Conjugate and Modulus of complex numbers",
+      "questions": 151
+     },
+     {
+      "name": "Argument of complex numbers",
+      "questions": 96
+     },
+     {
+      "name": "Square root, Representation and Logarithm of complex numbers",
+      "questions": 46
+     },
+     {
+      "name": "De Moivre's theorem and Roots of unity",
+      "questions": 381
+     },
+     {
+      "name": "Geometry of complex numbers",
+      "questions": 439
+     },
+     {
+      "name": "Mix Examples-Complex numbers",
+      "questions": 250
+     }
+    ]
+   },
+   {
+    "name": "2 Complex Numbers and Quadratic Equations: Quadratic Equations",
+    "topics": [
+     {
+      "name": "Solution of quadratic equations and Nature of roots",
+      "questions": 625
+     },
+     {
+      "name": "Relation between roots and coefficients",
+      "questions": 474
+     },
+     {
+      "name": "Condition for common roots",
+      "questions": 73
+     },
+     {
+      "name": "Quadratic expressions and Position of roots",
+      "questions": 73
+     },
+     {
+      "name": "Solution of quadratic inequations and Newton Formula",
+      "questions": 48
+     },
+     {
+      "name": "Mix Examples-Quadratic Equations and Inequations",
+      "questions": 193
+     }
+    ]
+   },
+   {
+    "name": "Linear Inequalities",
+    "topics": [
+     {
+      "name": "Basic of Linear Inequalities",
+      "questions": 68
+     },
+     {
+      "name": "Linear inequalities for Single Line",
+      "questions": 24
+     },
+     {
+      "name": "Linear inequalities for Multiple Lines",
+      "questions": 26
+     },
+     {
+      "name": "Word problem of Linear inequalities",
+      "questions": 81
+     }
+    ]
+   },
+   {
+    "name": "Permutations and Combinations",
+    "topics": [
+     {
+      "name": "Definition of permutation, Number of permutations with or without repetition, Conditional permutations",
+      "questions": 442
+     },
+     {
+      "name": "Circular permutations",
+      "questions": 65
+     },
+     {
+      "name": "Definition of combinations, Condition combinations",
+      "questions": 359
+     },
+     {
+      "name": "Division into groups, Derangements",
+      "questions": 46
+     },
+     {
+      "name": "Geometrical problems",
+      "questions": 181
+     },
+     {
+      "name": "Multinomial theorem, Number of divisors",
+      "questions": 86
+     },
+     {
+      "name": "Mix Examples-Permutation and Combination",
+      "questions": 370
+     }
+    ]
+   },
+   {
+    "name": "Binomial Theorem",
+    "topics": [
+     {
+      "name": "Expansion of binomial theorem",
+      "questions": 160
+     },
+     {
+      "name": "General term, Coefficient of any power of x, Independent term, Middle term and Greatest term and Greatest coefficient",
+      "questions": 417
+     },
+     {
+      "name": "Properties of binomial coefficients",
+      "questions": 152
+     },
+     {
+      "name": "Binomial theorem for any index",
+      "questions": 112
+     },
+     {
+      "name": "Multinomial theorem, Terms free from radical sign in the expansion of (a1/p + b1/q), Problems regarding to three/four consecutive terms or coefficients",
+      "questions": 16
+     },
+     {
+      "name": "Divisibility problems",
+      "questions": 101
+     },
+     {
+      "name": "Mix Examples-Binomial Theorem",
+      "questions": 68
+     }
+    ]
+   },
+   {
+    "name": "Sequences and Series",
+    "topics": [
+     {
+      "name": "Arithmetic progression",
+      "questions": 392
+     },
+     {
+      "name": "Geometric progression",
+      "questions": 306
+     },
+     {
+      "name": "Harmonic progression",
+      "questions": 97
+     },
+     {
+      "name": "Relation between A.P., G.P.",
+      "questions": 129
+     },
+     {
+      "name": "Arithmetic geometric progression,Method of difference",
+      "questions": 31
+     },
+     {
+      "name": "nth term of special series, Sum to n terms and Infinite number of terms",
+      "questions": 284
+     },
+     {
+      "name": "VN or Telescoping Method",
+      "questions": 105
+     },
+     {
+      "name": "Mix Examples - Sequences and Series",
+      "questions": 105
+     }
+    ]
+   },
+   {
+    "name": "Straight Lines",
+    "topics": [
+     {
+      "name": "System of co-ordinates, Distance between two points, Section formulae",
+      "questions": 89
+     },
+     {
+      "name": "Points related to triangle",
+      "questions": 151
+     },
+     {
+      "name": "Slope of line, Equation of line in different forms",
+      "questions": 329
+     },
+     {
+      "name": "Angle between two straight lines",
+      "questions": 112
+     },
+     {
+      "name": "Distance between two lines, Perpendicular distance of the line from a point, Position of point w.r.t. line",
+      "questions": 179
+     },
+     {
+      "name": "Concurrency of three lines",
+      "questions": 142
+     },
+     {
+      "name": "Foot of perpendicular, Image of a point and Reflexive properties",
+      "questions": 143
+     },
+     {
+      "name": "Problems related to triangle and quadrilateral",
+      "questions": 313
+     },
+     {
+      "name": "Bisector of angle between two lines",
+      "questions": 54
+     },
+     {
+      "name": "Locus of Point",
+      "questions": 230
+     },
+     {
+      "name": "Transformation, Pedal points",
+      "questions": 9
+     },
+     {
+      "name": "Mix Examples-Straight Line",
+      "questions": 115
+     }
+    ]
+   },
+   {
+    "name": "1 Conic Sections: Circle",
+    "topics": [
+     {
+      "name": "Equations of circle",
+      "questions": 338
+     },
+     {
+      "name": "Geometrical problems regarding circle and its properties",
+      "questions": 582
+     },
+     {
+      "name": "Tangent and normal to a circle",
+      "questions": 307
+     },
+     {
+      "name": "Chord of contact of tangent and common chord",
+      "questions": 160
+     },
+     {
+      "name": "Pole and Polar",
+      "questions": 60
+     },
+     {
+      "name": "System of circles",
+      "questions": 350
+     },
+     {
+      "name": "Locus Related Problem",
+      "questions": 298
+     },
+     {
+      "name": "Mix Examples-Circle and System of Circles",
+      "questions": 192
+     }
+    ]
+   },
+   {
+    "name": "2 Conic Sections: Parabola, Ellipse and Hyperbola",
+    "topics": [
+     {
+      "name": "General Second-Degree equation",
+      "questions": 32
+     },
+     {
+      "name": "Parabola",
+      "questions": 966
+     },
+     {
+      "name": "Ellipse",
+      "questions": 718
+     },
+     {
+      "name": "Hyperbola",
+      "questions": 568
+     },
+     {
+      "name": "Mix Examples-Conic Sections",
+      "questions": 181
+     }
+    ]
+   },
+   {
+    "name": "Introduction to Three Dimensional Geometry",
+    "topics": [
+     {
+      "name": "Point and Distance formula",
+      "questions": 43
+     },
+     {
+      "name": "Section Formula",
+      "questions": 71
+     },
+     {
+      "name": "Triangle and Parallelogram",
+      "questions": 97
+     }
+    ]
+   },
+   {
+    "name": "Limits and Derivatives",
+    "topics": [
+     {
+      "name": "Concept of limits, Evaluation of algebric limits",
+      "questions": 498
+     },
+     {
+      "name": "Limit using Binomial theorem",
+      "questions": 10
+     },
+     {
+      "name": "Limit of trigonometric function",
+      "questions": 89
+     },
+     {
+      "name": "Finding unknown using limit",
+      "questions": 83
+     },
+     {
+      "name": "L'Hospital's rule and Limit of Indeterminate Form",
+      "questions": 184
+     },
+     {
+      "name": "Sandwich theorem",
+      "questions": 22
+     },
+     {
+      "name": "Derivatives by definition",
+      "questions": 32
+     }
+    ]
+   },
+   {
+    "name": "Statistics",
+    "topics": [
+     {
+      "name": "Mean and Median",
+      "questions": 86
+     },
+     {
+      "name": "Relation between mean, median and mode",
+      "questions": 32
+     },
+     {
+      "name": "Mean Deviation",
+      "questions": 103
+     },
+     {
+      "name": "Variance and Standard Deviation",
+      "questions": 269
+     },
+     {
+      "name": "Word problem -Statistics",
+      "questions": 198
+     }
+    ]
+   },
+   {
+    "name": "Probability",
+    "topics": [
+     {
+      "name": "Set Based probability",
+      "questions": 454
+     },
+     {
+      "name": "Permutation and Combination based Probability",
+      "questions": 115
+     },
+     {
+      "name": "Advanced Use of permutations and combinations in probability",
+      "questions": 187
+     },
+     {
+      "name": "Odds in favor and odds against, Addition theorem on probability",
+      "questions": 126
+     }
+    ]
+   },
+   {
+    "name": "Basic of Logarithms",
+    "topics": [
+     {
+      "name": "Logarithms",
+      "questions": 203
+     },
+     {
+      "name": "Indices and Surds",
+      "questions": 57
+     },
+     {
+      "name": "Partial fractions",
+      "questions": 197
+     },
+     {
+      "name": "Mix Examples-Logarithms, Indices and Surds, Partial Fractions",
+      "questions": 27
+     }
+    ]
+   },
+   {
+    "name": "Trigonometrical Equations",
+    "topics": [
+     {
+      "name": "Solution of trigonometrical equations",
+      "questions": 370
+     },
+     {
+      "name": "Periodic functions",
+      "questions": 59
+     },
+     {
+      "name": "Relation between sides and angles, Solutions of triangles",
+      "questions": 580
+     },
+     {
+      "name": "Circle connected with triangle",
+      "questions": 95
+     },
+     {
+      "name": "Height and Distance",
+      "questions": 145
+     },
+     {
+      "name": "Mix Examples-Trigonometrical Equations and Inequations, Properties of Triangles, Height and Distance",
+      "questions": 282
+     }
+    ]
+   },
+   {
+    "name": "Rectangular Cartesian Co-ordinates",
+    "topics": [
+     {
+      "name": "Questions related to geometrical conditions",
+      "questions": 15
+     },
+     {
+      "name": "Area of some geometrical figures",
+      "questions": 20
+     },
+     {
+      "name": "Transformation of axes",
+      "questions": 116
+     },
+     {
+      "name": "Mix Examples-Rectangular Cartesian Co-ordinates",
+      "questions": 3
+     }
+    ]
+   },
+   {
+    "name": "Mathematical induction",
+    "topics": [
+     {
+      "name": "Mathematical induction",
+      "questions": 32
+     }
+    ]
+   },
+   {
+    "name": "Pair of straight lines",
+    "topics": [
+     {
+      "name": "Equation of pair of straight lines",
+      "questions": 288
+     },
+     {
+      "name": "Angle between the pair of straight lines, Condition for parallel and perpendicular lines",
+      "questions": 129
+     },
+     {
+      "name": "Bisectors of the angle between the lines, Point of intersection of the lines",
+      "questions": 84
+     },
+     {
+      "name": "Equation of lines joining the origin to the point of intersection of a curve and a line and Distance between the pair of lines",
+      "questions": 91
+     },
+     {
+      "name": "Mix Examples-Pair of straight lines",
+      "questions": 100
+     }
+    ]
+   },
+   {
+    "name": "Mathematical Reasoning",
+    "topics": [
+     {
+      "name": "Mathematical logic",
+      "questions": 601
+     }
+    ]
+   },
+   {
+    "name": "Exponential and Logarithmic Series",
+    "topics": [
+     {
+      "name": "Exponential series",
+      "questions": 106
+     },
+     {
+      "name": "Logarithmic series",
+      "questions": 76
+     },
+     {
+      "name": "Mix Examples-Exponential and Logarithmic Series",
+      "questions": 2
+     }
+    ]
+   }
+  ],
+  "Biology": [
+   {
+    "name": "The Living World",
+    "topics": [
+     {
+      "name": "What is living?",
+      "questions": 201
+     },
+     {
+      "name": "Diversity in the living world",
+      "questions": 174
+     },
+     {
+      "name": "Taxonomic categories",
+      "questions": 528
+     },
+     {
+      "name": "Taxonomical Aids",
+      "questions": 441
+     },
+     {
+      "name": "Mix Examples-The Living World",
+      "questions": 86
+     }
+    ]
+   },
+   {
+    "name": "Biological Classification",
+    "topics": [
+     {
+      "name": "Introduction",
+      "questions": 74
+     },
+     {
+      "name": "Monera (Prokaryotes)",
+      "questions": 595
+     },
+     {
+      "name": "Protista (Unicellular eukaryotes)",
+      "questions": 396
+     },
+     {
+      "name": "Fungi (Multicellular decomposers)",
+      "questions": 494
+     },
+     {
+      "name": "Viruses, Viroids, Prions and Lichens",
+      "questions": 510
+     },
+     {
+      "name": "Mix Example-Biological Classification",
+      "questions": 212
+     }
+    ]
+   },
+   {
+    "name": "Plant Kingdom",
+    "topics": [
+     {
+      "name": "Introduction",
+      "questions": 18
+     },
+     {
+      "name": "Algae (General)",
+      "questions": 506
+     },
+     {
+      "name": "Bryophytes (General)",
+      "questions": 427
+     },
+     {
+      "name": "Pteridophytes (General)",
+      "questions": 406
+     },
+     {
+      "name": "Gymnosperms (General)",
+      "questions": 470
+     },
+     {
+      "name": "Angiosperms",
+      "questions": 118
+     },
+     {
+      "name": "Plant Life Cycles and Alternation of Generations",
+      "questions": 61
+     },
+     {
+      "name": "Mix Examples- Plant Kingdom",
+      "questions": 260
+     }
+    ]
+   },
+   {
+    "name": "Animal Kingdom",
+    "topics": [
+     {
+      "name": "Basic of classification",
+      "questions": 121
+     },
+     {
+      "name": "Phylum-Porifera",
+      "questions": 181
+     },
+     {
+      "name": "Phylum-Coelenterata (Cnideria)",
+      "questions": 225
+     },
+     {
+      "name": "Phylum - Ctenophora",
+      "questions": 25
+     },
+     {
+      "name": "Phylum-Platyhelminthes",
+      "questions": 191
+     },
+     {
+      "name": "Phylum - Aschelminthes",
+      "questions": 145
+     },
+     {
+      "name": "Phylum-Annelida",
+      "questions": 130
+     },
+     {
+      "name": "Phylum-Arthropoda",
+      "questions": 230
+     },
+     {
+      "name": "Phylum-Mollusca",
+      "questions": 129
+     },
+     {
+      "name": "Phylum-Echinodermata",
+      "questions": 119
+     },
+     {
+      "name": "Phylum - Hemichordata",
+      "questions": 49
+     },
+     {
+      "name": "Phylum-Chordata",
+      "questions": 175
+     },
+     {
+      "name": "Class - Cyclostomata",
+      "questions": 75
+     },
+     {
+      "name": "Class - Chondrichthyes",
+      "questions": 105
+     },
+     {
+      "name": "Class - Osteichthyes",
+      "questions": 64
+     },
+     {
+      "name": "Class-Amphibia",
+      "questions": 113
+     },
+     {
+      "name": "Class-Reptilia",
+      "questions": 135
+     },
+     {
+      "name": "Class-Aves",
+      "questions": 146
+     },
+     {
+      "name": "Class-Mammalia",
+      "questions": 228
+     },
+     {
+      "name": "Mix Examples - Animal Kingdom",
+      "questions": 403
+     }
+    ]
+   },
+   {
+    "name": "Morphology of Flowering Plants",
+    "topics": [
+     {
+      "name": "Root",
+      "questions": 281
+     },
+     {
+      "name": "Stem",
+      "questions": 207
+     },
+     {
+      "name": "Leaf",
+      "questions": 203
+     },
+     {
+      "name": "Inflorescence",
+      "questions": 130
+     },
+     {
+      "name": "Flower",
+      "questions": 326
+     },
+     {
+      "name": "Seeds",
+      "questions": 85
+     },
+     {
+      "name": "fruits",
+      "questions": 167
+     },
+     {
+      "name": "Semi-technical Description of a Typical Flowering Plant",
+      "questions": 28
+     },
+     {
+      "name": "Description of Some Important Families",
+      "questions": 399
+     },
+     {
+      "name": "Mix Examples- Morphology of Flowering Plants",
+      "questions": 160
+     }
+    ]
+   },
+   {
+    "name": "Anatomy of Flowering Plants",
+    "topics": [
+     {
+      "name": "Meristematic Tissue",
+      "questions": 209
+     },
+     {
+      "name": "Permanent Tissue",
+      "questions": 301
+     },
+     {
+      "name": "The tissue system",
+      "questions": 147
+     },
+     {
+      "name": "Internal structure of root",
+      "questions": 152
+     },
+     {
+      "name": "Internal structure of stem",
+      "questions": 125
+     },
+     {
+      "name": "Internal structure of leaf",
+      "questions": 80
+     },
+     {
+      "name": "Secondary growth",
+      "questions": 370
+     },
+     {
+      "name": "Mix Examples- Anatomy of Flowering Plants",
+      "questions": 24
+     }
+    ]
+   },
+   {
+    "name": "Structural Organisation in Animals",
+    "topics": [
+     {
+      "name": "Epithelial tissue",
+      "questions": 245
+     },
+     {
+      "name": "Connective tissue",
+      "questions": 293
+     },
+     {
+      "name": "Muscular tissue",
+      "questions": 64
+     },
+     {
+      "name": "Neural tissue",
+      "questions": 18
+     },
+     {
+      "name": "Morphology of Cockroach",
+      "questions": 183
+     },
+     {
+      "name": "Anatomy of Cockroach",
+      "questions": 172
+     },
+     {
+      "name": "Morphology of Frog",
+      "questions": 54
+     },
+     {
+      "name": "Anatomy of frog",
+      "questions": 225
+     },
+     {
+      "name": "Morphology of Earthworm",
+      "questions": 4
+     },
+     {
+      "name": "Anatomy of Earthworm",
+      "questions": 280
+     },
+     {
+      "name": "Mix Examples - Structural Organisation In Animals",
+      "questions": 107
+     }
+    ]
+   },
+   {
+    "name": "Cell: The Unit of Life",
+    "topics": [
+     {
+      "name": "Cell theory and What is cell ?",
+      "questions": 191
+     },
+     {
+      "name": "An Overview of cell",
+      "questions": 27
+     },
+     {
+      "name": "Prokaryotic cell",
+      "questions": 225
+     },
+     {
+      "name": "Eukaryotic Cell - Introduction",
+      "questions": 11
+     },
+     {
+      "name": "Cell membrane",
+      "questions": 220
+     },
+     {
+      "name": "Cell wall",
+      "questions": 129
+     },
+     {
+      "name": "Endoplasmic reticulum and Golgi body",
+      "questions": 177
+     },
+     {
+      "name": "Lysosome",
+      "questions": 87
+     },
+     {
+      "name": "Vacuoles and Microbodies",
+      "questions": 103
+     },
+     {
+      "name": "Mitochondria",
+      "questions": 167
+     },
+     {
+      "name": "Plastids",
+      "questions": 133
+     },
+     {
+      "name": "Ribosomes",
+      "questions": 170
+     },
+     {
+      "name": "Flagella and Cytoskeleton",
+      "questions": 75
+     },
+     {
+      "name": "Centrosomes , CentrioleCilia",
+      "questions": 117
+     },
+     {
+      "name": "Nucleus and Chromosomes",
+      "questions": 344
+     },
+     {
+      "name": "Mix Example-Cell: The Unit of Life",
+      "questions": 291
+     }
+    ]
+   },
+   {
+    "name": "Biomolecules",
+    "topics": [
+     {
+      "name": "How to analyse chemical composition?",
+      "questions": 82
+     },
+     {
+      "name": "Biomacromolecuals",
+      "questions": 67
+     },
+     {
+      "name": "Primary and Secondary metabolites",
+      "questions": 47
+     },
+     {
+      "name": "Carbohydrates",
+      "questions": 418
+     },
+     {
+      "name": "Lipid",
+      "questions": 239
+     },
+     {
+      "name": "Proteins",
+      "questions": 426
+     },
+     {
+      "name": "Nucleic acids",
+      "questions": 194
+     },
+     {
+      "name": "Dynamic state of body constituents ,concept of Metabolism",
+      "questions": 79
+     },
+     {
+      "name": "Metabolic basis for living and Living State",
+      "questions": 22
+     },
+     {
+      "name": "Enzymes",
+      "questions": 347
+     },
+     {
+      "name": "Classification and factors affecting enzyme",
+      "questions": 43
+     },
+     {
+      "name": "Co-Factors",
+      "questions": 132
+     },
+     {
+      "name": "Mix Examples- Biomolecules",
+      "questions": 317
+     }
+    ]
+   },
+   {
+    "name": "Cell Cycle and Cell Division",
+    "topics": [
+     {
+      "name": "Cell Cycle",
+      "questions": 257
+     },
+     {
+      "name": "M Phase",
+      "questions": 353
+     },
+     {
+      "name": "Significance of Mitosis",
+      "questions": 95
+     },
+     {
+      "name": "Cytokinesis",
+      "questions": 56
+     },
+     {
+      "name": "Meiosis",
+      "questions": 479
+     },
+     {
+      "name": "Significance of Meiosis",
+      "questions": 34
+     },
+     {
+      "name": "Mix Examples-Cell Cycle and Cell Division",
+      "questions": 171
+     }
+    ]
+   },
+   {
+    "name": "Photosynthesis in Higher Plants",
+    "topics": [
+     {
+      "name": "What do we know",
+      "questions": 46
+     },
+     {
+      "name": "Early Experiments",
+      "questions": 94
+     },
+     {
+      "name": "Pigments involved in photo synthesis",
+      "questions": 177
+     },
+     {
+      "name": "Light reaction",
+      "questions": 360
+     },
+     {
+      "name": "C3 and Dark reaction",
+      "questions": 205
+     },
+     {
+      "name": "C4",
+      "questions": 240
+     },
+     {
+      "name": "Photorespiration",
+      "questions": 112
+     },
+     {
+      "name": "Factors affecting photosynthesis",
+      "questions": 133
+     },
+     {
+      "name": "Mix Examples- Photosynthesis in Higher Plants",
+      "questions": 220
+     }
+    ]
+   },
+   {
+    "name": "Respiration in Plants",
+    "topics": [
+     {
+      "name": "Introduction and types of respiration",
+      "questions": 114
+     },
+     {
+      "name": "Glycolysis",
+      "questions": 196
+     },
+     {
+      "name": "Anaerobic respiration",
+      "questions": 154
+     },
+     {
+      "name": "Kreb's cycle",
+      "questions": 224
+     },
+     {
+      "name": "ETS",
+      "questions": 201
+     },
+     {
+      "name": "Respiratory Balance Sheet",
+      "questions": 74
+     },
+     {
+      "name": "Amphibolic Pathway",
+      "questions": 53
+     },
+     {
+      "name": "R.Q.",
+      "questions": 102
+     },
+     {
+      "name": "Mix Examples- Respiration in Plants",
+      "questions": 123
+     }
+    ]
+   },
+   {
+    "name": "Plant Growth and Development",
+    "topics": [
+     {
+      "name": "Growth",
+      "questions": 217
+     },
+     {
+      "name": "Differentiation, Dedifferentiation and Redifferentiation",
+      "questions": 50
+     },
+     {
+      "name": "Development",
+      "questions": 52
+     },
+     {
+      "name": "The Discovery of Plant Growth Regulators",
+      "questions": 23
+     },
+     {
+      "name": "Auxin",
+      "questions": 236
+     },
+     {
+      "name": "Gibberellins",
+      "questions": 108
+     },
+     {
+      "name": "Cytokinin",
+      "questions": 91
+     },
+     {
+      "name": "Ethylene",
+      "questions": 75
+     },
+     {
+      "name": "ABA",
+      "questions": 79
+     },
+     {
+      "name": "Mix Examples-Plant Growth and Development",
+      "questions": 130
+     },
+     {
+      "name": "Photoperiodism and Vernalization",
+      "questions": 169
+     },
+     {
+      "name": "Seed Dormancy",
+      "questions": 60
+     }
+    ]
+   },
+   {
+    "name": "Breathing and Exchange of Gases",
+    "topics": [
+     {
+      "name": "Introduction",
+      "questions": 26
+     },
+     {
+      "name": "Respiratory organs",
+      "questions": 68
+     },
+     {
+      "name": "Human Respiratory System",
+      "questions": 207
+     },
+     {
+      "name": "Mechanism of Breathing",
+      "questions": 82
+     },
+     {
+      "name": "Respiratory volumes and capacities",
+      "questions": 99
+     },
+     {
+      "name": "Exchange of gases",
+      "questions": 106
+     },
+     {
+      "name": "Transport of gases",
+      "questions": 241
+     },
+     {
+      "name": "Regulation of Respiration",
+      "questions": 82
+     },
+     {
+      "name": "Disorders of respiration system",
+      "questions": 110
+     },
+     {
+      "name": "Mix Examples- Breathing and Exchange of Gases",
+      "questions": 71
+     }
+    ]
+   },
+   {
+    "name": "Body Fluids and Circulation",
+    "topics": [
+     {
+      "name": "Blood and Blood Group",
+      "questions": 606
+     },
+     {
+      "name": "Lymphatic system",
+      "questions": 73
+     },
+     {
+      "name": "Structure and function of heart",
+      "questions": 390
+     },
+     {
+      "name": "Cardiac cycle",
+      "questions": 43
+     },
+     {
+      "name": "Blood pressure, ECG",
+      "questions": 81
+     },
+     {
+      "name": "Double Circulation and Circulatory pathway",
+      "questions": 104
+     },
+     {
+      "name": "Blood vessel",
+      "questions": 105
+     },
+     {
+      "name": "Regulation of cardiac activity",
+      "questions": 38
+     },
+     {
+      "name": "Disorder of circulatory system",
+      "questions": 62
+     },
+     {
+      "name": "Mix Examples- Body Fluids and Circulations",
+      "questions": 74
+     }
+    ]
+   },
+   {
+    "name": "Excretory Products and their Elimination",
+    "topics": [
+     {
+      "name": "Excretory waste products",
+      "questions": 232
+     },
+     {
+      "name": "Excretory organs of different organism",
+      "questions": 72
+     },
+     {
+      "name": "Human excretory system",
+      "questions": 146
+     },
+     {
+      "name": "Urine Formation",
+      "questions": 106
+     },
+     {
+      "name": "Function of the Tubules",
+      "questions": 126
+     },
+     {
+      "name": "Mechanism of Concentration of the Filtrate",
+      "questions": 68
+     },
+     {
+      "name": "Regulation of Kidney Function",
+      "questions": 155
+     },
+     {
+      "name": "Micturition",
+      "questions": 22
+     },
+     {
+      "name": "Role of other Organs in Excretion",
+      "questions": 45
+     },
+     {
+      "name": "Disorders of the Excretory System",
+      "questions": 116
+     },
+     {
+      "name": "Mix Examples- Excretory Products and their Elimination",
+      "questions": 38
+     }
+    ]
+   },
+   {
+    "name": "Locomotion and Movement",
+    "topics": [
+     {
+      "name": "Types of Movement",
+      "questions": 53
+     },
+     {
+      "name": "Muscles",
+      "questions": 337
+     },
+     {
+      "name": "Axial skeleton",
+      "questions": 210
+     },
+     {
+      "name": "Appendicular skeleton",
+      "questions": 128
+     },
+     {
+      "name": "Joints",
+      "questions": 113
+     },
+     {
+      "name": "Disorders of Muscular and Skeletal System",
+      "questions": 52
+     },
+     {
+      "name": "Mix Examples- Locomotion and Movement",
+      "questions": 47
+     }
+    ]
+   },
+   {
+    "name": "Neural Control and Coordination",
+    "topics": [
+     {
+      "name": "Introduction",
+      "questions": 37
+     },
+     {
+      "name": "Human Neural System",
+      "questions": 62
+     },
+     {
+      "name": "Neuron as Structural and Functional Unit of Neural System",
+      "questions": 172
+     },
+     {
+      "name": "Generation and conduction of Nerve Impulse",
+      "questions": 112
+     },
+     {
+      "name": "Transmission of Impulses",
+      "questions": 111
+     },
+     {
+      "name": "Central Neural System",
+      "questions": 436
+     },
+     {
+      "name": "Mix Examples- Neural Control and Coordination",
+      "questions": 50
+     },
+     {
+      "name": "Sensory Reception and Processing(Nose,Tongue)",
+      "questions": 52
+     },
+     {
+      "name": "Eye",
+      "questions": 305
+     },
+     {
+      "name": "Ear",
+      "questions": 211
+     },
+     {
+      "name": "Reflex Action and Reflex Arc",
+      "questions": 47
+     }
+    ]
+   },
+   {
+    "name": "Chemical Coordination and Integration",
+    "topics": [
+     {
+      "name": "Different glands and their hormones",
+      "questions": 105
+     },
+     {
+      "name": "Hypothalamus",
+      "questions": 93
+     },
+     {
+      "name": "The Pituitary Gland",
+      "questions": 217
+     },
+     {
+      "name": "The Pineal Gland",
+      "questions": 40
+     },
+     {
+      "name": "Thyroid Gland",
+      "questions": 156
+     },
+     {
+      "name": "Parathyroid Gland",
+      "questions": 60
+     },
+     {
+      "name": "Thymus",
+      "questions": 49
+     },
+     {
+      "name": "Adrenal Gland",
+      "questions": 188
+     },
+     {
+      "name": "Pancreas",
+      "questions": 120
+     },
+     {
+      "name": "Testis",
+      "questions": 24
+     },
+     {
+      "name": "Ovary",
+      "questions": 29
+     },
+     {
+      "name": "Hormones Of Heart, Kidney And Gastrointestinal Tract",
+      "questions": 44
+     },
+     {
+      "name": "Hormones and their mechanism",
+      "questions": 132
+     },
+     {
+      "name": "Mix Examples-Chemical Coordination and Integration",
+      "questions": 93
+     }
+    ]
+   }
+  ]
+ },
+ "12th": {
+  "Physics": [
+   {
+    "name": "Electric Charges and Fields",
+    "topics": [
+     {
+      "name": "Electric Charge, It's Properties and Method of Charging",
+      "questions": 98
+     },
+     {
+      "name": "Electrostatic Force and Coulombs Law",
+      "questions": 294
+     },
+     {
+      "name": "Electric Field",
+      "questions": 226
+     },
+     {
+      "name": "Motion of Charge particle in Electric filed",
+      "questions": 198
+     },
+     {
+      "name": "Charge and Charge Density (Distribution of Charges)",
+      "questions": 35
+     },
+     {
+      "name": "Electric Field Lines, Electric Flux and Gauss's Law",
+      "questions": 285
+     },
+     {
+      "name": "Electric Field and usage of Gauss's Law",
+      "questions": 221
+     },
+     {
+      "name": "Electric Dipole and Electric Field",
+      "questions": 253
+     },
+     {
+      "name": "Mix Examples-Electric Charges and Fields",
+      "questions": 186
+     }
+    ]
+   },
+   {
+    "name": "Electrostatic Potential and Capacitance",
+    "topics": [
+     {
+      "name": "Electric potential",
+      "questions": 394
+     },
+     {
+      "name": "Relation between Electric Field and Potential and Potential Gradient",
+      "questions": 122
+     },
+     {
+      "name": "Equipotential Surface",
+      "questions": 77
+     },
+     {
+      "name": "Electric potential and Potential Energy of dipole",
+      "questions": 90
+     },
+     {
+      "name": "Potential Energy and Work Done in uniform and non uniform Electric Field",
+      "questions": 34
+     },
+     {
+      "name": "Conductor, Electrostatic Shielding, Induced Charge and Charge Redistribution on conductor",
+      "questions": 106
+     },
+     {
+      "name": "Basic of Capacitor and type of capacitor (Spherical, Cylindrical)",
+      "questions": 87
+     },
+     {
+      "name": "Parallel Plate Capacitor",
+      "questions": 126
+     },
+     {
+      "name": "Equivalent Capacitance of Capacitor connected in Series and Parallel",
+      "questions": 297
+     },
+     {
+      "name": "Sharing of Charge in Capacitor Circuit",
+      "questions": 144
+     },
+     {
+      "name": "Energy Stored in a Capacitor",
+      "questions": 137
+     },
+     {
+      "name": "Dielectric and Polarisation",
+      "questions": 36
+     },
+     {
+      "name": "Effect of Dielectric Inside Capacitor",
+      "questions": 344
+     },
+     {
+      "name": "Charging and Discharging of Capacitance and RC circuit (DC)",
+      "questions": 136
+     },
+     {
+      "name": "Mix Examples - Electric Potential and Capacitance",
+      "questions": 347
+     }
+    ]
+   },
+   {
+    "name": "Current Electricity",
+    "topics": [
+     {
+      "name": "Electric Current",
+      "questions": 69
+     },
+     {
+      "name": "Current Density, Drift Velocity and Mobility",
+      "questions": 168
+     },
+     {
+      "name": "Ohm's Law",
+      "questions": 44
+     },
+     {
+      "name": "Resistance of wire, Resistivity and Conductivity",
+      "questions": 282
+     },
+     {
+      "name": "Carbon resistors and Color code for Carbon resistors",
+      "questions": 33
+     },
+     {
+      "name": "Equivalent Resistance - Series and Parallel , Circuit",
+      "questions": 323
+     },
+     {
+      "name": "Circuit Solving for current and Voltage",
+      "questions": 667
+     },
+     {
+      "name": "Electric Cells and Combination of cells in Series and Parallel",
+      "questions": 169
+     },
+     {
+      "name": "Kirchhoff's Law and Whitestone Bridge Circuit solving",
+      "questions": 311
+     },
+     {
+      "name": "Meter Bridge",
+      "questions": 115
+     },
+     {
+      "name": "Potentiometer",
+      "questions": 241
+     },
+     {
+      "name": "Electrical Energy and Power",
+      "questions": 222
+     },
+     {
+      "name": "Mix Examples-Current Electricity",
+      "questions": 239
+     }
+    ]
+   },
+   {
+    "name": "Moving Charges and Magnetism",
+    "topics": [
+     {
+      "name": "Biot-Savart's Law and its application",
+      "questions": 667
+     },
+     {
+      "name": "Ampere’s circuital law and its application (Solenoid and Toroid)",
+      "questions": 191
+     },
+     {
+      "name": "Motion of Charged Particle In Magnetic Field",
+      "questions": 483
+     },
+     {
+      "name": "Lorentz Force",
+      "questions": 33
+     },
+     {
+      "name": "Force on a Current Carrying Conductor",
+      "questions": 249
+     },
+     {
+      "name": "Torque , Potential Energy and Work Done in Mangetic Field",
+      "questions": 107
+     },
+     {
+      "name": "The Moving Coil Galvanometer (Sensitivity) and Ammeter and Voltmeter Conversion",
+      "questions": 360
+     },
+     {
+      "name": "Cyclotron",
+      "questions": 35
+     },
+     {
+      "name": "Bohr Magnetron",
+      "questions": 25
+     },
+     {
+      "name": "Magnetic Moment of Current Carrying Coil",
+      "questions": 129
+     },
+     {
+      "name": "Mix Examples-Moving Charges and Magnetism",
+      "questions": 98
+     }
+    ]
+   },
+   {
+    "name": "Magnetism and Matter",
+    "topics": [
+     {
+      "name": "Bar Magnet and Magnetic Dipole and Magnetic Moment",
+      "questions": 117
+     },
+     {
+      "name": "Magnetic field due to magnetic dipole and Dipole in Magnetic Field and Poential Energy and Work Done",
+      "questions": 153
+     },
+     {
+      "name": "Earth Magnetism",
+      "questions": 135
+     },
+     {
+      "name": "Magnetic Equipment's (Tangent galvanometer, Vibration magnetometer and Neutral point)",
+      "questions": 172
+     },
+     {
+      "name": "Magnetization, Magnetic Induction Susceptibility",
+      "questions": 93
+     },
+     {
+      "name": "Magnetic Materials (Diamagnetic, Paramagnetic and Ferromagnetic)",
+      "questions": 187
+     },
+     {
+      "name": "Magnetic Hysteresis",
+      "questions": 37
+     },
+     {
+      "name": "Mix Examples-Magnetism and Matter",
+      "questions": 16
+     }
+    ]
+   },
+   {
+    "name": "Electromagnetic Induction",
+    "topics": [
+     {
+      "name": "Magnetic Flux and Gauss law for Magnetism",
+      "questions": 51
+     },
+     {
+      "name": "Faraday's and Lenz's Law",
+      "questions": 287
+     },
+     {
+      "name": "Motional EMI (Induced Parameter)",
+      "questions": 334
+     },
+     {
+      "name": "Self Induction",
+      "questions": 222
+     },
+     {
+      "name": "Mutual Induction",
+      "questions": 146
+     },
+     {
+      "name": "Dynamic EMI and Periodic EMI",
+      "questions": 37
+     },
+     {
+      "name": "Energy Stored in Inductor",
+      "questions": 47
+     },
+     {
+      "name": "Combination of Inductor",
+      "questions": 33
+     },
+     {
+      "name": "R-L D.C. Circuit",
+      "questions": 130
+     },
+     {
+      "name": "Static EMI (Time Varying Magnetic Field)",
+      "questions": 48
+     },
+     {
+      "name": "Transformer",
+      "questions": 150
+     },
+     {
+      "name": "Application of EMI (DC Motor)",
+      "questions": 24
+     },
+     {
+      "name": "Eddy Current",
+      "questions": 37
+     },
+     {
+      "name": "Mix Examples-Electromagnetic Induction",
+      "questions": 134
+     }
+    ]
+   },
+   {
+    "name": "Alternating Current",
+    "topics": [
+     {
+      "name": "Alternating Current, Voltage (rms and Average)",
+      "questions": 174
+     },
+     {
+      "name": "Phase and Impedance, Reactance, Admittance and Susceptance",
+      "questions": 18
+     },
+     {
+      "name": "Only Inductor, Only Capacitor and Only Resistor Circuit",
+      "questions": 149
+     },
+     {
+      "name": "RL, RC and LC AC Circuits",
+      "questions": 274
+     },
+     {
+      "name": "Inductance, Capacitance and Resistance in Series and Parallel",
+      "questions": 136
+     },
+     {
+      "name": "Power in AC and Power Factor",
+      "questions": 94
+     },
+     {
+      "name": "Half Power Frequency , Quality Factor ,Resonance in AC Circuit",
+      "questions": 258
+     },
+     {
+      "name": "LC Oscillations",
+      "questions": 95
+     },
+     {
+      "name": "Mix Examples-Alternating Current",
+      "questions": 90
+     }
+    ]
+   },
+   {
+    "name": "Electromagnetic Waves",
+    "topics": [
+     {
+      "name": "Maxwell's equations , Concept of displacement current and Hertz experiment",
+      "questions": 105
+     },
+     {
+      "name": "Properties of Electromagnetic Waves",
+      "questions": 467
+     },
+     {
+      "name": "Electromagnetic Spectrum",
+      "questions": 168
+     },
+     {
+      "name": "Mix Examples- Electromagnetic waves",
+      "questions": 32
+     }
+    ]
+   },
+   {
+    "name": "Ray Optics and Optical Instruments",
+    "topics": [
+     {
+      "name": "Plane Mirror",
+      "questions": 160
+     },
+     {
+      "name": "Spherical Mirror",
+      "questions": 216
+     },
+     {
+      "name": "Velocity in Mirrors (Kinematics)",
+      "questions": 28
+     },
+     {
+      "name": "Combination of Mirrors and Cutting of Mirror",
+      "questions": 3
+     },
+     {
+      "name": "Refraction of Light",
+      "questions": 241
+     },
+     {
+      "name": "Refraction through Plane Surface and Glass Slab",
+      "questions": 148
+     },
+     {
+      "name": "Critical Angle and Total Internal Reflection",
+      "questions": 254
+     },
+     {
+      "name": "Refraction Through Single Curved Surface",
+      "questions": 83
+     },
+     {
+      "name": "Refraction by Lenses",
+      "questions": 444
+     },
+     {
+      "name": "Combination of Lenses",
+      "questions": 179
+     },
+     {
+      "name": "Combination of Lens and Mirror and Silvering of Lens, Cutting of Mirror",
+      "questions": 85
+     },
+     {
+      "name": "Refraction Through Prism",
+      "questions": 332
+     },
+     {
+      "name": "Dispersion of Light",
+      "questions": 41
+     },
+     {
+      "name": "Aberrations in Optical Elements",
+      "questions": 10
+     },
+     {
+      "name": "Human Eye and Defects of Vision",
+      "questions": 97
+     },
+     {
+      "name": "Microscope",
+      "questions": 120
+     },
+     {
+      "name": "Telescope",
+      "questions": 139
+     },
+     {
+      "name": "Scattering of light and Some Natural Phenomenon of Sunlight",
+      "questions": 41
+     },
+     {
+      "name": "Mix Examples-Ray Optics",
+      "questions": 166
+     }
+    ]
+   },
+   {
+    "name": "Wave Optics",
+    "topics": [
+     {
+      "name": "Huygens’ Principle and Wave-fronts",
+      "questions": 67
+     },
+     {
+      "name": "Wave Nature and Interference of Light (Intensity)",
+      "questions": 216
+     },
+     {
+      "name": "Young's Double Slit Experiment (YDSE)",
+      "questions": 604
+     },
+     {
+      "name": "Intensity in Young's Double Slit Experiment",
+      "questions": 71
+     },
+     {
+      "name": "Variations in YDSE (Young's Double Slit Experiment)",
+      "questions": 105
+     },
+     {
+      "name": "Doppler's Effect of Light",
+      "questions": 59
+     },
+     {
+      "name": "Thin film Interference, fresnel biprism, lloyd's mirror",
+      "questions": 97
+     },
+     {
+      "name": "Single Slit Diffraction of Light",
+      "questions": 264
+     },
+     {
+      "name": "Fresnel distance, Diffraction through circular slit, concept of Airy Disc, Rayleigh Criterion of Resolution , Fraunhofer diffraction",
+      "questions": 40
+     },
+     {
+      "name": "Resolving power-Human eye, Microscopes and Telescopes",
+      "questions": 108
+     },
+     {
+      "name": "Polarisation of Light and Malus' Law",
+      "questions": 150
+     },
+     {
+      "name": "Brewster's Law and Other methods of polarisation",
+      "questions": 76
+     },
+     {
+      "name": "Mix Examples-Wave Optics",
+      "questions": 58
+     }
+    ]
+   },
+   {
+    "name": "Dual Nature of Radiation and Matter",
+    "topics": [
+     {
+      "name": "Cathode Rays and Electron Emission",
+      "questions": 59
+     },
+     {
+      "name": "Radiation Force and Pressure",
+      "questions": 61
+     },
+     {
+      "name": "Photoelectric Effect by Lenard and it's Observations",
+      "questions": 154
+     },
+     {
+      "name": "Einstein's Photoelectric Equation and Energy Quantum of Radiation",
+      "questions": 711
+     },
+     {
+      "name": "Matter Waves and de Broglie Wavelength",
+      "questions": 408
+     },
+     {
+      "name": "Particle Nature of Light : Photon",
+      "questions": 213
+     },
+     {
+      "name": "Davisson-Germer Experiment and Heisenberg Uncertainty Principle",
+      "questions": 34
+     },
+     {
+      "name": "Mix Examples-Dual Nature of Radiation and matter",
+      "questions": 71
+     }
+    ]
+   },
+   {
+    "name": "Atoms",
+    "topics": [
+     {
+      "name": "Atomic Models and Scattering of Alpha particle",
+      "questions": 87
+     },
+     {
+      "name": "Bohr's Model of Hydrogen Atom",
+      "questions": 555
+     },
+     {
+      "name": "Electron Energy and Electron Energy Levels in Hydrogen Atom",
+      "questions": 219
+     },
+     {
+      "name": "Spectral Series of Hydrogen Atom",
+      "questions": 232
+     },
+     {
+      "name": "X-Rays",
+      "questions": 304
+     },
+     {
+      "name": "Mix Example - Atoms",
+      "questions": 61
+     }
+    ]
+   },
+   {
+    "name": "Nuclei",
+    "topics": [
+     {
+      "name": "Composition of Nucleus, Size of the Nucleus, Nuclear force",
+      "questions": 253
+     },
+     {
+      "name": "Mass-Energy, Nuclear Binding Energy, Nuclear Stability",
+      "questions": 185
+     },
+     {
+      "name": "Nuclear Fission, Fusion and Nuclear Reactor",
+      "questions": 311
+     },
+     {
+      "name": "Properties of Alpha, Beta and Gamma Rays and Decay Process",
+      "questions": 264
+     },
+     {
+      "name": "Law of Radioactivity by Rutherford and Soddy and Half Life and Mean Life",
+      "questions": 551
+     },
+     {
+      "name": "Mix Examples-Nuclei",
+      "questions": 10
+     }
+    ]
+   },
+   {
+    "name": "Semiconductor Electronics",
+    "topics": [
+     {
+      "name": "Valve Electronics",
+      "questions": 80
+     },
+     {
+      "name": "Classification of Materials and Energy Band Theory",
+      "questions": 170
+     },
+     {
+      "name": "Types Semiconductors (P type and N type)",
+      "questions": 225
+     },
+     {
+      "name": "PN Junction and Diode",
+      "questions": 385
+     },
+     {
+      "name": "Application of junction diode (Rectifier)",
+      "questions": 116
+     },
+     {
+      "name": "Light Emitting Diode (L.E.D), Photodiode, Solar Cell",
+      "questions": 107
+     },
+     {
+      "name": "Zener Diode",
+      "questions": 107
+     },
+     {
+      "name": "Junction Transistor",
+      "questions": 385
+     },
+     {
+      "name": "Boolean Algebra and Logic Gates",
+      "questions": 451
+     },
+     {
+      "name": "Mix Examples- Semiconductor Electronics",
+      "questions": 37
+     }
+    ]
+   },
+   {
+    "name": "Communication",
+    "topics": [
+     {
+      "name": "Mix Examples-Communication",
+      "questions": 27
+     },
+     {
+      "name": "Communication",
+      "questions": 449
+     }
+    ]
+   },
+   {
+    "name": "Universe",
+    "topics": [
+     {
+      "name": "Universe",
+      "questions": 69
+     }
+    ]
+   }
+  ],
+  "Chemistry": [
+   {
+    "name": "Solutions",
+    "topics": [
+     {
+      "name": "Solubility",
+      "questions": 150
+     },
+     {
+      "name": "Method of expressing concentration of solution",
+      "questions": 439
+     },
+     {
+      "name": "Colligative properties",
+      "questions": 39
+     },
+     {
+      "name": "Lowering of vapour pressure",
+      "questions": 318
+     },
+     {
+      "name": "Ideal and Non-ideal solution",
+      "questions": 174
+     },
+     {
+      "name": "Azeotropic mixture",
+      "questions": 36
+     },
+     {
+      "name": "Elevation of boiling point of the solvent",
+      "questions": 145
+     },
+     {
+      "name": "Depression of freezing point of the solvent",
+      "questions": 200
+     },
+     {
+      "name": "Osmosis and Osmotic pressure of the solution",
+      "questions": 312
+     },
+     {
+      "name": "Colligative properties of electrolyte",
+      "questions": 252
+     },
+     {
+      "name": "Abnormal molecular mass",
+      "questions": 114
+     },
+     {
+      "name": "Mix Examples of Solutions",
+      "questions": 147
+     }
+    ]
+   },
+   {
+    "name": "Electrochemistry",
+    "topics": [
+     {
+      "name": "Electrolytes and Electrolysis",
+      "questions": 233
+     },
+     {
+      "name": "Faraday’s law of electrolysis",
+      "questions": 413
+     },
+     {
+      "name": "Conductor and Conductance and Cell constant",
+      "questions": 399
+     },
+     {
+      "name": "Electrochemical cells",
+      "questions": 346
+     },
+     {
+      "name": "Electrode potential and ECell",
+      "questions": 392
+     },
+     {
+      "name": "Nernst equation and ECS",
+      "questions": 338
+     },
+     {
+      "name": "Corrosion",
+      "questions": 50
+     },
+     {
+      "name": "Mix Examples-Electrochemistry",
+      "questions": 113
+     }
+    ]
+   },
+   {
+    "name": "Chemical Kinetics",
+    "topics": [
+     {
+      "name": "Rate of a reaction",
+      "questions": 195
+     },
+     {
+      "name": "Rate law , Rate constant , Order of Reaction and Molecularity",
+      "questions": 554
+     },
+     {
+      "name": "Zero order reaction",
+      "questions": 135
+     },
+     {
+      "name": "First Order reaction",
+      "questions": 524
+     },
+     {
+      "name": "Collision theory, Energy of activation and Arrhenius equation",
+      "questions": 459
+     },
+     {
+      "name": "Photochemical reaction",
+      "questions": 8
+     },
+     {
+      "name": "Mix Examples-Chemical Kinetics",
+      "questions": 47
+     }
+    ]
+   },
+   {
+    "name": "The d- and f-Block Elements",
+    "topics": [
+     {
+      "name": "General Characteristics",
+      "questions": 890
+     },
+     {
+      "name": "Physical properties",
+      "questions": 15
+     },
+     {
+      "name": "Chemical properties",
+      "questions": 119
+     },
+     {
+      "name": "Compounds of Transitional elements",
+      "questions": 311
+     },
+     {
+      "name": "Lanthanoids and Actinoids",
+      "questions": 302
+     },
+     {
+      "name": "Mix Examples-d and f-Block Elements",
+      "questions": 27
+     }
+    ]
+   },
+   {
+    "name": "Coordination Compounds",
+    "topics": [
+     {
+      "name": "Basic Terms",
+      "questions": 469
+     },
+     {
+      "name": "Nomenclature and oxidation State",
+      "questions": 299
+     },
+     {
+      "name": "EAN number",
+      "questions": 73
+     },
+     {
+      "name": "Isomerism and Magnetic properties",
+      "questions": 773
+     },
+     {
+      "name": "Hybridisation and Geometry",
+      "questions": 419
+     },
+     {
+      "name": "Complexes and complex stability",
+      "questions": 289
+     },
+     {
+      "name": "Crystal Field theory",
+      "questions": 221
+     },
+     {
+      "name": "Organometallic compounds",
+      "questions": 132
+     },
+     {
+      "name": "Application of Co-ordination compounds",
+      "questions": 126
+     },
+     {
+      "name": "Mix Examples-Co-ordination Chemistry",
+      "questions": 84
+     }
+    ]
+   },
+   {
+    "name": "Haloalkanes and Haloarenes",
+    "topics": [
+     {
+      "name": "Introduction of Halogen containing compounds",
+      "questions": 95
+     },
+     {
+      "name": "Preparation of Haloalkanes",
+      "questions": 93
+     },
+     {
+      "name": "Preparation of Haloarenes",
+      "questions": 45
+     },
+     {
+      "name": "Properties of Haloalkanes",
+      "questions": 1118
+     },
+     {
+      "name": "Properties of Haloarenes",
+      "questions": 386
+     },
+     {
+      "name": "Polyhalogenated compounds",
+      "questions": 67
+     },
+     {
+      "name": "Uses of Halogen containing compounds",
+      "questions": 37
+     },
+     {
+      "name": "Mix Examples-Haloalkanes and Haloarenes",
+      "questions": 105
+     }
+    ]
+   },
+   {
+    "name": "Alcohols, Phenols and Ethers",
+    "topics": [
+     {
+      "name": "General introduction of alcohol, Phenol and Ethers",
+      "questions": 92
+     },
+     {
+      "name": "Preparation of alcohol",
+      "questions": 59
+     },
+     {
+      "name": "Properties of alcohol",
+      "questions": 822
+     },
+     {
+      "name": "Preparation of Phenols",
+      "questions": 35
+     },
+     {
+      "name": "Properties of Phenols",
+      "questions": 648
+     },
+     {
+      "name": "Preparation of Ethers",
+      "questions": 10
+     },
+     {
+      "name": "Properties of Ethers",
+      "questions": 306
+     },
+     {
+      "name": "Mix Examples-Alcohol, Phenol and Ethers",
+      "questions": 134
+     }
+    ]
+   },
+   {
+    "name": "1 Aldehydes, Ketones and Carboxylic Acids: Aldehydes and Ketones",
+    "topics": [
+     {
+      "name": "Introduction",
+      "questions": 50
+     },
+     {
+      "name": "Preparation",
+      "questions": 292
+     },
+     {
+      "name": "Properties",
+      "questions": 1632
+     },
+     {
+      "name": "Uses of Aldehydes and Ketones",
+      "questions": 2
+     }
+    ]
+   },
+   {
+    "name": "2 Aldehydes, Ketones and Carboxylic Acids: Carboxylic Acids and their Derivatives",
+    "topics": [
+     {
+      "name": "General Introduction of Carboxylic Acids and Their Derivatives",
+      "questions": 66
+     },
+     {
+      "name": "Preparation of Carboxylic Acids and Their Derivatives",
+      "questions": 133
+     },
+     {
+      "name": "Properties of Carboxylic Acids and Their Derivatives",
+      "questions": 747
+     },
+     {
+      "name": "Uses of Carboxylic Acids and Their Derivatives",
+      "questions": 0
+     },
+     {
+      "name": "Mix Examples-Carboxylic acids and Their derivative",
+      "questions": 200
+     }
+    ]
+   },
+   {
+    "name": "Amines",
+    "topics": [
+     {
+      "name": "Introduction of Nitrogen Containing Compounds",
+      "questions": 77
+     },
+     {
+      "name": "Preparation of Amines",
+      "questions": 213
+     },
+     {
+      "name": "Properties of Amines",
+      "questions": 1121
+     },
+     {
+      "name": "Tests for Nitrogen Containing Compounds",
+      "questions": 127
+     },
+     {
+      "name": "Mix Examples of Amines",
+      "questions": 141
+     }
+    ]
+   },
+   {
+    "name": "Biomolecules",
+    "topics": [
+     {
+      "name": "Carbohydrates",
+      "questions": 774
+     },
+     {
+      "name": "Amino Acids and Proteins",
+      "questions": 503
+     },
+     {
+      "name": "Enzymes and Hormones",
+      "questions": 146
+     },
+     {
+      "name": "Vitamins",
+      "questions": 124
+     },
+     {
+      "name": "Nucleic Acids",
+      "questions": 188
+     },
+     {
+      "name": "Mix Examples-Biomolecules",
+      "questions": 62
+     },
+     {
+      "name": "Fats and Lipids",
+      "questions": 88
+     }
+    ]
+   },
+   {
+    "name": "Principles Related to Practical Chemistry",
+    "topics": [
+     {
+      "name": "Preliminary Test",
+      "questions": 38
+     },
+     {
+      "name": "Wet Test for Acid Radical",
+      "questions": 119
+     },
+     {
+      "name": "Wet Test for Basic Radical",
+      "questions": 231
+     },
+     {
+      "name": "Volumetric Analysis",
+      "questions": 46
+     },
+     {
+      "name": "Titrations",
+      "questions": 63
+     },
+     {
+      "name": "Mix Examples of Principles Related to Practical Chemistry",
+      "questions": 10
+     }
+    ]
+   },
+   {
+    "name": "Solid State",
+    "topics": [
+     {
+      "name": "Type of solid and Their properties",
+      "questions": 225
+     },
+     {
+      "name": "Crystallography and Lattice",
+      "questions": 108
+     },
+     {
+      "name": "Crystal packing",
+      "questions": 269
+     },
+     {
+      "name": "Mathematical analysis of cubic system and Bragg’s equation",
+      "questions": 381
+     },
+     {
+      "name": "Crystal structure and Coordination number",
+      "questions": 387
+     },
+     {
+      "name": "Defects in crystal",
+      "questions": 174
+     },
+     {
+      "name": "Mix Examples-Solid state",
+      "questions": 26
+     }
+    ]
+   },
+   {
+    "name": "Surface Chemistry",
+    "topics": [
+     {
+      "name": "Adsorption and Adsorption isotherm",
+      "questions": 387
+     },
+     {
+      "name": "Catalyst and Catalysis",
+      "questions": 216
+     },
+     {
+      "name": "Colloids, Emulsion, Gel and Their properties with application",
+      "questions": 842
+     },
+     {
+      "name": "Mix Examples-Surface Chemistry",
+      "questions": 18
+     }
+    ]
+   },
+   {
+    "name": "General Principles and Processes of Isolation of Elements",
+    "topics": [
+     {
+      "name": "Occurrence",
+      "questions": 258
+     },
+     {
+      "name": "Concentration",
+      "questions": 155
+     },
+     {
+      "name": "Roasting and Calcination",
+      "questions": 81
+     },
+     {
+      "name": "Reduction to free Metal",
+      "questions": 542
+     },
+     {
+      "name": "Refining of crude Metal",
+      "questions": 200
+     },
+     {
+      "name": "Mix Examples of General Principles and processes of Isolation of Elements",
+      "questions": 178
+     }
+    ]
+   },
+   {
+    "name": "p-Block Elements (Class 12)",
+    "topics": [
+     {
+      "name": "Nitrogen family",
+      "questions": 995
+     },
+     {
+      "name": "Oxygen family",
+      "questions": 362
+     },
+     {
+      "name": "Halogen family",
+      "questions": 633
+     },
+     {
+      "name": "Noble gases",
+      "questions": 328
+     }
+    ]
+   },
+   {
+    "name": "Polymers",
+    "topics": [
+     {
+      "name": "Classification of Polymer",
+      "questions": 203
+     },
+     {
+      "name": "General methods of preparation and mechanism of polymerisation",
+      "questions": 281
+     },
+     {
+      "name": "Composition, Properties and Uses of Polymer",
+      "questions": 530
+     },
+     {
+      "name": "Mix Examples-Polymer",
+      "questions": 16
+     }
+    ]
+   },
+   {
+    "name": "Chemistry in Everyday Life",
+    "topics": [
+     {
+      "name": "Dyes and Pigment",
+      "questions": 54
+     },
+     {
+      "name": "Drugs and Medicines",
+      "questions": 600
+     },
+     {
+      "name": "Rocket - Propellant and Other",
+      "questions": 38
+     },
+     {
+      "name": "Mix Examples of Chemistry in Everyday life",
+      "questions": 26
+     }
+    ]
+   },
+   {
+    "name": "Nuclear Chemistry",
+    "topics": [
+     {
+      "name": "Nucleus (Stability and Reaction)",
+      "questions": 120
+     },
+     {
+      "name": "Radioactivity and a,b and g rays",
+      "questions": 86
+     },
+     {
+      "name": "Causes of radioactivity and Group displacement law",
+      "questions": 15
+     },
+     {
+      "name": "Rate of decay and Half-life",
+      "questions": 173
+     },
+     {
+      "name": "Artificial transmutation",
+      "questions": 65
+     },
+     {
+      "name": "Isotopes-Isotones and Nuclear isomers",
+      "questions": 27
+     }
+    ]
+   }
+  ],
+  "Mathematics": [
+   {
+    "name": "Relations and Functions",
+    "topics": [
+     {
+      "name": "Types of Relations",
+      "questions": 218
+     },
+     {
+      "name": "Functional Equations",
+      "questions": 120
+     },
+     {
+      "name": "Type of Functions based on Mapping",
+      "questions": 226
+     },
+     {
+      "name": "Domain and Range",
+      "questions": 313
+     },
+     {
+      "name": "Composition of Functions",
+      "questions": 191
+     },
+     {
+      "name": "Inverse Function",
+      "questions": 127
+     },
+     {
+      "name": "Mix Examples of Relation and Function",
+      "questions": 161
+     },
+     {
+      "name": "Binary Operation",
+      "questions": 41
+     }
+    ]
+   },
+   {
+    "name": "Inverse Trigonometric Functions",
+    "topics": [
+     {
+      "name": "Basic Concepts of ITF",
+      "questions": 184
+     },
+     {
+      "name": "Properties of ITF",
+      "questions": 502
+     },
+     {
+      "name": "Domain and Range of ITF",
+      "questions": 59
+     },
+     {
+      "name": "Mix Examples-ITF",
+      "questions": 177
+     }
+    ]
+   },
+   {
+    "name": "3-4. Matrices and Determinants",
+    "topics": [
+     {
+      "name": "Types of matrices, Algebra of matrices",
+      "questions": 360
+     },
+     {
+      "name": "Special types of matrices, Transpose of matrices and Trace of matrices",
+      "questions": 72
+     },
+     {
+      "name": "Expansion of determinants, Solution of equation in the form of determinants and area of triangle and Equation of Line",
+      "questions": 436
+     },
+     {
+      "name": "Properties of determinants",
+      "questions": 147
+     },
+     {
+      "name": "Minors and Co-factors, Product of determinants",
+      "questions": 43
+     },
+     {
+      "name": "Adjoint and inverse of matrices",
+      "questions": 470
+     },
+     {
+      "name": "Solution of the Linear equations using Matrices",
+      "questions": 357
+     },
+     {
+      "name": "Rank of Matrices , Some special determinants, differentiation and integration of determinants",
+      "questions": 113
+     },
+     {
+      "name": "Mix Examples-Determinants and Matrices",
+      "questions": 424
+     }
+    ]
+   },
+   {
+    "name": "Continuity and Differentiability",
+    "topics": [
+     {
+      "name": "Continuity",
+      "questions": 554
+     },
+     {
+      "name": "Differentiability",
+      "questions": 195
+     },
+     {
+      "name": "Derivative at a point, Standard differentiation",
+      "questions": 440
+     },
+     {
+      "name": "Differentiation of implicit function",
+      "questions": 247
+     },
+     {
+      "name": "Differentiation of Exponential and Logarithmic",
+      "questions": 94
+     },
+     {
+      "name": "Differentiation of infinite series",
+      "questions": 17
+     },
+     {
+      "name": "Logarithmic Differentiation",
+      "questions": 96
+     },
+     {
+      "name": "Derivatives of Functions in Parametric Forms",
+      "questions": 217
+     },
+     {
+      "name": "Higher order derivatives",
+      "questions": 255
+     },
+     {
+      "name": "Differentiation by substitution",
+      "questions": 164
+     },
+     {
+      "name": "Partial differentiation",
+      "questions": 43
+     },
+     {
+      "name": "Rolle’s theorem, Lagrange's mean value theorem",
+      "questions": 230
+     },
+     {
+      "name": "Mix Examples-Continuity and Differentiation",
+      "questions": 144
+     }
+    ]
+   },
+   {
+    "name": "Application of Derivatives",
+    "topics": [
+     {
+      "name": "Rate of Change of Quantities",
+      "questions": 358
+     },
+     {
+      "name": "Increasing and Decreasing function",
+      "questions": 357
+     },
+     {
+      "name": "Maxima and Minima",
+      "questions": 710
+     },
+     {
+      "name": "Tangent and Normal",
+      "questions": 483
+     },
+     {
+      "name": "Approximate Value",
+      "questions": 121
+     },
+     {
+      "name": "Mix Example of Applications of Derivatives",
+      "questions": 16
+     }
+    ]
+   },
+   {
+    "name": "1 Integrals: Indefinite Integrals",
+    "topics": [
+     {
+      "name": "Fundamental integration",
+      "questions": 358
+     },
+     {
+      "name": "Integration by substitution",
+      "questions": 545
+     },
+     {
+      "name": "Integration of rational function by using partial fractions,",
+      "questions": 126
+     },
+     {
+      "name": "Integration by Parts",
+      "questions": 179
+     },
+     {
+      "name": "Integral of the form ex(F(x) + F'(x)) dx",
+      "questions": 160
+     },
+     {
+      "name": "Evaluation of various forms of integration",
+      "questions": 391
+     },
+     {
+      "name": "Mix Examples-Indefinite Integral",
+      "questions": 30
+     }
+    ]
+   },
+   {
+    "name": "2 Integrals: Definite Integrals",
+    "topics": [
+     {
+      "name": "Fundamental definite integration",
+      "questions": 632
+     },
+     {
+      "name": "Definite integration by substitution",
+      "questions": 78
+     },
+     {
+      "name": "Properties of definite integration",
+      "questions": 688
+     },
+     {
+      "name": "Leibnitz's rule, Wall's Formula",
+      "questions": 103
+     },
+     {
+      "name": "Summation of series by definite integration",
+      "questions": 114
+     },
+     {
+      "name": "Gamma function",
+      "questions": 2
+     },
+     {
+      "name": "Mix Examples-Definite Integral",
+      "questions": 81
+     }
+    ]
+   },
+   {
+    "name": "Application of Integrals",
+    "topics": [
+     {
+      "name": "Area bounded by region of single curve",
+      "questions": 403
+     },
+     {
+      "name": "Area bounded by region of multi curve",
+      "questions": 352
+     }
+    ]
+   },
+   {
+    "name": "Differential Equations",
+    "topics": [
+     {
+      "name": "Order and degree of differential equations",
+      "questions": 176
+     },
+     {
+      "name": "Formation of differential equations",
+      "questions": 217
+     },
+     {
+      "name": "Variable separable type differential equations",
+      "questions": 418
+     },
+     {
+      "name": "Homogeneous differential equations",
+      "questions": 182
+     },
+     {
+      "name": "Linear differential equations",
+      "questions": 477
+     },
+     {
+      "name": "Application of differential equations",
+      "questions": 181
+     },
+     {
+      "name": "Exact differential equations",
+      "questions": 4
+     },
+     {
+      "name": "Mix Examples-Differential Equations",
+      "questions": 62
+     }
+    ]
+   },
+   {
+    "name": "Vector Algebra",
+    "topics": [
+     {
+      "name": "Scalar or Dot product of two vectors and its applications",
+      "questions": 895
+     },
+     {
+      "name": "Vector or Cross product of two vectors and its applications",
+      "questions": 451
+     },
+     {
+      "name": "Scalar triple product and their applications",
+      "questions": 442
+     },
+     {
+      "name": "Vector triple product",
+      "questions": 102
+     },
+     {
+      "name": "Basic , Modulus and Algebra of vectors",
+      "questions": 564
+     },
+     {
+      "name": "Mix Examples-Vector Algebra",
+      "questions": 54
+     }
+    ]
+   },
+   {
+    "name": "Three Dimensional Geometry",
+    "topics": [
+     {
+      "name": "System of co-ordinates, Direction cosines and direction ratios, Projection",
+      "questions": 271
+     },
+     {
+      "name": "Line",
+      "questions": 588
+     },
+     {
+      "name": "Plane",
+      "questions": 532
+     },
+     {
+      "name": "Line and Plane",
+      "questions": 619
+     },
+     {
+      "name": "Mix Examples-Co-ordinate Geometry of Three Dimensions",
+      "questions": 71
+     },
+     {
+      "name": "Sphere",
+      "questions": 44
+     }
+    ]
+   },
+   {
+    "name": "Linear Programming",
+    "topics": [
+     {
+      "name": "MCQ based Question",
+      "questions": 103
+     },
+     {
+      "name": "Word problem of Linear programming",
+      "questions": 139
+     }
+    ]
+   },
+   {
+    "name": "Probability",
+    "topics": [
+     {
+      "name": "Conditional probability",
+      "questions": 237
+     },
+     {
+      "name": "Multiplication Theorem on Probability",
+      "questions": 66
+     },
+     {
+      "name": "Baye's theorem",
+      "questions": 167
+     },
+     {
+      "name": "Probability distribution",
+      "questions": 403
+     },
+     {
+      "name": "Binomial distribution",
+      "questions": 478
+     },
+     {
+      "name": "Mix Examples-Probability",
+      "questions": 234
+     }
+    ]
+   }
+  ],
+  "Biology": [
+   {
+    "name": "Sexual Reproduction in Flowering Plants",
+    "topics": [
+     {
+      "name": "Flower",
+      "questions": 79
+     },
+     {
+      "name": "Stamen, Microsporangium and Pollen Grain",
+      "questions": 339
+     },
+     {
+      "name": "The Pistil, Megasporangium (ovule) and Embryo sac",
+      "questions": 333
+     },
+     {
+      "name": "Pollination",
+      "questions": 256
+     },
+     {
+      "name": "Out breeding Devices",
+      "questions": 75
+     },
+     {
+      "name": "Pollen Pistil Interaction",
+      "questions": 88
+     },
+     {
+      "name": "Artificial Breeding",
+      "questions": 45
+     },
+     {
+      "name": "Double Fertilisation",
+      "questions": 136
+     },
+     {
+      "name": "Endosperm",
+      "questions": 118
+     },
+     {
+      "name": "Embryo",
+      "questions": 73
+     },
+     {
+      "name": "Seed and Fruit",
+      "questions": 219
+     },
+     {
+      "name": "Apomixis and Polyembryony",
+      "questions": 104
+     },
+     {
+      "name": "Mix Examples-Sexual Reproduction in Flowering Plants",
+      "questions": 314
+     }
+    ]
+   },
+   {
+    "name": "Human Reproduction",
+    "topics": [
+     {
+      "name": "Male reproductive system",
+      "questions": 309
+     },
+     {
+      "name": "Female reproductive system",
+      "questions": 143
+     },
+     {
+      "name": "Gametogenesis",
+      "questions": 556
+     },
+     {
+      "name": "Menstrual Cycle",
+      "questions": 169
+     },
+     {
+      "name": "Fertilisation and Implantation",
+      "questions": 235
+     },
+     {
+      "name": "Pregnancy and Embryonic development",
+      "questions": 401
+     },
+     {
+      "name": "Parturition and Lactation",
+      "questions": 97
+     },
+     {
+      "name": "Mix Examples-Human Reproduction",
+      "questions": 126
+     }
+    ]
+   },
+   {
+    "name": "Reproductive Health",
+    "topics": [
+     {
+      "name": "Reproductive Health",
+      "questions": 67
+     },
+     {
+      "name": "Population Stabilisation",
+      "questions": 77
+     },
+     {
+      "name": "Method of birth control",
+      "questions": 327
+     },
+     {
+      "name": "Medical Termination of Pregnancy",
+      "questions": 38
+     },
+     {
+      "name": "Sexually Transmitted Diseases",
+      "questions": 87
+     },
+     {
+      "name": "Infertility",
+      "questions": 127
+     },
+     {
+      "name": "Mix Examples-Reproductive Health",
+      "questions": 34
+     }
+    ]
+   },
+   {
+    "name": "Principles of Inheritance and Variation",
+    "topics": [
+     {
+      "name": "Mendelism",
+      "questions": 325
+     },
+     {
+      "name": "Inheritance of one gene",
+      "questions": 118
+     },
+     {
+      "name": "Mendel's law of inheritance",
+      "questions": 67
+     },
+     {
+      "name": "Incomplete dominance",
+      "questions": 83
+     },
+     {
+      "name": "Multiple alleles",
+      "questions": 100
+     },
+     {
+      "name": "Codominance",
+      "questions": 33
+     },
+     {
+      "name": "Inheritance of two gene",
+      "questions": 170
+     },
+     {
+      "name": "Chromosomal theory of inheritance",
+      "questions": 27
+     },
+     {
+      "name": "Linkage and recombination",
+      "questions": 208
+     },
+     {
+      "name": "Polygenic inheritance",
+      "questions": 46
+     },
+     {
+      "name": "Pleiotropy",
+      "questions": 34
+     },
+     {
+      "name": "Sex determination",
+      "questions": 238
+     },
+     {
+      "name": "Mutation",
+      "questions": 191
+     },
+     {
+      "name": "Pedigree Analysis and Mendelian disorders",
+      "questions": 401
+     },
+     {
+      "name": "Chromosomal disorders",
+      "questions": 188
+     },
+     {
+      "name": "Mix Examples- Principles of Inheritance and Variation",
+      "questions": 194
+     },
+     {
+      "name": "Interaction of gene and cytoplasmic inheritance",
+      "questions": 78
+     }
+    ]
+   },
+   {
+    "name": "Molecular Basis of Inheritance",
+    "topics": [
+     {
+      "name": "The DNA",
+      "questions": 613
+     },
+     {
+      "name": "The Search for Genetic Material",
+      "questions": 156
+     },
+     {
+      "name": "RNA World",
+      "questions": 78
+     },
+     {
+      "name": "Replication",
+      "questions": 213
+     },
+     {
+      "name": "Transcription",
+      "questions": 259
+     },
+     {
+      "name": "Genetic code",
+      "questions": 235
+     },
+     {
+      "name": "Translation",
+      "questions": 168
+     },
+     {
+      "name": "Gene regulation",
+      "questions": 168
+     },
+     {
+      "name": "Human Genome Project",
+      "questions": 82
+     },
+     {
+      "name": "DNA Fingerprinting",
+      "questions": 122
+     },
+     {
+      "name": "Mix Example-Molecular Basis of Inheritance",
+      "questions": 112
+     }
+    ]
+   },
+   {
+    "name": "Evolution",
+    "topics": [
+     {
+      "name": "Origin of Life",
+      "questions": 332
+     },
+     {
+      "name": "Evolution of Life Forms - A Theory",
+      "questions": 107
+     },
+     {
+      "name": "Evidences of Evolution",
+      "questions": 369
+     },
+     {
+      "name": "Adaptive Radiation",
+      "questions": 101
+     },
+     {
+      "name": "Biological Evolution",
+      "questions": 63
+     },
+     {
+      "name": "Mechanism of Evolution",
+      "questions": 303
+     },
+     {
+      "name": "Hardy - Weinberg Principle",
+      "questions": 70
+     },
+     {
+      "name": "A Brief Account of Evolution",
+      "questions": 130
+     },
+     {
+      "name": "Evolution of Man",
+      "questions": 344
+     },
+     {
+      "name": "Mix Examples- Evolution",
+      "questions": 102
+     }
+    ]
+   },
+   {
+    "name": "Human Health and Disease",
+    "topics": [
+     {
+      "name": "General",
+      "questions": 325
+     },
+     {
+      "name": "Diseases caused by bacteria",
+      "questions": 232
+     },
+     {
+      "name": "Diseases caused by viruses",
+      "questions": 131
+     },
+     {
+      "name": "Diseases caused by protozoa",
+      "questions": 387
+     },
+     {
+      "name": "Diseases caused by helminthes",
+      "questions": 113
+     },
+     {
+      "name": "Diseases caused by Fungi",
+      "questions": 52
+     },
+     {
+      "name": "Immunity",
+      "questions": 601
+     },
+     {
+      "name": "Allergies",
+      "questions": 92
+     },
+     {
+      "name": "AIDS",
+      "questions": 206
+     },
+     {
+      "name": "Cancer",
+      "questions": 245
+     },
+     {
+      "name": "Drugs and Alcohol Abuse",
+      "questions": 448
+     },
+     {
+      "name": "Mix Examples - Human Health and Disease",
+      "questions": 148
+     }
+    ]
+   },
+   {
+    "name": "Microbes in Human Welfare",
+    "topics": [
+     {
+      "name": "General Introduction",
+      "questions": 120
+     },
+     {
+      "name": "Microbes in Household Products",
+      "questions": 154
+     },
+     {
+      "name": "Microbes in Industrial Products",
+      "questions": 418
+     },
+     {
+      "name": "Microbes in Sewage Treatment",
+      "questions": 175
+     },
+     {
+      "name": "Microbes in Production of Biogas",
+      "questions": 152
+     },
+     {
+      "name": "Microbes as Biocontrol Agents",
+      "questions": 238
+     },
+     {
+      "name": "Biofertilizer",
+      "questions": 150
+     },
+     {
+      "name": "Mix Examples - Microbes in Human Welfare",
+      "questions": 81
+     }
+    ]
+   },
+   {
+    "name": "Biotechnology: Principles and Processes",
+    "topics": [
+     {
+      "name": "Principles of biotechnology",
+      "questions": 60
+     },
+     {
+      "name": "Tools of recombinant DNA technology",
+      "questions": 543
+     },
+     {
+      "name": "Process of Recombinant DNA technology",
+      "questions": 287
+     },
+     {
+      "name": "Mix Examples - Biotechnology Principals and Process",
+      "questions": 62
+     }
+    ]
+   },
+   {
+    "name": "Biotechnology and its Applications",
+    "topics": [
+     {
+      "name": "Biotechnological Applications in Agriculture",
+      "questions": 332
+     },
+     {
+      "name": "Biotechnological Applications in Medicine",
+      "questions": 243
+     },
+     {
+      "name": "Transgenic Animals",
+      "questions": 92
+     },
+     {
+      "name": "Ethical Issues",
+      "questions": 31
+     },
+     {
+      "name": "Tissue Culture",
+      "questions": 271
+     },
+     {
+      "name": "Mix Examples- Biotechnology and its Application",
+      "questions": 28
+     }
+    ]
+   },
+   {
+    "name": "Organisms and Populations",
+    "topics": [
+     {
+      "name": "Ecology (General)",
+      "questions": 91
+     },
+     {
+      "name": "Organism and its Environment",
+      "questions": 256
+     },
+     {
+      "name": "Environment (Abiotic and Biotic factors)",
+      "questions": 121
+     },
+     {
+      "name": "Population Attributes",
+      "questions": 178
+     },
+     {
+      "name": "Population Growth",
+      "questions": 184
+     },
+     {
+      "name": "Population Interactions",
+      "questions": 337
+     },
+     {
+      "name": "Mix Examples- Organisms and Populations",
+      "questions": 30
+     }
+    ]
+   },
+   {
+    "name": "Ecosystem",
+    "topics": [
+     {
+      "name": "Introduction",
+      "questions": 30
+     },
+     {
+      "name": "Ecosystem–Structure and Function",
+      "questions": 434
+     },
+     {
+      "name": "Productivity",
+      "questions": 99
+     },
+     {
+      "name": "Decomposition",
+      "questions": 115
+     },
+     {
+      "name": "Energy Flow",
+      "questions": 118
+     },
+     {
+      "name": "Ecological Pyramids",
+      "questions": 121
+     },
+     {
+      "name": "Mix Examples- Ecosystem",
+      "questions": 257
+     }
+    ]
+   },
+   {
+    "name": "Biodiversity and Conservation",
+    "topics": [
+     {
+      "name": "Introduction and Biodiversity",
+      "questions": 260
+     },
+     {
+      "name": "How many species are there on Earth and in India ?",
+      "questions": 85
+     },
+     {
+      "name": "Pattern of Biodiversity",
+      "questions": 51
+     },
+     {
+      "name": "Importance of Species Diversity to the Ecosystem",
+      "questions": 15
+     },
+     {
+      "name": "Loss of Biodiversity",
+      "questions": 23
+     },
+     {
+      "name": "Causes of Biodiversity Losses",
+      "questions": 142
+     },
+     {
+      "name": "Biodiversity Conservation",
+      "questions": 238
+     },
+     {
+      "name": "Mix Example-Biodiversity and Conservation",
+      "questions": 42
+     }
+    ]
+   }
+  ]
+ }
+}

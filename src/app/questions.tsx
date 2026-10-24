@@ -17,23 +17,23 @@ import { MathText } from '@/components/math-text';
 import { Explanation } from '@/components/explanation';
 import { Diagrams } from '@/components/diagrams';
 import { DropdownSelect } from '@/components/dropdown-select';
+import { CreateRoomFlow } from '@/components/create-exam-modal';
 import { Colors, getPalette, Spacing, BottomTabInset, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTabNavigation } from '@/context/tab-context';
+import { useRooms } from '@/context/rooms-context';
+import { useTabBarHeight } from '@/hooks/use-tab-bar-height';
 import { useResponsive } from '@/hooks/use-responsive';
-import type { ExamCategory, FilterState, Question, Standard, Subject } from '@/types/pcmb';
+import type { FilterState, Question, Standard } from '@/types/pcmb';
 import { fetchQuestions } from '@/services/apiService';
 import { useChapterTopicOptions } from '@/hooks/use-chapter-topic-options';
+import { subjectsFor } from '@/constants/syllabus';
 
 // ─── constants ──────────────────────────────────────────────────────────────
 
 const FOUNDATION_STANDARDS: Standard[] = ['9th', '10th'];
 const JEE_NEET_STANDARDS: Standard[] = ['11th', '12th'];
 
-const SUBJECT_MAP: Record<ExamCategory, Subject[]> = {
-  Foundation: ['Science', 'Mathematics', 'Physics', 'Chemistry'],
-  'JEE/NEET': ['Physics', 'Chemistry', 'Mathematics', 'Biology'],
-};
 
 // ─── Question Card ─────────────────────────────────────────────────────────
 
@@ -157,7 +157,44 @@ function QuestionCard({ question, dark }: { question: Question; dark: boolean })
 
 // ─── Main Screen ────────────────────────────────────────────────────────────
 
+/**
+ * Opens on the create-room form, so a teacher starts from the class and
+ * chapter and only sees the questions that match; the whole bank is one tap
+ * away for browsing.
+ */
 function QuestionsScreenComponent() {
+  const scheme = useColorScheme();
+  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+  const { activeTab, questionsMode, setQuestionsMode, setPapersSegment, goToTab } = useTabNavigation();
+  const { addRoom } = useRooms();
+  const tabBarHeight = useTabBarHeight();
+
+  if (questionsMode === 'browse') {
+    return <BrowseQuestions onBack={() => setQuestionsMode('create')} />;
+  }
+
+  return (
+    <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: colors.background }]}>
+      <AppHeader title="Create a room" subtitle="Choose a class and chapter, then the questions" />
+      <View style={[styles.mainWrapper, { maxWidth: MaxContentWidth }]}>
+        <CreateRoomFlow
+          onRoomCreated={addRoom}
+          onViewRooms={() => {
+            setPapersSegment('rooms');
+            goToTab('explore');
+          }}
+          onBrowse={() => setQuestionsMode('browse')}
+          bottomInset={tabBarHeight}
+          active={activeTab === 1}
+        />
+      </View>
+    </SafeAreaView>
+  );
+}
+
+// ─── Question bank: every question, filtered by the drawer ─────────────────
+
+function BrowseQuestions({ onBack }: { onBack: () => void }) {
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
   const palette = getPalette(dark);
@@ -178,12 +215,9 @@ function QuestionsScreenComponent() {
       ? JEE_NEET_STANDARDS
       : [...FOUNDATION_STANDARDS, ...JEE_NEET_STANDARDS];
 
-  const availableSubjects: Subject[] =
-    filters.examCategory === 'Foundation' || filters.examCategory === 'JEE/NEET'
-      ? SUBJECT_MAP[filters.examCategory as ExamCategory]
-      : ['Physics', 'Chemistry', 'Mathematics', 'Biology', 'Science'];
+  const availableSubjects = subjectsFor(filters.examCategory, filters.standard);
 
-  const { chapters, topics } = useChapterTopicOptions(filters);
+  const { chapters, chapterCounts, topics, topicCounts } = useChapterTopicOptions(filters);
 
   // Load questions whenever filters change
   useEffect(() => {
@@ -238,9 +272,22 @@ function QuestionsScreenComponent() {
 
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: bg }]}>
-      <AppHeader title="Questions" subtitle="Practice by subject, chapter and level" />
+      <AppHeader title="Question bank" subtitle="Every question, by subject, chapter and level" />
 
       <View style={[styles.mainWrapper, { maxWidth: MaxContentWidth }]}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onBack}
+          style={({ pressed }) => [styles.backRow, pressed && styles.pressed]}
+        >
+          <SymbolView
+            name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
+            tintColor={palette.primary}
+            size={16}
+          />
+          <Text style={[styles.backRowText, { color: palette.primary }]}>Create a room</Text>
+        </Pressable>
+
         {/* Results and Filter Toggle Toolbar */}
         <View style={styles.resultsToolbar}>
           <Text style={[styles.resultsLabel, { color: colors.textSecondary }]}>
@@ -424,6 +471,7 @@ function QuestionsScreenComponent() {
             <DropdownSelect
               label="Chapter"
               options={chapters}
+              counts={chapterCounts}
               emptyText="No chapters uploaded for this selection"
               selected={filters.chapter}
               onSelect={(v) => updateFilter('chapter', v as any)}
@@ -435,6 +483,7 @@ function QuestionsScreenComponent() {
             <DropdownSelect
               label="Topic"
               options={topics}
+              counts={topicCounts}
               emptyText="No topics uploaded for this selection"
               selected={filters.topic}
               onSelect={(v) => updateFilter('topic', v as any)}
@@ -523,6 +572,18 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.8,
+  },
+  backRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    minHeight: 44,
+    paddingHorizontal: Spacing.three,
+  },
+  backRowText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 
   // Results toolbar

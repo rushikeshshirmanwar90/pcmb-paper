@@ -24,7 +24,11 @@ export interface DropdownSelectProps {
   searchable?: boolean;
   /** Shown, greyed out and not tappable, when there are no options to pick. */
   emptyText?: string;
+  /** How many questions each option holds, shown beside it; "All" shows the total. */
+  counts?: Record<string, number>;
 }
+
+const formatCount = (n: number) => n.toLocaleString();
 
 export function DropdownSelect({
   label,
@@ -35,6 +39,7 @@ export function DropdownSelect({
   icon,
   searchable = false,
   emptyText,
+  counts,
 }: DropdownSelectProps) {
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
@@ -47,6 +52,13 @@ export function DropdownSelect({
 
   const isSelected = selected && selected !== 'All';
   const isEmpty = !!emptyText && !isSelected && options.filter((o) => o !== 'All').length === 0;
+
+  const total = useMemo(
+    () => (counts ? options.reduce((sum, o) => sum + (counts[o] ?? 0), 0) : undefined),
+    [counts, options]
+  );
+  const countOf = (opt: string) => (opt === 'All' ? (options.length > 0 ? total : undefined) : counts?.[opt]);
+  const selectedCount = countOf(isSelected ? selected : 'All');
 
   // All options including 'All'
   const allOptions = useMemo(() => {
@@ -115,6 +127,9 @@ export function DropdownSelect({
         </View>
 
         <View style={styles.triggerRight}>
+          {!isEmpty && selectedCount !== undefined && (
+            <Text style={[styles.countText, { color: palette.mutedForeground }]}>{formatCount(selectedCount)}</Text>
+          )}
           {isSelected && (
             <Pressable
               onPress={handleClear}
@@ -265,6 +280,11 @@ export function DropdownSelect({
                       >
                         {opt === 'All' ? `All (${label})` : opt}
                       </Text>
+                      {countOf(opt) !== undefined && (
+                        <Text style={[styles.countText, { color: palette.mutedForeground }]}>
+                          {formatCount(countOf(opt)!)}
+                        </Text>
+                      )}
                       {active && (
                         <SymbolView
                           name={{ ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' }}
@@ -402,6 +422,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     flex: 1,
     marginRight: 8,
+  },
+  countText: {
+    fontSize: 12,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+    marginRight: 6,
   },
   emptyWrap: {
     padding: 24,

@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 import { getPalette, Spacing, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { subjectsFor } from '@/constants/syllabus';
 import { DropdownSelect } from '@/components/dropdown-select';
 import type { DifficultyLevel, ExamCategory, ExamRoom, Standard, Subject } from '@/types/pcmb';
 
@@ -25,15 +26,10 @@ interface EditRoomModalProps {
 }
 
 const STANDARDS: Standard[] = ['9th', '10th', '11th', '12th'];
-const SUBJECTS: Subject[] = ['Physics', 'Chemistry', 'Mathematics', 'Biology', 'Science'];
 const DIFFICULTIES: DifficultyLevel[] = ['Easy', 'Mid', 'Hard'];
 
 const FOUNDATION_STANDARDS: Standard[] = ['9th', '10th'];
 const JEE_NEET_STANDARDS: Standard[] = ['11th', '12th'];
-const SUBJECT_MAP: Record<ExamCategory, Subject[]> = {
-  Foundation: ['Science', 'Mathematics', 'Physics', 'Chemistry'],
-  'JEE/NEET': ['Physics', 'Chemistry', 'Mathematics', 'Biology'],
-};
 
 export function EditRoomModal({
   room,
@@ -84,12 +80,7 @@ function EditRoomModalContent({
     return STANDARDS;
   }, [examCategory]);
 
-  const availableSubjects = useMemo(() => {
-    if (examCategory === 'Foundation' || examCategory === 'JEE/NEET') {
-      return SUBJECT_MAP[examCategory as ExamCategory];
-    }
-    return SUBJECTS;
-  }, [examCategory]);
+  const availableSubjects = useMemo(() => subjectsFor(examCategory, standard), [examCategory, standard]);
 
   const handleSave = () => {
     if (!title.trim()) {
@@ -191,7 +182,11 @@ function EditRoomModalContent({
             label="Standard / Grade"
             options={availableStandards}
             selected={standard}
-            onSelect={setStandard}
+            onSelect={(val) => {
+              setStandard(val);
+              // 9th and 10th don't have every subject.
+              if (!(subjectsFor(examCategory, val) as string[]).includes(subject)) setSubject('All');
+            }}
             icon={{ ios: 'number', android: 'pin', web: 'pin' }}
           />
 

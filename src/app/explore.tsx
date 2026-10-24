@@ -20,51 +20,16 @@ import { EditPaperModal } from '@/components/edit-paper-modal';
 import { EditRoomModal } from '@/components/edit-room-modal';
 import { DropdownSelect } from '@/components/dropdown-select';
 import { useChapterTopicOptions } from '@/hooks/use-chapter-topic-options';
+import { subjectsFor } from '@/constants/syllabus';
 import { Colors, getPalette, Spacing, BottomTabInset, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import type { ExamCategory, ExamRoom, FilterState, Paper, Standard, Subject } from '@/types/pcmb';
-import { fetchPapers, MOCK_QUESTIONS } from '@/services/apiService';
+import type { ExamRoom, FilterState, Paper, Standard } from '@/types/pcmb';
+import { fetchPapers } from '@/services/apiService';
+import { useRooms } from '@/context/rooms-context';
+import { useTabNavigation } from '@/context/tab-context';
 
 const FOUNDATION_STANDARDS: Standard[] = ['9th', '10th'];
 const JEE_NEET_STANDARDS: Standard[] = ['11th', '12th'];
-const SUBJECT_MAP: Record<ExamCategory, Subject[]> = {
-  Foundation: ['Science', 'Mathematics', 'Physics', 'Chemistry'],
-  'JEE/NEET': ['Physics', 'Chemistry', 'Mathematics', 'Biology'],
-};
-
-// Initial demo rooms populated with mock questions
-const INITIAL_EXAM_ROOMS: ExamRoom[] = [
-  {
-    _id: 'room-demo-1',
-    roomCode: 'NEET-7842',
-    title: 'NEET 2026 Physics & Chemistry Weekly Test',
-    examCategory: 'JEE/NEET',
-    standard: '12th',
-    subject: 'Physics',
-    difficulty: 'Mid',
-    durationMinutes: 45,
-    totalMarks: 16,
-    questions: MOCK_QUESTIONS.filter((q) => q.examCategory === 'JEE/NEET'),
-    createdAt: new Date().toISOString(),
-    status: 'active',
-  },
-  {
-    _id: 'room-demo-2',
-    roomCode: 'FOUND-3910',
-    title: 'Class 10 Foundation Math & Science Quiz',
-    examCategory: 'Foundation',
-    standard: '10th',
-    subject: 'Mathematics',
-    difficulty: 'Easy',
-    durationMinutes: 30,
-    totalMarks: 12,
-    questions: MOCK_QUESTIONS.filter((q) => q.examCategory === 'Foundation'),
-    createdAt: new Date().toISOString(),
-    status: 'active',
-  },
-];
-
-
 
 function ExamRoomCard({
   room,
@@ -318,8 +283,8 @@ function PapersScreenComponent() {
   const colors = Colors[dark ? 'dark' : 'light'];
   const insets = useSafeAreaInsets();
 
-  const [activeSegment, setActiveSegment] = useState<'papers' | 'rooms'>('papers');
-  const [examRooms, setExamRooms] = useState<ExamRoom[]>(INITIAL_EXAM_ROOMS);
+  const { papersSegment: activeSegment, setPapersSegment: setActiveSegment } = useTabNavigation();
+  const { rooms: examRooms, addRoom, updateRoom, deleteRoom } = useRooms();
   const [papers, setPapers] = useState<Paper[]>([]);
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -347,10 +312,7 @@ function PapersScreenComponent() {
       ? JEE_NEET_STANDARDS
       : [...FOUNDATION_STANDARDS, ...JEE_NEET_STANDARDS];
 
-  const availableSubjects: Subject[] =
-    filters.examCategory === 'Foundation' || filters.examCategory === 'JEE/NEET'
-      ? SUBJECT_MAP[filters.examCategory as ExamCategory]
-      : ['Physics', 'Chemistry', 'Mathematics', 'Biology', 'Science'];
+  const availableSubjects = subjectsFor(filters.examCategory, filters.standard);
 
   function updateFilter<K extends keyof FilterState>(key: K, value: FilterState[K]) {
     setFilters((prev) => {
@@ -389,19 +351,17 @@ function PapersScreenComponent() {
   ].filter(Boolean).length;
 
   const handleRoomCreated = (newRoom: ExamRoom) => {
-    setExamRooms((prev) => [newRoom, ...prev]);
+    addRoom(newRoom);
     setActiveSegment('rooms');
   };
 
   const handleUpdateRoom = (updatedRoom: ExamRoom) => {
-    setExamRooms((prev) =>
-      prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r))
-    );
+    updateRoom(updatedRoom);
     setSelectedRoomForDetails(updatedRoom);
   };
 
   const handleDeleteRoom = (roomId: string) => {
-    setExamRooms((prev) => prev.filter((r) => r._id !== roomId));
+    deleteRoom(roomId);
     if (selectedRoomForDetails?._id === roomId) {
       setSelectedRoomForDetails(null);
     }

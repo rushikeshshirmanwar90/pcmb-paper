@@ -1,4 +1,4 @@
-import { DifficultyLevel, FilterOptions, FilterState, Paper, Question, Standard, Subject } from "@/types/pcmb";
+import { DifficultyLevel, ExamCategory, FilterOptions, FilterState, Paper, Question, Standard, Subject } from "@/types/pcmb";
 
 // Base API URL for @papers backend (can be configured)
 const API_BASE_URL = "https://papers-jet.vercel.app/api";
@@ -323,6 +323,58 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
 }
 
 /**
+ * Keeps the app's connection to the server in use. Some networks (mobile
+ * hotspots, carrier NAT) silently drop an HTTP/3 connection that sits idle for
+ * about 15 seconds; iOS then sends the next request into the dead connection,
+ * where it stalls until it times out. A HEAD of the favicon is answered by
+ * Vercel's CDN: no function runs and the database isn't touched.
+ */
+export function pingServer(): void {
+  fetchWithTimeout(`${API_ORIGIN}/favicon.ico`, { method: "HEAD" }, 4000).catch(() => {});
+}
+
+/** Why loading questions failed, in words for the teacher. */
+export class QuestionLoadError extends Error {
+  constructor(message: string, readonly retryable: boolean) {
+    super(message);
+  }
+}
+
+/**
+ * GETs JSON, asking again when the connection stalls or the server has a
+ * hiccup (a 5xx). On networks that drop idle connections, iOS can take over a
+ * minute to replace a dead one, so it keeps trying for about a minute and a
+ * half; `onRetry` lets the screen say it's still trying.
+ */
+async function getJsonWithRetry(
+  url: string,
+  { attempts = 7, timeoutMs = 12000, onRetry }: { attempts?: number; timeoutMs?: number; onRetry?: () => void } = {}
+): Promise<any> {
+  let lastError = new QuestionLoadError("Could not load questions.", true);
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    if (attempt > 1) onRetry?.();
+    try {
+      const res = await fetchWithTimeout(url, {}, timeoutMs);
+      if (res.ok) return await res.json();
+      // A 4xx won't change by asking again.
+      if (res.status < 500) throw new QuestionLoadError(`The server refused the request (${res.status}).`, false);
+      lastError = new QuestionLoadError(`The server had a problem (${res.status}). Try again in a moment.`, true);
+    } catch (error) {
+      if (error instanceof QuestionLoadError && !error.retryable) throw error;
+      lastError =
+        error instanceof QuestionLoadError
+          ? error
+          : new QuestionLoadError(
+              "The connection to the server keeps stalling. Check your internet, or try another network.",
+              true
+            );
+    }
+    if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+  throw lastError;
+}
+
+/**
  * Filter dropdown options. With no scope, chapters and topics cover every
  * uploaded paper; passing a selection narrows them to it.
  */
@@ -333,41 +385,27 @@ export async function fetchFilterOptions(
   for (const [key, value] of Object.entries(scope)) {
     if (value && value !== "All") query.set(key, value);
   }
-  const getJson = async (url: string) => {
-    try {
-      const res = await fetchWithTimeout(url, { headers: { Accept: "application/json" } });
-      return res.ok ? await res.json() : null;
-    } catch {
-      return null;
-    }
-  };
+  // /filters reads chapters and topics straight from the questions (and is
+  // never served from a build-time snapshot), so it alone fills the dropdowns.
+  let filterData: any = null;
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/filters?${query.toString()}`, {
+      headers: { Accept: "application/json" },
+    });
+    filterData = res.ok ? await res.json() : null;
+  } catch {
+    filterData = null;
+  }
 
-  // Chapters and topics also come from the papers list: every uploaded paper
-  // carries the chapter/topic it was tagged with, so the dropdowns fill even
-  // when /filters is serving a stale or empty list.
-  // The papers query leaves the chapter out, so the chapter list still offers
-  // every chapter under the selection; topics are narrowed to it below.
-  const paperQuery = new URLSearchParams(query);
-  paperQuery.delete("chapter");
-  const [filterData, paperData] = await Promise.all([
-    getJson(`${API_BASE_URL}/filters?${query.toString()}`),
-    getJson(`${API_BASE_URL}/papers?${paperQuery.toString()}`),
-  ]);
-
-  if (filterData || paperData) {
-    const papers: any[] = Array.isArray(paperData) ? paperData : [];
-    const chosenChapter = scope.chapter && scope.chapter !== "All" ? scope.chapter.toLowerCase() : null;
-    const papersInChapter = chosenChapter
-      ? papers.filter((p) => (p.chapter || "").toLowerCase() === chosenChapter)
-      : papers;
-    const merge = (fromFilters: unknown, fromPapers: unknown[]) =>
+  if (filterData) {
+    const names = (values: unknown) =>
       Array.from(
         new Set(
-          [...(Array.isArray(fromFilters) ? fromFilters : []), ...fromPapers].filter(
-            (v): v is string => typeof v === "string" && v.trim() !== ""
-          )
+          (Array.isArray(values) ? values : []).filter((v): v is string => typeof v === "string" && v.trim() !== "")
         )
       ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const counts = (value: unknown) =>
+      value && typeof value === "object" ? (value as Record<string, number>) : undefined;
 
     return {
       examCategories: filterData?.examCategories ?? ["Foundation", "JEE/NEET"],
@@ -376,14 +414,19 @@ export async function fetchFilterOptions(
         { category: "JEE/NEET", values: ["11th", "12th"] },
       ],
       subjects: filterData?.subjects ?? ["Physics", "Chemistry", "Mathematics", "Biology", "Science"],
-      chapters: merge(filterData?.chapters, papers.map((p) => p.chapter)),
-      topics: merge(filterData?.topics, papersInChapter.map((p) => p.topic)),
+      chapters: names(filterData.chapters),
+      topics: names(filterData.topics),
+      chapterCounts: counts(filterData.chapterCounts),
+      topicCounts: counts(filterData.topicCounts),
+      chapterTopics: filterData.chapterTopics && typeof filterData.chapterTopics === "object"
+        ? (filterData.chapterTopics as Record<string, string[]>)
+        : undefined,
       levels: filterData?.levels ?? ["Easy", "Mid", "Hard"],
     };
   }
 
-  // Backend unreachable — fall back to the static offline filter structure.
-
+  // Backend unreachable: the bundled syllabus (constants/syllabus.ts) still
+  // lists every chapter and topic, so send none rather than made-up ones.
   return {
     examCategories: ["Foundation", "JEE/NEET"],
     standards: [
@@ -391,33 +434,8 @@ export async function fetchFilterOptions(
       { category: "JEE/NEET", values: ["11th", "12th"] },
     ],
     subjects: ["Physics", "Chemistry", "Mathematics", "Biology", "Science"],
-    chapters: [
-      "Motion",
-      "Real Numbers",
-      "Force and Laws of Motion",
-      "Electricity",
-      "Acids, Bases and Salts",
-      "Kinematics",
-      "Trigonometry",
-      "Chemical Bonding",
-      "Electrostatics",
-      "Integrals",
-      "Genetics",
-    ],
-    topics: [
-      "Distance and Displacement",
-      "Irrational Numbers & Identities",
-      "Newton's Second Law",
-      "Euclid's Division & HCF",
-      "Ohm's Law & Resistance",
-      "pH Scale & Neutralization",
-      "Relative Motion & Projectiles",
-      "Trigonometric Ratios & Identities",
-      "VSEPR Theory & Hybridization",
-      "Electric Field & Gauss Law",
-      "Definite Integration Properties",
-      "Mendelian Inheritance & Dihybrid Cross",
-    ],
+    chapters: [],
+    topics: [],
     levels: ["Easy", "Mid", "Hard"],
   };
 }
@@ -534,6 +552,76 @@ export async function searchPdfQuestions(filters: PdfQuestionSearch): Promise<Qu
   });
 }
 
+const DIFFICULTY_NAMES: Record<string, DifficultyLevel> = { Easy: "Easy", Medium: "Mid", Mid: "Mid", Hard: "Hard" };
+
+/** One question from the API, in the app's shape. */
+function toQuestion(raw: any, idx: number): Question {
+  return {
+    _id: raw._id || `q-api-${idx}`,
+    paperId: raw.paperId || "",
+    questionNumber: raw.questionNumber ?? idx + 1,
+    examCategory: raw.examCategory || "JEE/NEET",
+    standard: raw.standard || "12th",
+    subject: raw.subject || "Physics",
+    chapter: raw.chapter || "",
+    topic: raw.topic || "",
+    difficulty: DIFFICULTY_NAMES[raw.difficulty] || "Mid",
+    questionText: raw.questionText || "",
+    optionA: raw.optionA || "",
+    optionB: raw.optionB || "",
+    optionC: raw.optionC || "",
+    optionD: raw.optionD || "",
+    correctAnswer: raw.correctAnswer || "",
+    answerType: raw.answerType || "MCQ",
+    explanation: raw.explanation || "",
+    source: raw.source || "",
+    diagramUrls: urlList(raw.diagramUrls),
+    optionDiagramUrls: {
+      A: urlList(raw.optionDiagramUrls?.A),
+      B: urlList(raw.optionDiagramUrls?.B),
+      C: urlList(raw.optionDiagramUrls?.C),
+      D: urlList(raw.optionDiagramUrls?.D),
+    },
+    explanationDiagramUrls: urlList(raw.explanationDiagramUrls),
+  };
+}
+
+export interface QuestionPoolRequest {
+  examCategory: ExamCategory;
+  standard: Standard;
+  subject: Subject;
+  /** One request per group, so each chosen chapter or topic gets its share. */
+  groups: { chapter?: string; topic?: string }[];
+  /** Any of these levels; none means every level. */
+  levels: DifficultyLevel[];
+  perGroup: number;
+}
+
+/**
+ * Questions to build a room from: up to `perGroup` from each group, in the
+ * groups' order. Unlike fetchQuestions, this never substitutes demo
+ * questions; a failed request throws a QuestionLoadError the form can show.
+ */
+export async function fetchQuestionPool(request: QuestionPoolRequest, onRetry?: () => void): Promise<Question[][]> {
+  return Promise.all(
+    request.groups.map(async (group) => {
+      const query = new URLSearchParams({
+        examCategory: request.examCategory,
+        standard: request.standard,
+        subject: request.subject,
+        limit: String(request.perGroup),
+      });
+      if (group.chapter) query.set("chapter", group.chapter);
+      if (group.topic) query.set("topic", group.topic);
+      for (const level of request.levels) query.append("level", level);
+
+      const data = await getJsonWithRetry(`${API_BASE_URL}/questions?${query.toString()}`, { onRetry });
+      const rawList = Array.isArray(data) ? data : data?.questions;
+      return Array.isArray(rawList) ? rawList.map(toQuestion) : [];
+    })
+  );
+}
+
 export async function fetchQuestions(filters: FilterState): Promise<Question[]> {
   try {
     const query = new URLSearchParams();
@@ -551,43 +639,7 @@ export async function fetchQuestions(filters: FilterState): Promise<Question[]> 
       // A successful response is the truth, even when empty — only fall back
       // to the mock set when the backend can't be reached at all.
       if (Array.isArray(rawList)) {
-        const questions = rawList.map((raw: any, idx: number): Question => {
-          const diffMap: Record<string, "Easy" | "Mid" | "Hard"> = {
-            Easy: "Easy",
-            Medium: "Mid",
-            Mid: "Mid",
-            Hard: "Hard",
-          };
-          const difficulty = diffMap[raw.difficulty] || "Mid";
-          return {
-            _id: raw._id || `q-api-${idx}`,
-            paperId: raw.paperId || "",
-            questionNumber: raw.questionNumber ?? idx + 1,
-            examCategory: raw.examCategory || "JEE/NEET",
-            standard: raw.standard || "12th",
-            subject: raw.subject || "Physics",
-            chapter: raw.chapter || "",
-            topic: raw.topic || "",
-            difficulty,
-            questionText: raw.questionText || "",
-            optionA: raw.optionA || "",
-            optionB: raw.optionB || "",
-            optionC: raw.optionC || "",
-            optionD: raw.optionD || "",
-            correctAnswer: raw.correctAnswer || "",
-            answerType: raw.answerType || "MCQ",
-            explanation: raw.explanation || "",
-            source: raw.source || "",
-            diagramUrls: urlList(raw.diagramUrls),
-            optionDiagramUrls: {
-              A: urlList(raw.optionDiagramUrls?.A),
-              B: urlList(raw.optionDiagramUrls?.B),
-              C: urlList(raw.optionDiagramUrls?.C),
-              D: urlList(raw.optionDiagramUrls?.D),
-            },
-            explanationDiagramUrls: urlList(raw.explanationDiagramUrls),
-          };
-        });
+        const questions = rawList.map(toQuestion);
         // Questions from different papers share numbers; keep each paper's
         // questions together and in order.
         questions.sort((a, b) =>
