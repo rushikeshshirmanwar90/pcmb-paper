@@ -2,8 +2,6 @@ import React from 'react';
 import type { Role } from '@/constants/school';
 import type { AppTab } from '@/navigation/tabs';
 import { QuestionsScreen } from '@/app/questions';
-import { AccountProfileScreen } from '@/screens/account-profile-screen';
-import { WelcomeScreen } from '@/screens/welcome-screen';
 import { TuitionHomeScreen } from '@/screens/tuition/tuition-home';
 import { TuitionBatchesScreen } from '@/screens/tuition/tuition-batches';
 import { TuitionTeachersScreen } from '@/screens/tuition/tuition-teachers';
@@ -13,6 +11,11 @@ import { TeacherHomeScreen } from '@/screens/teacher/teacher-home';
 import { TeacherBatchesScreen } from '@/screens/teacher/teacher-batches';
 import { TeacherTestsScreen } from '@/screens/teacher/teacher-tests';
 import { TeacherProfileScreen } from '@/screens/teacher/teacher-profile';
+import { StudentHomeScreen } from '@/screens/student/student-home';
+import { StudentTestsScreen } from '@/screens/student/student-tests';
+import { StudentRoadmapScreen } from '@/screens/student/student-roadmap';
+import { StudentPyqScreen } from '@/screens/student/student-pyq';
+import { StudentProfileScreen } from '@/screens/student/student-profile';
 
 // The bottom tabs each role sees after logging in.
 
@@ -75,9 +78,28 @@ const TUITION_TABS: AppTab[] = [
   { ...PROFILE_TAB, render: () => <TuitionProfileScreen /> },
 ];
 
+/** Student login: their day, tests, syllabus roadmap and past-year questions. */
 const STUDENT_TABS: AppTab[] = [
-  { key: 'home', label: 'Home', icon: HOME_ICON, render: () => <WelcomeScreen /> },
-  { ...PROFILE_TAB, render: () => <AccountProfileScreen /> },
+  { key: 'home', label: 'Home', icon: HOME_ICON, render: () => <StudentHomeScreen /> },
+  {
+    key: 'tests',
+    label: 'Tests',
+    icon: { sf: { default: 'list.clipboard', selected: 'list.clipboard.fill' }, md: 'assignment' },
+    render: () => <StudentTestsScreen />,
+  },
+  {
+    key: 'syllabus',
+    label: 'Syllabus',
+    icon: { sf: { default: 'map', selected: 'map.fill' }, md: 'map' },
+    render: () => <StudentRoadmapScreen />,
+  },
+  {
+    key: 'pyqs',
+    label: 'PYQs',
+    icon: { sf: { default: 'clock.arrow.circlepath', selected: 'clock.arrow.circlepath' }, md: 'history' },
+    render: () => <StudentPyqScreen />,
+  },
+  { ...PROFILE_TAB, render: () => <StudentProfileScreen /> },
 ];
 
 export function tabsFor(role: Role): AppTab[] {
