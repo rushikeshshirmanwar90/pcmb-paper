@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 import katex from 'katex';
 import { hasLatex, splitLatex } from '@/shared/latex';
+import { mathTextToHtml } from '@/shared/math-html';
 import { parseMathNodes, type MathNode, type MathSegment, type AccentType } from '@/shared/mathText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getPalette } from '@/constants/theme';
@@ -171,23 +172,18 @@ function WebKaTeXRenderer({
 // Native WebView KaTeX renderer (for iOS / Android)
 // ────────────────────────────────────────────────────────────────────────────
 
-const KATEX_VERSION = '0.16.11';
-
-function buildKaTeXHTML(
-  pieces: ReturnType<typeof splitLatex>,
-  textColor: string,
-  bgColor: string,
-  fontSize: number
-): string {
-  const jsonPieces = JSON.stringify(pieces);
-
+/**
+ * The page a native web view shows: the text with its maths already rendered
+ * to MathML (mathTextToHtml), so it shows straight away and works offline. It
+ * used to load KaTeX from a CDN in <head>, which left the view blank for as
+ * long as that download stalled. The script only reports the height.
+ */
+function buildMathHTML(text: string, textColor: string, bgColor: string, fontSize: number): string {
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@${KATEX_VERSION}/dist/katex.min.css"/>
-  <script src="https://cdn.jsdelivr.net/npm/katex@${KATEX_VERSION}/dist/katex.min.js"><\/script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -199,55 +195,14 @@ function buildKaTeXHTML(
       overflow: hidden;
       -webkit-text-size-adjust: none;
     }
-    body { padding: 0; }
-    .plain { white-space: pre-wrap; word-break: break-word; }
-    .katex { font-size: 1.05em !important; }
-    .katex-display-wrap { margin: 4px 0; overflow-x: auto; overflow-y: hidden; }
-    .katex-display-wrap > .katex-display { margin: 0 !important; }
-    .katex-display > .katex { text-align: left; }
-    .katex-inline-wrap { margin: 0 2px; }
+    #content { word-break: break-word; }
+    math { font-size: 1.1em; }
+    math[display="block"] { margin: 4px 0; overflow-x: auto; }
   </style>
 </head>
 <body>
-  <div id="content"></div>
-  <script id="math-data" type="application/json">${jsonPieces}</script>
+  <div id="content">${mathTextToHtml(text)}</div>
   <script>
-    try {
-      var raw = document.getElementById('math-data').textContent;
-      var pieces = JSON.parse(raw);
-      var container = document.getElementById('content');
-      pieces.forEach(function(p) {
-        if (p.kind === 'text') {
-          var span = document.createElement('span');
-          span.className = 'plain';
-          span.textContent = p.value;
-          container.appendChild(span);
-        } else {
-          var span = document.createElement('span');
-          span.className = p.display ? 'katex-display-wrap' : 'katex-inline-wrap';
-          try {
-            katex.render(p.value, span, {
-              displayMode: !!p.display,
-              throwOnError: false,
-              strict: 'ignore',
-              // The MathML copy is only hidden once katex.min.css has loaded;
-              // until then it renders visibly and inflates the measured height.
-              output: 'html'
-            });
-          } catch(e) {
-            span.textContent = p.value;
-          }
-          container.appendChild(span);
-        }
-      });
-    } catch(err) {
-      document.getElementById('content').textContent = '';
-    }
-
-    // The first measurement happens before the stylesheet and math fonts have
-    // loaded (and sometimes before the view has its final width), so it is
-    // usually far too tall. Re-measure whenever the content actually changes
-    // size, so the view settles on the real rendered height.
     var lastHeight = -1;
     function sendHeight() {
       var h = Math.ceil(document.getElementById('content').getBoundingClientRect().height);
@@ -259,7 +214,6 @@ function buildKaTeXHTML(
     if (window.ResizeObserver) {
       new ResizeObserver(sendHeight).observe(document.getElementById('content'));
     }
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(sendHeight);
     window.addEventListener('load', function() { setTimeout(sendHeight, 50); });
     window.addEventListener('resize', sendHeight);
   <\/script>
@@ -283,11 +237,7 @@ function KaTeXView({
   const [height, setHeight] = useState(fontSize * 2 + 4);
   const webViewRef = useRef<WebView>(null);
 
-  const pieces = useMemo(() => splitLatex(text), [text]);
-  const html = useMemo(
-    () => buildKaTeXHTML(pieces, textColor, bgColor, fontSize),
-    [pieces, textColor, bgColor, fontSize]
-  );
+  const html = useMemo(() => buildMathHTML(text, textColor, bgColor, fontSize), [text, textColor, bgColor, fontSize]);
 
   const onMessage = useCallback((event: { nativeEvent: { data: string } }) => {
     try {
@@ -313,7 +263,6 @@ function KaTeXView({
         showsVerticalScrollIndicator={false}
         onMessage={onMessage}
         javaScriptEnabled
-        {...(Platform.OS === 'android' ? { androidLayerType: 'hardware' } : {})}
       />
     </View>
   );

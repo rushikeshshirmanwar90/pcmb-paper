@@ -17,15 +17,16 @@ import { MathText } from '@/components/math-text';
 import { Explanation } from '@/components/explanation';
 import { Diagrams } from '@/components/diagrams';
 import { DropdownSelect } from '@/components/dropdown-select';
-import { CreateRoomFlow } from '@/components/create-exam-modal';
+import { QuestionSetFlow, type QuestionSetPurpose } from '@/components/create-exam-modal';
 import { Colors, getPalette, Spacing, BottomTabInset, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTabNavigation } from '@/context/tab-context';
+import { useRooms } from '@/context/rooms-context';
 import { useTabBarHeight } from '@/hooks/use-tab-bar-height';
 import { useResponsive } from '@/hooks/use-responsive';
 import type { FilterState, Question, Standard } from '@/types/pcmb';
 import { fetchQuestions } from '@/services/apiService';
-import { createQuestionsPdf } from '@/services/question-pdf';
+import { createQuestionsPdf, PdfRequestError } from '@/services/question-pdf';
 import { openPdf, sharePdf, type SavedPdf } from '@/services/pdf-library';
 import { MyPdfsScreen } from '@/components/my-pdfs-screen';
 import { useChapterTopicOptions } from '@/hooks/use-chapter-topic-options';
@@ -160,30 +161,52 @@ function QuestionCard({ question, dark }: { question: Question; dark: boolean })
 // ─── Main Screen ────────────────────────────────────────────────────────────
 
 /**
- * Opens on the create-PDF form, so a teacher starts from the class and
- * chapter, picks from the questions that match and gets a printable PDF; the
- * whole bank is one tap away for browsing, and its filtered list can be
- * saved as a PDF too. Exam rooms are made from the Papers tab.
+ * Opens on the form for an exam room or a PDF paper, so a teacher starts from
+ * the class and chapter and only sees the questions that match. The whole
+ * bank is one tap away for browsing (its filtered list can be saved as a PDF
+ * too), and so is My PDFs, every PDF made, saved on the phone.
  */
 function QuestionsScreenComponent() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
-  const { activeTab, questionsMode, setQuestionsMode } = useTabNavigation();
+  const { activeTab, questionsMode, setQuestionsMode, setPapersSegment, goToTab } = useTabNavigation();
+  const { addRoom } = useRooms();
   const tabBarHeight = useTabBarHeight();
+  const [purpose, setPurpose] = useState<QuestionSetPurpose>('room');
+
+  const makePdfInstead = () => {
+    setPurpose('pdf');
+    setQuestionsMode('create');
+  };
 
   if (questionsMode === 'browse') {
-    return <BrowseQuestions onBack={() => setQuestionsMode('create')} onViewPdfs={() => setQuestionsMode('pdfs')} />;
+    return (
+      <BrowseQuestions
+        backLabel={purpose === 'pdf' ? 'Make a PDF paper' : 'Create a room'}
+        onBack={() => setQuestionsMode('create')}
+        onViewPdfs={() => setQuestionsMode('pdfs')}
+      />
+    );
   }
   if (questionsMode === 'pdfs') {
-    return <MyPdfsScreen onBack={() => setQuestionsMode('create')} onCreate={() => setQuestionsMode('create')} />;
+    return <MyPdfsScreen onBack={makePdfInstead} onCreate={makePdfInstead} />;
   }
 
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: colors.background }]}>
-      <AppHeader title="Create a PDF" subtitle="Choose a class and chapter, then the questions" />
+      <AppHeader
+        title={purpose === 'pdf' ? 'Make a PDF paper' : 'Create a room'}
+        subtitle="Choose a class and chapter, then the questions"
+      />
       <View style={[styles.mainWrapper, { maxWidth: MaxContentWidth }]}>
-        <CreateRoomFlow
-          mode="pdf"
+        <QuestionSetFlow
+          purpose={purpose}
+          onPurposeChange={setPurpose}
+          onRoomCreated={addRoom}
+          onViewRooms={() => {
+            setPapersSegment('rooms');
+            goToTab('explore');
+          }}
           onBrowse={() => setQuestionsMode('browse')}
           onViewPdfs={() => setQuestionsMode('pdfs')}
           bottomInset={tabBarHeight}
@@ -196,7 +219,16 @@ function QuestionsScreenComponent() {
 
 // ─── Question bank: every question, filtered by the drawer ─────────────────
 
-function BrowseQuestions({ onBack, onViewPdfs }: { onBack: () => void; onViewPdfs: () => void }) {
+function BrowseQuestions({
+  backLabel,
+  onBack,
+  onViewPdfs,
+}: {
+  /** Names the form the back button returns to. */
+  backLabel: string;
+  onBack: () => void;
+  onViewPdfs: () => void;
+}) {
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
   const palette = getPalette(dark);
@@ -226,20 +258,12 @@ function BrowseQuestions({ onBack, onViewPdfs }: { onBack: () => void; onViewPdf
   // end, saved to My PDFs.
   const handleMakePdf = async () => {
     const named = [filters.standard, filters.subject, filters.chapter, filters.topic].filter((v) => v !== 'All');
-    const subtitle = [
-      filters.examCategory !== 'All' ? filters.examCategory : null,
-      filters.level !== 'All' ? `${filters.level} level` : null,
-      filters.searchQuery.trim() ? `"${filters.searchQuery.trim()}"` : null,
-    ]
-      .filter(Boolean)
-      .join(' · ');
     setMakingPdf(true);
     setPdfError(null);
     setMadePdf(null);
     try {
       const saved = await createQuestionsPdf({
         title: named.length ? named.join(' · ') : 'Question bank',
-        subtitle: subtitle || undefined,
         questions,
         content: 'answers',
         marksPerQuestion: 4,
@@ -248,7 +272,7 @@ function BrowseQuestions({ onBack, onViewPdfs }: { onBack: () => void; onViewPdf
       });
       setMadePdf(saved);
     } catch (error) {
-      setPdfError(error instanceof Error ? error.message : 'Could not make the PDF. Try again.');
+      setPdfError(error instanceof PdfRequestError ? error.message : 'Could not make the PDF. Try again.');
     } finally {
       setMakingPdf(false);
     }
@@ -332,7 +356,7 @@ function BrowseQuestions({ onBack, onViewPdfs }: { onBack: () => void; onViewPdf
             tintColor={palette.primary}
             size={16}
           />
-          <Text style={[styles.backRowText, { color: palette.primary }]}>Create a PDF</Text>
+          <Text style={[styles.backRowText, { color: palette.primary }]}>{backLabel}</Text>
         </Pressable>
 
         {/* Results and Filter Toggle Toolbar */}
@@ -393,8 +417,13 @@ function BrowseQuestions({ onBack, onViewPdfs }: { onBack: () => void; onViewPdf
           </Pressable>
           </View>
         </View>
+        {makingPdf ? (
+          <Text accessibilityLiveRegion="polite" style={[styles.pdfStatus, { color: colors.textSecondary }]}>
+            Making the PDF of {questions.length} question{questions.length === 1 ? '' : 's'}…
+          </Text>
+        ) : null}
         {pdfError ? (
-          <Text accessibilityLiveRegion="polite" style={[styles.pdfError, { color: palette.dangerInk }]}>
+          <Text accessibilityLiveRegion="polite" style={[styles.pdfStatus, { color: palette.dangerInk }]}>
             {pdfError}
           </Text>
         ) : null}
@@ -657,6 +686,8 @@ function BrowseQuestions({ onBack, onViewPdfs }: { onBack: () => void; onViewPdf
             data={questions}
             keyExtractor={(item) => item._id}
             renderItem={({ item }) => <QuestionCard question={item} dark={dark} />}
+            // Detaching off-screen rows leaves their maths web views blank on Android.
+            removeClippedSubviews={false}
             ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
             contentContainerStyle={[styles.listContent, { paddingBottom: BottomTabInset + 40 }]}
             showsVerticalScrollIndicator={false}
@@ -690,7 +721,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  pdfError: {
+  pdfStatus: {
     fontSize: 13,
     paddingHorizontal: Spacing.three,
     paddingBottom: Spacing.two,

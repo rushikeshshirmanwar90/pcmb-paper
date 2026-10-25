@@ -1,7 +1,10 @@
 import { DifficultyLevel, ExamCategory, FilterOptions, FilterState, Paper, Question, Standard, Subject } from "@/types/pcmb";
 
-// Base API URL for @papers backend (can be configured)
-const API_BASE_URL = "https://papers-jet.vercel.app/api";
+const API_ORIGIN = ("https://papers-jet.vercel.app")
+  .trim()
+  .replace(/\/+$/, "")
+  .replace(/\/api$/, "");
+export const API_BASE_URL = `${API_ORIGIN}/api`;
 
 export const MOCK_QUESTIONS: Question[] = [
   // --- FOUNDATION CLASS 9 ---
@@ -297,7 +300,6 @@ export const MOCK_PAPERS: Paper[] = [
 
 // The backend serves uploaded diagrams at site-relative paths ("/api/files/…");
 // the app needs them absolute.
-const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "");
 const absoluteUrl = (url: string) => (/^https?:\/\//.test(url) ? url : `${API_ORIGIN}${url.startsWith("/") ? "" : "/"}${url}`);
 const urlList = (urls: unknown): string[] =>
   Array.isArray(urls) ? urls.filter((u): u is string => typeof u === "string" && u !== "").map(absoluteUrl) : [];

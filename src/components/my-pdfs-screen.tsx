@@ -426,7 +426,7 @@ export function MyPdfsScreen({ onBack, onCreate }: { onBack: () => void; onCreat
           <EmptyState
             palette={palette}
             title="My PDFs is in the phone app"
-            text={'The web version can\'t keep files. Make a PDF here and choose "Save as PDF" in the print window to keep it.'}
+            text="The web version can't make or keep PDFs. Open the app on your iPhone or Android phone to make one."
             onCreate={onCreate}
           />
         ) : library.length === 0 ? (

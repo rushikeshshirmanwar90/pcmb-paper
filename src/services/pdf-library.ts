@@ -16,7 +16,7 @@ import type { Question } from '@/types/pcmb';
  *   <documents>/my-pdfs/questions/<id>.json   each PDF's questions, to make
  *                                             another version from
  *
- * The web app has no file storage; there the PDF opens in the print window.
+ * The web app has no file storage, so PDFs are made in the phone app only.
  */
 
 export type PdfContent = 'questions' | 'answers' | 'solutions';
@@ -47,7 +47,8 @@ export interface SavedPdf {
 
 export interface NewPdf {
   name: string;
-  base64: string;
+  /** The PDF file itself. */
+  bytes: Uint8Array;
   pageCount?: number;
   questions: Question[];
   content: PdfContent;
@@ -160,7 +161,7 @@ export function addPdf(input: NewPdf): SavedPdf {
 
   const file = new File(filesDir(), fileName);
   file.create({ overwrite: true });
-  file.write(input.base64, { encoding: 'base64' });
+  file.write(input.bytes);
 
   let hasQuestions = false;
   try {
