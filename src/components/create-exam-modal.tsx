@@ -454,8 +454,6 @@ interface QuestionSetFlowProps {
   onClose?: () => void;
   /** After a room is made: show it in the Exam Rooms list. */
   onViewRooms?: () => void;
-  /** Offers browsing the whole question bank instead. */
-  onBrowse?: () => void;
   /** Shows My PDFs, where every PDF made is saved. */
   onViewPdfs?: () => void;
   /** Space to keep clear at the bottom for the tab bar when shown inline. */
@@ -472,7 +470,6 @@ export function QuestionSetFlow({
   onRoomCreated,
   onClose,
   onViewRooms,
-  onBrowse,
   onViewPdfs,
   bottomInset = 0,
   active = true,
@@ -951,24 +948,6 @@ export function QuestionSetFlow({
             </Text>
           ) : null}
 
-          {onBrowse && (
-            <Pressable
-              accessibilityRole="button"
-              onPress={onBrowse}
-              style={({ pressed }) => [styles.linkBtn, pressed && styles.pressed]}
-            >
-              <Text style={[styles.linkText, { color: palette.primary }]}>Browse the whole question bank instead</Text>
-            </Pressable>
-          )}
-          {isPdf && onViewPdfs && (
-            <Pressable
-              accessibilityRole="button"
-              onPress={onViewPdfs}
-              style={({ pressed }) => [styles.linkBtn, styles.linkBtnTight, pressed && styles.pressed]}
-            >
-              <Text style={[styles.linkText, { color: palette.primary }]}>See your saved PDFs</Text>
-            </Pressable>
-          )}
         </ScrollView>
       )}
 
@@ -1675,19 +1654,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginTop: 10,
     textAlign: 'center',
-  },
-  linkBtn: {
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 18,
-  },
-  linkBtnTight: {
-    marginTop: 0,
-  },
-  linkText: {
-    fontSize: 14,
-    fontWeight: '600',
   },
   pressed: {
     opacity: 0.75,

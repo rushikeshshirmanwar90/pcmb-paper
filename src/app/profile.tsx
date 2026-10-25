@@ -1,6 +1,7 @@
 import { AppHeader } from '@/components/app-header';
 import { getPalette } from '@/constants/theme';
 import { useAppearance } from '@/context/appearance-context';
+import { useTabNavigation } from '@/context/tab-context';
 import { SymbolView } from 'expo-symbols';
 import { memo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -14,6 +15,7 @@ function ProfileScreenComponent() {
   const { mode } = useAppearance();
   const palette = getPalette(mode === 'dark');
   const insets = useSafeAreaInsets();
+  const { goToTab, setQuestionsMode } = useTabNavigation();
   const [name, setName] = useState('');
   const [grade, setGrade] = useState<string | null>(null);
   const [examTrack, setExamTrack] = useState<string | null>(null);
@@ -206,6 +208,36 @@ function ProfileScreenComponent() {
                 );
               })}
             </View>
+          </View>
+
+          {/* ── My PDFs: every paper made, saved on this phone ── */}
+          <View style={[styles.section, { backgroundColor: palette.card, borderColor: palette.border }]}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                setQuestionsMode('pdfs');
+                goToTab('questions');
+              }}
+              style={({ pressed }) => [styles.policyRow, pressed && { opacity: 0.75 }]}>
+              <View style={[styles.policyIcon, { backgroundColor: palette.primarySoft }]}>
+                <SymbolView
+                  name={{ ios: 'folder.fill', android: 'folder', web: 'folder' }}
+                  tintColor={palette.primary}
+                  size={18}
+                />
+              </View>
+              <View style={styles.policyTextGroup}>
+                <Text style={[styles.policyTitle, { color: palette.foreground }]}>See your saved PDFs</Text>
+                <Text style={[styles.policySubtitle, { color: palette.mutedForeground }]}>
+                  Open, share or print the papers you made
+                </Text>
+              </View>
+              <SymbolView
+                name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+                tintColor={palette.mutedForeground}
+                size={18}
+              />
+            </Pressable>
           </View>
 
           {/* ── Policies & Terms Section ── */}

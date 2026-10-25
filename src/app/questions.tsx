@@ -207,7 +207,6 @@ function QuestionsScreenComponent() {
             setPapersSegment('rooms');
             goToTab('explore');
           }}
-          onBrowse={() => setQuestionsMode('browse')}
           onViewPdfs={() => setQuestionsMode('pdfs')}
           bottomInset={tabBarHeight}
           active={activeTab === 1}
