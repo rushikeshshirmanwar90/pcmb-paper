@@ -1,3 +1,4 @@
+import { AccountSection } from '@/components/account-section';
 import { AppHeader } from '@/components/app-header';
 import { getPalette } from '@/constants/theme';
 import { useAppearance } from '@/context/appearance-context';
@@ -31,6 +32,8 @@ function ProfileScreenComponent() {
             { paddingBottom: Math.max(insets.bottom, 20) + 120 },
           ]}
           showsVerticalScrollIndicator={false}>
+          <AccountSection />
+
           {/* ── Learner Identity Card ── */}
           <View style={[styles.profileCard, { backgroundColor: palette.card, borderColor: palette.border }]}>
             <View style={[styles.avatar, { backgroundColor: palette.primary }]}>

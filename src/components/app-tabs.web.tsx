@@ -16,50 +16,13 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTabNavigation } from '@/context/tab-context';
 import { TAB_BAR_HEIGHT } from '@/hooks/use-tab-bar-height';
 
-import { HomeScreen } from '@/app/index';
-import { QuestionsScreen } from '@/app/questions';
-import { ExploreScreen } from '@/app/explore';
-import { ProfileScreen } from '@/app/profile';
-
-const TABS = [
-  {
-    key: 'home',
-    label: 'Home',
-    icon: {
-      sf: { default: 'house', selected: 'house.fill' },
-      md: 'home',
-    },
-  },
-  {
-    key: 'questions',
-    label: 'Questions',
-    icon: {
-      sf: { default: 'questionmark.circle', selected: 'questionmark.circle.fill' },
-      md: 'quiz',
-    },
-  },
-  {
-    key: 'explore',
-    label: 'Papers',
-    icon: {
-      sf: { default: 'doc.text', selected: 'doc.text.fill' },
-      md: 'description',
-    },
-  },
-  {
-    key: 'profile',
-    label: 'Profile',
-    icon: {
-      sf: { default: 'person.crop.circle', selected: 'person.crop.circle.fill' },
-      md: 'account_circle',
-    },
-  },
-] as const;
+import type { AppTab } from '@/navigation/tabs';
 
 const PILL_WIDTH = 64;
 const PILL_HEIGHT = 32;
 
-export default function AppTabs() {
+/** The bottom tab bar and its swipeable pages, for the signed-in role's tabs. */
+export default function AppTabs({ tabs }: { tabs: AppTab[] }) {
   const { width: windowWidth } = useWindowDimensions();
   const scheme = useColorScheme();
   const palette = getPalette(scheme === 'dark');
@@ -106,7 +69,7 @@ export default function AppTabs() {
   // Animate sliding pill background on navbar
   useEffect(() => {
     if (containerWidth > 0) {
-      const tabWidth = containerWidth / TABS.length;
+      const tabWidth = containerWidth / tabs.length;
       const targetX = activeTab * tabWidth + (tabWidth - PILL_WIDTH) / 2;
       Animated.spring(pillTranslateX, {
         toValue: targetX,
@@ -115,7 +78,7 @@ export default function AppTabs() {
         tension: 70,
       }).start();
     }
-  }, [activeTab, containerWidth, pillTranslateX]);
+  }, [activeTab, containerWidth, pillTranslateX, tabs.length]);
 
   const panResponder = useMemo(
     () =>
@@ -144,7 +107,7 @@ export default function AppTabs() {
           const threshold = windowWidth * 0.18;
           let targetIdx = activeTab;
 
-          if (gesture.dx < -threshold && activeTab < TABS.length - 1) {
+          if (gesture.dx < -threshold && activeTab < tabs.length - 1) {
             targetIdx = activeTab + 1;
           } else if (gesture.dx > threshold && activeTab > 0) {
             targetIdx = activeTab - 1;
@@ -153,7 +116,7 @@ export default function AppTabs() {
           scrollToTab(targetIdx, true);
         },
       }),
-    [activeTab, openHomeMenu, scrollToTab, translateX, windowWidth]
+    [activeTab, openHomeMenu, scrollToTab, tabs.length, translateX, windowWidth]
   );
 
   const handleLayout = (e: LayoutChangeEvent) => {
@@ -168,22 +131,15 @@ export default function AppTabs() {
           style={[
             styles.sliderTrack,
             {
-              width: windowWidth * 4,
+              width: windowWidth * tabs.length,
               transform: [{ translateX }],
             },
           ]}>
-          <View style={[styles.page, { width: windowWidth }]}>
-            <HomeScreen registerOpenMenu={registerHomeMenu} />
-          </View>
-          <View style={[styles.page, { width: windowWidth }]}>
-            <QuestionsScreen />
-          </View>
-          <View style={[styles.page, { width: windowWidth }]}>
-            <ExploreScreen />
-          </View>
-          <View style={[styles.page, { width: windowWidth }]}>
-            <ProfileScreen />
-          </View>
+          {tabs.map((tab) => (
+            <View key={`${tab.key}-page`} style={[styles.page, { width: windowWidth }]}>
+              {tab.render({ registerOpenMenu: registerHomeMenu })}
+            </View>
+          ))}
         </Animated.View>
       </View>
 
@@ -212,7 +168,7 @@ export default function AppTabs() {
           )}
 
           {/* ── Tab Triggers ── */}
-          {TABS.map((tab, index) => {
+          {tabs.map((tab, index) => {
             const isSelected = activeTab === index;
             const iconName = isSelected ? tab.icon.sf.selected : tab.icon.sf.default;
             const iconColor = isSelected ? palette.primary : palette.mutedForeground;

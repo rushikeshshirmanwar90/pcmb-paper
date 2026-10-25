@@ -15,50 +15,13 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTabNavigation } from '@/context/tab-context';
 import { TAB_BAR_HEIGHT } from '@/hooks/use-tab-bar-height';
 
-import { HomeScreen } from '@/app/index';
-import { QuestionsScreen } from '@/app/questions';
-import { ExploreScreen } from '@/app/explore';
-import { ProfileScreen } from '@/app/profile';
-
-const TABS = [
-  {
-    key: 'home',
-    label: 'Home',
-    icon: {
-      sf: { default: 'house', selected: 'house.fill' },
-      md: 'home',
-    },
-  },
-  {
-    key: 'questions',
-    label: 'Questions',
-    icon: {
-      sf: { default: 'questionmark.circle', selected: 'questionmark.circle.fill' },
-      md: 'quiz',
-    },
-  },
-  {
-    key: 'explore',
-    label: 'Papers',
-    icon: {
-      sf: { default: 'doc.text', selected: 'doc.text.fill' },
-      md: 'description',
-    },
-  },
-  {
-    key: 'profile',
-    label: 'Profile',
-    icon: {
-      sf: { default: 'person.crop.circle', selected: 'person.crop.circle.fill' },
-      md: 'account_circle',
-    },
-  },
-] as const;
+import type { AppTab } from '@/navigation/tabs';
 
 const PILL_WIDTH = 64;
 const PILL_HEIGHT = 32;
 
-export default function AppTabs() {
+/** The bottom tab bar and its swipeable pages, for the signed-in role's tabs. */
+export default function AppTabs({ tabs }: { tabs: AppTab[] }) {
   const scheme = useColorScheme();
   const palette = getPalette(scheme === 'dark');
   const insets = useSafeAreaInsets();
@@ -82,7 +45,7 @@ export default function AppTabs() {
   // Animate sliding pill background whenever activeTab or containerWidth changes
   useEffect(() => {
     if (containerWidth > 0) {
-      const tabWidth = containerWidth / TABS.length;
+      const tabWidth = containerWidth / tabs.length;
       const targetX = activeTab * tabWidth + (tabWidth - PILL_WIDTH) / 2;
       Animated.spring(pillTranslateX, {
         toValue: targetX,
@@ -91,7 +54,7 @@ export default function AppTabs() {
         tension: 70,
       }).start();
     }
-  }, [activeTab, containerWidth, pillTranslateX]);
+  }, [activeTab, containerWidth, pillTranslateX, tabs.length]);
 
   const handleTabPress = (index: number) => {
     setActiveTab(index);
@@ -111,22 +74,15 @@ export default function AppTabs() {
         style={styles.pager}
         initialPage={0}
         orientation="horizontal"
-        offscreenPageLimit={3}
+        offscreenPageLimit={tabs.length - 1}
         onPageSelected={(e) => {
           setActiveTab(e.nativeEvent.position);
         }}>
-        <View key="home-page" style={styles.page}>
-          <HomeScreen />
-        </View>
-        <View key="questions-page" style={styles.page}>
-          <QuestionsScreen />
-        </View>
-        <View key="explore-page" style={styles.page}>
-          <ExploreScreen />
-        </View>
-        <View key="profile-page" style={styles.page}>
-          <ProfileScreen />
-        </View>
+        {tabs.map((tab) => (
+          <View key={`${tab.key}-page`} style={styles.page}>
+            {tab.render({})}
+          </View>
+        ))}
       </PagerView>
 
       {/* ── Bottom Navigation Bar ── */}
@@ -154,7 +110,7 @@ export default function AppTabs() {
           )}
 
           {/* ── Tab Triggers ── */}
-          {TABS.map((tab, index) => {
+          {tabs.map((tab, index) => {
             const isSelected = activeTab === index;
             const iconName = isSelected ? tab.icon.sf.selected : tab.icon.sf.default;
             const iconColor = isSelected ? palette.primary : palette.mutedForeground;
