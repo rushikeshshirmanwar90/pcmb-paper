@@ -1,10 +1,7 @@
 import React from 'react';
 import type { Role } from '@/constants/school';
 import type { AppTab } from '@/navigation/tabs';
-import { HomeScreen } from '@/app/index';
 import { QuestionsScreen } from '@/app/questions';
-import { ExploreScreen } from '@/app/explore';
-import { ProfileScreen } from '@/app/profile';
 import { AccountProfileScreen } from '@/screens/account-profile-screen';
 import { WelcomeScreen } from '@/screens/welcome-screen';
 import { TuitionHomeScreen } from '@/screens/tuition/tuition-home';
@@ -12,6 +9,10 @@ import { TuitionBatchesScreen } from '@/screens/tuition/tuition-batches';
 import { TuitionTeachersScreen } from '@/screens/tuition/tuition-teachers';
 import { TuitionStudentsScreen } from '@/screens/tuition/tuition-students';
 import { TuitionProfileScreen } from '@/screens/tuition/tuition-profile';
+import { TeacherHomeScreen } from '@/screens/teacher/teacher-home';
+import { TeacherBatchesScreen } from '@/screens/teacher/teacher-batches';
+import { TeacherTestsScreen } from '@/screens/teacher/teacher-tests';
+import { TeacherProfileScreen } from '@/screens/teacher/teacher-profile';
 
 // The bottom tabs each role sees after logging in.
 
@@ -23,22 +24,31 @@ const PROFILE_TAB: Omit<AppTab, 'render'> = {
 
 const HOME_ICON: AppTab['icon'] = { sf: { default: 'house', selected: 'house.fill' }, md: 'home' };
 
-/** The question tools the app started as: rooms, PDFs, the question bank and papers. */
+/**
+ * Teacher login: their day, batches, the Test Room, and the question tools
+ * (PDF papers, My PDFs, the question bank).
+ */
 const TEACHER_TABS: AppTab[] = [
-  { key: 'home', label: 'Home', icon: HOME_ICON, render: (props) => <HomeScreen {...props} /> },
+  { key: 'home', label: 'Home', icon: HOME_ICON, render: () => <TeacherHomeScreen /> },
+  {
+    key: 'batches',
+    label: 'Batches',
+    icon: { sf: { default: 'square.grid.2x2', selected: 'square.grid.2x2.fill' }, md: 'grid_view' },
+    render: () => <TeacherBatchesScreen />,
+  },
+  {
+    key: 'tests',
+    label: 'Tests',
+    icon: { sf: { default: 'list.clipboard', selected: 'list.clipboard.fill' }, md: 'assignment' },
+    render: () => <TeacherTestsScreen />,
+  },
   {
     key: 'questions',
     label: 'Questions',
     icon: { sf: { default: 'questionmark.circle', selected: 'questionmark.circle.fill' }, md: 'quiz' },
     render: () => <QuestionsScreen />,
   },
-  {
-    key: 'explore',
-    label: 'Papers',
-    icon: { sf: { default: 'doc.text', selected: 'doc.text.fill' }, md: 'description' },
-    render: () => <ExploreScreen />,
-  },
-  { ...PROFILE_TAB, render: () => <ProfileScreen /> },
+  { ...PROFILE_TAB, render: () => <TeacherProfileScreen /> },
 ];
 
 /** Tuition login: dashboard, then batches, teachers and students to manage. */

@@ -122,7 +122,9 @@ export function StatTile({ label, value, icon, tone = 'primary' }: { label: stri
       <View style={[styles.statIcon, { backgroundColor: colors[0] }]}>
         <Icon name={icon} color={colors[1]} size={18} />
       </View>
-      <Text style={[styles.statValue, { color: palette.foreground }]}>{value}</Text>
+      <Text style={[styles.statValue, { color: palette.foreground }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+        {value}
+      </Text>
       <Text style={[styles.statLabel, { color: palette.mutedForeground }]} numberOfLines={1}>
         {label}
       </Text>

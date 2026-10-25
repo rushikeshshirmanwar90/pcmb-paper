@@ -17,11 +17,10 @@ import { MathText } from '@/components/math-text';
 import { Explanation } from '@/components/explanation';
 import { Diagrams } from '@/components/diagrams';
 import { DropdownSelect } from '@/components/dropdown-select';
-import { QuestionSetFlow, type QuestionSetPurpose } from '@/components/create-exam-modal';
+import { QuestionSetFlow } from '@/components/create-exam-modal';
 import { Colors, getPalette, Spacing, BottomTabInset, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTabNavigation } from '@/context/tab-context';
-import { useRooms } from '@/context/rooms-context';
 import { useTabBarHeight } from '@/hooks/use-tab-bar-height';
 import { useResponsive } from '@/hooks/use-responsive';
 import type { FilterState, Question, Standard } from '@/types/pcmb';
@@ -161,55 +160,40 @@ function QuestionCard({ question, dark }: { question: Question; dark: boolean })
 // ─── Main Screen ────────────────────────────────────────────────────────────
 
 /**
- * Opens on the form for an exam room or a PDF paper, so a teacher starts from
- * the class and chapter and only sees the questions that match. The whole
+ * Opens on the PDF paper form, so a teacher starts from the class and
+ * chapter and only sees the questions that match. The whole
  * bank is one tap away for browsing (its filtered list can be saved as a PDF
  * too), and so is My PDFs, every PDF made, saved on the phone.
  */
 function QuestionsScreenComponent() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
-  const { activeTab, questionsMode, setQuestionsMode, setPapersSegment, goToTab } = useTabNavigation();
-  const { addRoom } = useRooms();
+  const { activeKey, questionsMode, setQuestionsMode } = useTabNavigation();
   const tabBarHeight = useTabBarHeight();
-  const [purpose, setPurpose] = useState<QuestionSetPurpose>('room');
-
-  const makePdfInstead = () => {
-    setPurpose('pdf');
-    setQuestionsMode('create');
-  };
 
   if (questionsMode === 'browse') {
     return (
       <BrowseQuestions
-        backLabel={purpose === 'pdf' ? 'Make a PDF paper' : 'Create a room'}
+        backLabel="Make a PDF paper"
         onBack={() => setQuestionsMode('create')}
         onViewPdfs={() => setQuestionsMode('pdfs')}
       />
     );
   }
   if (questionsMode === 'pdfs') {
-    return <MyPdfsScreen onBack={makePdfInstead} onCreate={makePdfInstead} />;
+    return <MyPdfsScreen onBack={() => setQuestionsMode('create')} onCreate={() => setQuestionsMode('create')} />;
   }
 
+  // Tests for batches are set from the Tests tab; this tab makes PDF papers.
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: colors.background }]}>
-      <AppHeader
-        title={purpose === 'pdf' ? 'Make a PDF paper' : 'Create a room'}
-        subtitle="Choose a class and chapter, then the questions"
-      />
+      <AppHeader title="Make a PDF paper" subtitle="Choose a class and chapter, then the questions" />
       <View style={[styles.mainWrapper, { maxWidth: MaxContentWidth }]}>
         <QuestionSetFlow
-          purpose={purpose}
-          onPurposeChange={setPurpose}
-          onRoomCreated={addRoom}
-          onViewRooms={() => {
-            setPapersSegment('rooms');
-            goToTab('explore');
-          }}
+          purpose="pdf"
           onViewPdfs={() => setQuestionsMode('pdfs')}
           bottomInset={tabBarHeight}
-          active={activeTab === 1}
+          active={activeKey === 'questions'}
         />
       </View>
     </SafeAreaView>

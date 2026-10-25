@@ -449,7 +449,12 @@ interface QuestionSetFlowProps {
   purpose: QuestionSetPurpose;
   /** Offers switching between the two on the details step. */
   onPurposeChange?: (purpose: QuestionSetPurpose) => void;
-  onRoomCreated: (room: ExamRoom) => void;
+  onRoomCreated?: (room: ExamRoom) => void;
+  /**
+   * Saves the picked questions as a batch's test instead of making a room on
+   * the phone; the flow shows its own error if this throws.
+   */
+  onSubmitTest?: (input: { title: string; standard: Standard; subject: Subject; questions: Question[] }) => Promise<void>;
   /** In the modal, closes it; the form inline on the Questions tab has no close. */
   onClose?: () => void;
   /** After a room is made: show it in the Exam Rooms list. */
@@ -468,6 +473,7 @@ export function QuestionSetFlow({
   purpose,
   onPurposeChange,
   onRoomCreated,
+  onSubmitTest,
   onClose,
   onViewRooms,
   onViewPdfs,
@@ -541,7 +547,7 @@ export function QuestionSetFlow({
   const [pdfError, setPdfError] = useState<string | null>(null);
 
   const missing = [
-    !title.trim() && (isPdf ? 'a paper name' : 'a room name'),
+    !title.trim() && (isPdf ? 'a paper name' : onSubmitTest ? 'a test name' : 'a room name'),
     !standard && 'a class',
     !subject && 'a subject',
     questionCount === null && `${QUESTION_RANGE.min} to ${QUESTION_RANGE.max} questions`,
@@ -647,9 +653,24 @@ export function QuestionSetFlow({
   const pickedQuestions = () => fetchedQuestions.filter((q) => selectedQuestionIds.has(q._id));
 
   // Final step: create the room
-  const handleCreateRoom = () => {
+  const [savingTest, setSavingTest] = useState(false);
+
+  const handleCreateRoom = async () => {
     const selectedList = pickedQuestions();
     if (selectedList.length === 0 || !standard || !subject || !examCategory) return;
+
+    if (onSubmitTest) {
+      setSavingTest(true);
+      setPdfError(null);
+      try {
+        await onSubmitTest({ title: title.trim(), standard, subject, questions: selectedList });
+      } catch (error) {
+        setPdfError(error instanceof Error ? error.message : "Couldn't save the test. Try again.");
+      } finally {
+        setSavingTest(false);
+      }
+      return;
+    }
 
     const newRoom: ExamRoom = {
       ...newRoomKeys(examCategory),
@@ -667,7 +688,7 @@ export function QuestionSetFlow({
     };
 
     setCreatedRoom(newRoom);
-    onRoomCreated(newRoom);
+    onRoomCreated?.(newRoom);
     setStep('success');
   };
 
@@ -751,6 +772,8 @@ export function QuestionSetFlow({
         : 'Room ready'
       : isPdf
       ? 'Make a PDF paper'
+      : onSubmitTest
+      ? 'New test'
       : 'Create a room';
 
   const successDetails = (questions: Question[]) => [
@@ -806,14 +829,14 @@ export function QuestionSetFlow({
 
           <View style={styles.fieldGroup}>
             <Text style={[styles.fieldLabel, { color: palette.mutedForeground }]}>
-              {isPdf ? 'Paper name' : 'Room name'}
+              {isPdf ? 'Paper name' : onSubmitTest ? 'Test name' : 'Room name'}
             </Text>
             <TextInput
               value={title}
               onChangeText={setTitle}
               placeholder={isPdf ? 'e.g. 11th Physics chapter test' : 'e.g. 11th Physics weekly test'}
               placeholderTextColor={palette.mutedForeground}
-              accessibilityLabel={isPdf ? 'Paper name' : 'Room name'}
+              accessibilityLabel={isPdf ? 'Paper name' : onSubmitTest ? 'Test name' : 'Room name'}
               returnKeyType="done"
               style={[
                 styles.textInput,
@@ -1055,18 +1078,19 @@ export function QuestionSetFlow({
             ) : null}
             <Pressable
               accessibilityRole="button"
-              accessibilityState={{ disabled: selectedCount === 0 }}
-              disabled={selectedCount === 0}
+              accessibilityState={{ disabled: selectedCount === 0 || savingTest, busy: savingTest }}
+              disabled={selectedCount === 0 || savingTest}
               onPress={isPdf ? handleMakePdf : handleCreateRoom}
               style={({ pressed }) => [
                 styles.primaryActionBtn,
-                { backgroundColor: palette.primary, opacity: selectedCount === 0 ? 0.45 : pressed ? 0.8 : 1 },
+                { backgroundColor: palette.primary, opacity: selectedCount === 0 ? 0.45 : pressed || savingTest ? 0.8 : 1 },
               ]}
             >
+              {savingTest ? <ActivityIndicator color={palette.onPrimary} /> : null}
               <Text style={[styles.primaryActionBtnText, { color: palette.onPrimary }]}>
                 {selectedCount === 0
                   ? 'Pick at least one question'
-                  : `${isPdf ? 'Make PDF' : 'Create room'} · ${selectedCount} question${selectedCount === 1 ? '' : 's'}`}
+                  : `${isPdf ? 'Make PDF' : onSubmitTest ? 'Create test' : 'Create room'} · ${selectedCount} question${selectedCount === 1 ? '' : 's'}`}
               </Text>
             </Pressable>
           </View>

@@ -31,10 +31,11 @@ function SignedInGate() {
   if (!user) return <LoginScreen />;
 
   // Keyed by the user, so logging in as someone else starts on a fresh first tab.
+  const tabs = tabsFor(user.role);
   return (
-    <TabProvider key={user.id}>
+    <TabProvider key={user.id} tabKeys={tabs.map((t) => t.key)}>
       <RoomsProvider>
-        <AppTabs tabs={tabsFor(user.role)} />
+        <AppTabs tabs={tabs} />
       </RoomsProvider>
     </TabProvider>
   );
