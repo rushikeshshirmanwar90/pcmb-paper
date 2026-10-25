@@ -32,6 +32,8 @@ import type {
   Subject,
 } from '@/types/pcmb';
 import { fetchQuestionPool, QuestionLoadError } from '@/services/apiService';
+import { createQuestionsPdf, type PdfContent } from '@/services/question-pdf';
+import { openPdf, sharePdf, type SavedPdf } from '@/services/pdf-library';
 import { useKeepServerConnection } from '@/hooks/use-keep-server-connection';
 
 interface CreateExamModalProps {
@@ -74,6 +76,12 @@ const LEVEL_CHOICES: Choice<DifficultyLevel>[] = [
   { value: 'Easy', label: 'Easy' },
   { value: 'Mid', label: 'Medium' },
   { value: 'Hard', label: 'Hard' },
+];
+
+const PDF_CONTENT_CHOICES: Choice<PdfContent>[] = [
+  { value: 'questions', label: 'Questions only' },
+  { value: 'answers', label: 'With answer key' },
+  { value: 'solutions', label: 'With solutions' },
 ];
 
 /** "a room name, a class and a subject" */
@@ -426,16 +434,23 @@ const QuestionReviewCard = memo(function QuestionReviewCard({
   );
 });
 
-// ─── Create-room flow: room details → pick questions → room code ────────────
+// ─── Create flow: details → pick questions → room code, or a PDF ───────────
 
 interface CreateRoomFlowProps {
-  onRoomCreated: (room: ExamRoom) => void;
+  /**
+   * room: makes an exam room with a time limit.
+   * pdf:  makes a printable PDF of the picked questions; no time limit.
+   */
+  mode?: 'room' | 'pdf';
+  onRoomCreated?: (room: ExamRoom) => void;
   /** In the modal, closes it; the form inline on the Questions tab has no close. */
   onClose?: () => void;
   /** After the room is made: show it in the Exam Rooms list. */
   onViewRooms?: () => void;
   /** Offers browsing the whole question bank instead of making a room. */
   onBrowse?: () => void;
+  /** PDF mode: shows My PDFs, where every PDF made is saved. */
+  onViewPdfs?: () => void;
   /** Space to keep clear at the bottom for the tab bar when shown inline. */
   bottomInset?: number;
   /** Whether the flow is on screen; inline on a tab it stays mounted while other tabs show. */
@@ -445,16 +460,19 @@ interface CreateRoomFlowProps {
 type Step = 'config' | 'questions' | 'success';
 
 export function CreateRoomFlow({
+  mode = 'room',
   onRoomCreated,
   onClose,
   onViewRooms,
   onBrowse,
+  onViewPdfs,
   bottomInset = 0,
   active = true,
 }: CreateRoomFlowProps) {
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
   const palette = getPalette(dark);
+  const isPdf = mode === 'pdf';
 
   const [step, setStep] = useState<Step>('config');
   // The form leads to a request; keep the connection fresh while it's filled in.
@@ -472,7 +490,9 @@ export function CreateRoomFlow({
   const [questionCountText, setQuestionCountText] = useState('20');
   const [durationText, setDurationText] = useState('45');
   const questionCount = wholeNumberIn(questionCountText, QUESTION_RANGE);
-  const durationMinutes = wholeNumberIn(durationText, MINUTES_RANGE);
+  // A PDF has no time limit.
+  const durationMinutes = isPdf ? null : wholeNumberIn(durationText, MINUTES_RANGE);
+  const [pdfContent, setPdfContent] = useState<PdfContent>('questions');
 
   const examCategory = standard ? trackOf(standard) : null;
   // The whole subject's chapters and topics; chapters only mean something
@@ -512,12 +532,19 @@ export function CreateRoomFlow({
   // Created room
   const [createdRoom, setCreatedRoom] = useState<ExamRoom | null>(null);
 
+  // Generated PDF
+  const [pdfQuestions, setPdfQuestions] = useState<Question[]>([]);
+  // Null on the web, which has no My PDFs.
+  const [savedPdf, setSavedPdf] = useState<SavedPdf | null>(null);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
   const missing = [
-    !title.trim() && 'a room name',
+    !title.trim() && (isPdf ? 'a PDF name' : 'a room name'),
     !standard && 'a class',
     !subject && 'a subject',
     questionCount === null && `${QUESTION_RANGE.min} to ${QUESTION_RANGE.max} questions`,
-    durationMinutes === null && `a time of ${MINUTES_RANGE.min} to ${MINUTES_RANGE.max} minutes`,
+    !isPdf && durationMinutes === null && `a time of ${MINUTES_RANGE.min} to ${MINUTES_RANGE.max} minutes`,
   ].filter((word): word is string => !!word);
   const selectedCount = selectedQuestionIds.size;
 
@@ -624,12 +651,57 @@ export function CreateRoomFlow({
     };
 
     setCreatedRoom(newRoom);
-    onRoomCreated(newRoom);
+    onRoomCreated?.(newRoom);
     setStep('success');
   };
 
-  // A teacher often makes several rooms for one class: keep its class,
-  // subject and settings, clear the rest.
+  /** Makes the PDF and saves it to My PDFs; on the web, opens the print window. */
+  const makePdf = async (questions: Question[]) => {
+    if (!standard || !subject) return false;
+    setGeneratingPdf(true);
+    setPdfError(null);
+    try {
+      const saved = await createQuestionsPdf({
+        title: title.trim(),
+        subtitle: `${standard} · ${subject}`,
+        questions,
+        content: pdfContent,
+        marksPerQuestion: MARKS_PER_QUESTION,
+        standard,
+        subject,
+      });
+      setSavedPdf(saved);
+      return true;
+    } catch (error) {
+      setPdfError(error instanceof Error ? error.message : 'Could not make the PDF. Try again.');
+      return false;
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+
+  // Final step for a PDF: build it from the picked questions, in list order
+  const handleGeneratePdf = async () => {
+    const selectedList = fetchedQuestions.filter((q) => selectedQuestionIds.has(q._id));
+    if (selectedList.length === 0) return;
+    if (await makePdf(selectedList)) {
+      setPdfQuestions(selectedList);
+      setStep('success');
+    }
+  };
+
+  const runPdfAction = async (action: (pdf: SavedPdf) => Promise<void>) => {
+    if (!savedPdf) return;
+    setPdfError(null);
+    try {
+      await action(savedPdf);
+    } catch (error) {
+      setPdfError(error instanceof Error ? error.message : 'Something went wrong. Try again.');
+    }
+  };
+
+  // A teacher often makes several rooms (or PDFs) for one class: keep its
+  // class, subject and settings, clear the rest.
   const startAnotherRoom = () => {
     setTitle('');
     setPickedChapters([]);
@@ -637,6 +709,9 @@ export function CreateRoomFlow({
     setFetchedQuestions([]);
     setSelectedQuestionIds(new Set());
     setCreatedRoom(null);
+    setPdfQuestions([]);
+    setSavedPdf(null);
+    setPdfError(null);
     setFetchError(null);
     setStep('config');
   };
@@ -653,7 +728,12 @@ export function CreateRoomFlow({
 
   // Inline, the screen's own header names the task; only picking needs a back button.
   const showHeader = !!onClose || step === 'questions';
-  const headerTitle = step === 'config' ? 'Create a room' : step === 'questions' ? 'Pick questions' : 'Room ready';
+  const headerTitle =
+    step === 'config'
+      ? isPdf ? 'Create a PDF' : 'Create a room'
+      : step === 'questions'
+      ? 'Pick questions'
+      : isPdf ? 'PDF ready' : 'Room ready';
 
   return (
     <View style={[styles.mainContainer, { maxWidth: MaxContentWidth }]}>
@@ -663,7 +743,7 @@ export function CreateRoomFlow({
             {step === 'questions' && (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Back to the room details"
+                accessibilityLabel={isPdf ? 'Back to the PDF details' : 'Back to the room details'}
                 onPress={() => setStep('config')}
                 style={styles.iconBtn}
               >
@@ -696,13 +776,15 @@ export function CreateRoomFlow({
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.fieldGroup}>
-            <Text style={[styles.fieldLabel, { color: palette.mutedForeground }]}>Room name</Text>
+            <Text style={[styles.fieldLabel, { color: palette.mutedForeground }]}>
+              {isPdf ? 'PDF name' : 'Room name'}
+            </Text>
             <TextInput
               value={title}
               onChangeText={setTitle}
-              placeholder="e.g. 11th Physics weekly test"
+              placeholder={isPdf ? 'e.g. 11th Physics chapter test' : 'e.g. 11th Physics weekly test'}
               placeholderTextColor={palette.mutedForeground}
-              accessibilityLabel="Room name"
+              accessibilityLabel={isPdf ? 'PDF name' : 'Room name'}
               returnKeyType="done"
               style={[
                 styles.textInput,
@@ -783,18 +865,33 @@ export function CreateRoomFlow({
               onChange={setQuestionCountText}
               range={QUESTION_RANGE}
             />
-            <NumberField
-              label="Time"
-              unit="min"
-              value={durationText}
-              onChange={setDurationText}
-              range={MINUTES_RANGE}
-            />
+            {isPdf ? (
+              // Keeps the Questions field half width, as it is beside Time.
+              <View style={styles.numberField} />
+            ) : (
+              <NumberField
+                label="Time"
+                unit="min"
+                value={durationText}
+                onChange={setDurationText}
+                range={MINUTES_RANGE}
+              />
+            )}
           </View>
 
-          {questionCount !== null && durationMinutes !== null ? (
+          {isPdf && (
+            <ChoiceChips
+              label="In the PDF"
+              choices={PDF_CONTENT_CHOICES}
+              selected={pdfContent}
+              onSelect={setPdfContent}
+            />
+          )}
+
+          {questionCount !== null && (isPdf || durationMinutes !== null) ? (
             <Text style={[styles.summaryLine, { color: palette.foreground }]}>
-              {questionCount} questions · {questionCount * MARKS_PER_QUESTION} marks · {formatMinutes(durationMinutes)}
+              {questionCount} questions · {questionCount * MARKS_PER_QUESTION} marks
+              {durationMinutes !== null ? ` · ${formatMinutes(durationMinutes)}` : ''}
             </Text>
           ) : null}
 
@@ -848,6 +945,15 @@ export function CreateRoomFlow({
               style={({ pressed }) => [styles.linkBtn, pressed && styles.pressed]}
             >
               <Text style={[styles.linkText, { color: palette.primary }]}>Browse the whole question bank instead</Text>
+            </Pressable>
+          )}
+          {onViewPdfs && (
+            <Pressable
+              accessibilityRole="button"
+              onPress={onViewPdfs}
+              style={({ pressed }) => [styles.linkBtn, styles.linkBtnTight, pressed && styles.pressed]}
+            >
+              <Text style={[styles.linkText, { color: palette.primary }]}>See your saved PDFs</Text>
             </Pressable>
           )}
         </ScrollView>
@@ -916,28 +1022,182 @@ export function CreateRoomFlow({
               { backgroundColor: palette.card, borderTopColor: palette.border, marginBottom: bottomInset },
             ]}
           >
+            {pdfError ? (
+              <Text accessibilityLiveRegion="polite" style={[styles.helperText, styles.bottomBarError, { color: palette.dangerInk }]}>
+                {pdfError}
+              </Text>
+            ) : null}
             <Pressable
               accessibilityRole="button"
-              accessibilityState={{ disabled: selectedCount === 0 }}
-              disabled={selectedCount === 0}
-              onPress={handleCreateRoom}
+              accessibilityState={{ disabled: selectedCount === 0 || generatingPdf, busy: generatingPdf }}
+              disabled={selectedCount === 0 || generatingPdf}
+              onPress={isPdf ? handleGeneratePdf : handleCreateRoom}
               style={({ pressed }) => [
                 styles.primaryActionBtn,
-                { backgroundColor: palette.primary, opacity: selectedCount === 0 ? 0.45 : pressed ? 0.8 : 1 },
+                {
+                  backgroundColor: palette.primary,
+                  opacity: selectedCount === 0 ? 0.45 : pressed || generatingPdf ? 0.8 : 1,
+                },
               ]}
             >
-              <Text style={[styles.primaryActionBtnText, { color: palette.onPrimary }]}>
-                {selectedCount === 0
-                  ? 'Pick at least one question'
-                  : `Create room · ${selectedCount} question${selectedCount === 1 ? '' : 's'}`}
-              </Text>
+              {generatingPdf ? (
+                <>
+                  <ActivityIndicator color={palette.onPrimary} />
+                  <Text style={[styles.primaryActionBtnText, { color: palette.onPrimary }]}>Making the PDF…</Text>
+                </>
+              ) : (
+                <Text style={[styles.primaryActionBtnText, { color: palette.onPrimary }]}>
+                  {selectedCount === 0
+                    ? 'Pick at least one question'
+                    : `${isPdf ? 'Generate PDF' : 'Create room'} · ${selectedCount} question${selectedCount === 1 ? '' : 's'}`}
+                </Text>
+              )}
             </Pressable>
           </View>
         </View>
       )}
 
+      {/* ── Step 3 (PDF): PDF made ── */}
+      {step === 'success' && isPdf && pdfQuestions.length > 0 && (
+        <ScrollView
+          contentContainerStyle={[styles.successContainer, { paddingBottom: 24 + bottomInset }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[styles.successCard, { backgroundColor: palette.card, borderColor: palette.border }]}>
+            <View
+              style={[
+                styles.successIconCircle,
+                { backgroundColor: palette.successSoft, borderColor: palette.successBorder },
+              ]}
+            >
+              <SymbolView
+                name={{ ios: 'doc.richtext.fill', android: 'picture_as_pdf', web: 'picture_as_pdf' }}
+                tintColor={palette.success}
+                size={40}
+              />
+            </View>
+
+            <Text style={[styles.successTitle, { color: palette.foreground }]}>{savedPdf?.name ?? title}</Text>
+            <Text style={[styles.successSubtitle, { color: palette.mutedForeground }]}>
+              {savedPdf
+                ? 'Saved to My PDFs on this device. Open it, send it to your students, or print it.'
+                : 'Choose "Save as PDF" in the print window to keep a copy.'}
+            </Text>
+
+            <View style={styles.detailsList}>
+              {[
+                ['Class', `${standard} · ${subject}`],
+                ['Chapters', `${new Set(pdfQuestions.map((q) => q.chapter)).size}`],
+                ['Questions', `${pdfQuestions.length}`],
+                ['Total marks', `${pdfQuestions.length * MARKS_PER_QUESTION}`],
+                ...(savedPdf?.pageCount ? [['Pages', `${savedPdf.pageCount}`]] : []),
+                ['In the PDF', PDF_CONTENT_CHOICES.find((c) => c.value === pdfContent)?.label ?? ''],
+              ].map(([key, value]) => (
+                <View key={key} style={styles.detailRow}>
+                  <Text style={[styles.detailKey, { color: palette.mutedForeground }]}>{key}</Text>
+                  <Text style={[styles.detailVal, { color: palette.foreground }]}>{value}</Text>
+                </View>
+              ))}
+            </View>
+
+            {savedPdf ? (
+              <>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => runPdfAction(openPdf)}
+                  style={({ pressed }) => [
+                    styles.primaryActionBtn,
+                    styles.fullWidth,
+                    { backgroundColor: palette.primary, marginTop: 24 },
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <SymbolView
+                    name={{ ios: 'eye', android: 'visibility', web: 'visibility' }}
+                    tintColor={palette.onPrimary}
+                    size={17}
+                  />
+                  <Text style={[styles.primaryActionBtnText, { color: palette.onPrimary }]}>Open PDF</Text>
+                </Pressable>
+                <View style={[styles.fullWidth, styles.successBtnRow]}>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => runPdfAction(sharePdf)}
+                    style={({ pressed }) => [styles.secondaryBtn, styles.successRowBtn, { borderColor: palette.border }, pressed && styles.pressed]}
+                  >
+                    <SymbolView
+                      name={{ ios: 'square.and.arrow.up', android: 'share', web: 'share' }}
+                      tintColor={palette.primary}
+                      size={16}
+                    />
+                    <Text style={[styles.secondaryBtnText, { color: palette.foreground }]}>Share</Text>
+                  </Pressable>
+                  {onViewPdfs ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={onViewPdfs}
+                      style={({ pressed }) => [styles.secondaryBtn, styles.successRowBtn, { borderColor: palette.border }, pressed && styles.pressed]}
+                    >
+                      <SymbolView
+                        name={{ ios: 'folder', android: 'folder', web: 'folder' }}
+                        tintColor={palette.primary}
+                        size={16}
+                      />
+                      <Text style={[styles.secondaryBtnText, { color: palette.foreground }]}>My PDFs</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              </>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ disabled: generatingPdf, busy: generatingPdf }}
+                disabled={generatingPdf}
+                onPress={() => makePdf(pdfQuestions)}
+                style={({ pressed }) => [
+                  styles.primaryActionBtn,
+                  styles.fullWidth,
+                  { backgroundColor: palette.primary, marginTop: 24 },
+                  (pressed || generatingPdf) && styles.pressed,
+                ]}
+              >
+                {generatingPdf ? (
+                  <ActivityIndicator color={palette.onPrimary} />
+                ) : (
+                  <SymbolView
+                    name={{ ios: 'arrow.down.doc', android: 'download', web: 'download' }}
+                    tintColor={palette.onPrimary}
+                    size={17}
+                  />
+                )}
+                <Text style={[styles.primaryActionBtnText, { color: palette.onPrimary }]}>Open the PDF again</Text>
+              </Pressable>
+            )}
+            {pdfError ? (
+              <Text accessibilityLiveRegion="polite" style={[styles.helperText, { color: palette.dangerInk }]}>
+                {pdfError}
+              </Text>
+            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              onPress={onClose ?? startAnotherRoom}
+              style={({ pressed }) => [
+                styles.secondaryBtn,
+                styles.fullWidth,
+                { borderColor: palette.border, marginTop: 10 },
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={[styles.secondaryBtnText, { color: palette.foreground }]}>
+                {onClose ? 'Done' : 'Create another PDF'}
+              </Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      )}
+
       {/* ── Step 3: Room code ── */}
-      {step === 'success' && createdRoom && (
+      {step === 'success' && !isPdf && createdRoom && (
         <ScrollView
           contentContainerStyle={[styles.successContainer, { paddingBottom: 24 + bottomInset }]}
           showsVerticalScrollIndicator={false}
@@ -1417,6 +1677,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 18,
   },
+  linkBtnTight: {
+    marginTop: 0,
+  },
   linkText: {
     fontSize: 14,
     fontWeight: '600',
@@ -1566,6 +1829,20 @@ const styles = StyleSheet.create({
   bottomBar: {
     borderTopWidth: 1,
     padding: 14,
+  },
+  bottomBarError: {
+    marginTop: 0,
+    marginBottom: 10,
+  },
+  successBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+  },
+  successRowBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
   },
 
   // Step 3 Success

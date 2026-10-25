@@ -330,7 +330,7 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
  * Vercel's CDN: no function runs and the database isn't touched.
  */
 export function pingServer(): void {
-  fetchWithTimeout(`${API_ORIGIN}/favicon.ico`, { method: "HEAD" }, 4000).catch(() => {});
+  fetchWithTimeout(`${API_ORIGIN}/favicon.ico`, { method: "HEAD" }, 4000).catch(() => { });
 }
 
 /** Why loading questions failed, in words for the teacher. */
@@ -365,9 +365,9 @@ async function getJsonWithRetry(
         error instanceof QuestionLoadError
           ? error
           : new QuestionLoadError(
-              "The connection to the server keeps stalling. Check your internet, or try another network.",
-              true
-            );
+            "The connection to the server keeps stalling. Check your internet, or try another network.",
+            true
+          );
     }
     if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, 2000));
   }

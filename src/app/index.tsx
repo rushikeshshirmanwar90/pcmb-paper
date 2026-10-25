@@ -53,6 +53,7 @@ type HomeShortcut = {
 
 const ACADEMY_SHORTCUTS: HomeShortcut[] = [
   { label: 'PDF', destination: 2, accent: 'primary', icon: { ios: 'doc.text', android: 'picture_as_pdf', web: 'picture_as_pdf' } },
+  { label: 'My PDFs', destination: 1, accent: 'primary', icon: { ios: 'folder.fill', android: 'folder', web: 'folder' } },
   { label: 'PDF Lite', destination: 2, accent: 'primary', icon: { ios: 'doc.text.magnifyingglass', android: 'description', web: 'description' } },
   { label: 'OMR Users', destination: 3, accent: 'violet', icon: { ios: 'person.3.fill', android: 'groups', web: 'groups' } },
   { label: 'Theory', destination: 1, accent: 'violet', icon: { ios: 'text.book.closed.fill', android: 'menu_book', web: 'menu_book' } },
@@ -94,7 +95,7 @@ function HomeScreenComponent({
   const dark = scheme === 'dark';
   const palette = getPalette(dark);
   const colors = Colors[dark ? 'dark' : 'light'];
-  const { goToTab } = useTabNavigation();
+  const { goToTab, setQuestionsMode } = useTabNavigation();
   const { mode, setMode } = useAppearance();
 
   const bg = colors.background;
@@ -243,6 +244,10 @@ function HomeScreenComponent({
                   onPress={shortcut.label === 'PDF' ? () => {
                     setMenuVisible(false);
                     setTimeout(() => setPdfBuilderVisible(true), 220);
+                  } : shortcut.label === 'My PDFs' ? () => {
+                    setMenuVisible(false);
+                    setQuestionsMode('pdfs');
+                    goToTab('questions');
                   } : undefined}
                 />
               ))}

@@ -21,11 +21,13 @@ import { CreateRoomFlow } from '@/components/create-exam-modal';
 import { Colors, getPalette, Spacing, BottomTabInset, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTabNavigation } from '@/context/tab-context';
-import { useRooms } from '@/context/rooms-context';
 import { useTabBarHeight } from '@/hooks/use-tab-bar-height';
 import { useResponsive } from '@/hooks/use-responsive';
 import type { FilterState, Question, Standard } from '@/types/pcmb';
 import { fetchQuestions } from '@/services/apiService';
+import { createQuestionsPdf } from '@/services/question-pdf';
+import { openPdf, sharePdf, type SavedPdf } from '@/services/pdf-library';
+import { MyPdfsScreen } from '@/components/my-pdfs-screen';
 import { useChapterTopicOptions } from '@/hooks/use-chapter-topic-options';
 import { subjectsFor } from '@/constants/syllabus';
 
@@ -158,32 +160,32 @@ function QuestionCard({ question, dark }: { question: Question; dark: boolean })
 // ─── Main Screen ────────────────────────────────────────────────────────────
 
 /**
- * Opens on the create-room form, so a teacher starts from the class and
- * chapter and only sees the questions that match; the whole bank is one tap
- * away for browsing.
+ * Opens on the create-PDF form, so a teacher starts from the class and
+ * chapter, picks from the questions that match and gets a printable PDF; the
+ * whole bank is one tap away for browsing, and its filtered list can be
+ * saved as a PDF too. Exam rooms are made from the Papers tab.
  */
 function QuestionsScreenComponent() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
-  const { activeTab, questionsMode, setQuestionsMode, setPapersSegment, goToTab } = useTabNavigation();
-  const { addRoom } = useRooms();
+  const { activeTab, questionsMode, setQuestionsMode } = useTabNavigation();
   const tabBarHeight = useTabBarHeight();
 
   if (questionsMode === 'browse') {
-    return <BrowseQuestions onBack={() => setQuestionsMode('create')} />;
+    return <BrowseQuestions onBack={() => setQuestionsMode('create')} onViewPdfs={() => setQuestionsMode('pdfs')} />;
+  }
+  if (questionsMode === 'pdfs') {
+    return <MyPdfsScreen onBack={() => setQuestionsMode('create')} onCreate={() => setQuestionsMode('create')} />;
   }
 
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: colors.background }]}>
-      <AppHeader title="Create a room" subtitle="Choose a class and chapter, then the questions" />
+      <AppHeader title="Create a PDF" subtitle="Choose a class and chapter, then the questions" />
       <View style={[styles.mainWrapper, { maxWidth: MaxContentWidth }]}>
         <CreateRoomFlow
-          onRoomCreated={addRoom}
-          onViewRooms={() => {
-            setPapersSegment('rooms');
-            goToTab('explore');
-          }}
+          mode="pdf"
           onBrowse={() => setQuestionsMode('browse')}
+          onViewPdfs={() => setQuestionsMode('pdfs')}
           bottomInset={tabBarHeight}
           active={activeTab === 1}
         />
@@ -194,7 +196,7 @@ function QuestionsScreenComponent() {
 
 // ─── Question bank: every question, filtered by the drawer ─────────────────
 
-function BrowseQuestions({ onBack }: { onBack: () => void }) {
+function BrowseQuestions({ onBack, onViewPdfs }: { onBack: () => void; onViewPdfs: () => void }) {
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
   const palette = getPalette(dark);
@@ -206,6 +208,51 @@ function BrowseQuestions({ onBack }: { onBack: () => void }) {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [makingPdf, setMakingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [madePdf, setMadePdf] = useState<SavedPdf | null>(null);
+
+  const runPdfAction = async (action: (pdf: SavedPdf) => Promise<void>) => {
+    if (!madePdf) return;
+    setPdfError(null);
+    try {
+      await action(madePdf);
+    } catch (error) {
+      setPdfError(error instanceof Error ? error.message : 'Something went wrong. Try again.');
+    }
+  };
+
+  // Every question the filters found, as a paper with an answer key at the
+  // end, saved to My PDFs.
+  const handleMakePdf = async () => {
+    const named = [filters.standard, filters.subject, filters.chapter, filters.topic].filter((v) => v !== 'All');
+    const subtitle = [
+      filters.examCategory !== 'All' ? filters.examCategory : null,
+      filters.level !== 'All' ? `${filters.level} level` : null,
+      filters.searchQuery.trim() ? `"${filters.searchQuery.trim()}"` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    setMakingPdf(true);
+    setPdfError(null);
+    setMadePdf(null);
+    try {
+      const saved = await createQuestionsPdf({
+        title: named.length ? named.join(' · ') : 'Question bank',
+        subtitle: subtitle || undefined,
+        questions,
+        content: 'answers',
+        marksPerQuestion: 4,
+        standard: filters.standard !== 'All' ? filters.standard : undefined,
+        subject: filters.subject !== 'All' ? filters.subject : undefined,
+      });
+      setMadePdf(saved);
+    } catch (error) {
+      setPdfError(error instanceof Error ? error.message : 'Could not make the PDF. Try again.');
+    } finally {
+      setMakingPdf(false);
+    }
+  };
 
   // Derive standards and subjects from examCategory
   const availableStandards =
@@ -285,7 +332,7 @@ function BrowseQuestions({ onBack }: { onBack: () => void }) {
             tintColor={palette.primary}
             size={16}
           />
-          <Text style={[styles.backRowText, { color: palette.primary }]}>Create a room</Text>
+          <Text style={[styles.backRowText, { color: palette.primary }]}>Create a PDF</Text>
         </Pressable>
 
         {/* Results and Filter Toggle Toolbar */}
@@ -293,6 +340,31 @@ function BrowseQuestions({ onBack }: { onBack: () => void }) {
           <Text style={[styles.resultsLabel, { color: colors.textSecondary }]}>
             {loading ? 'Finding questions…' : `${questions.length} questions available`}
           </Text>
+          <View style={styles.toolbarActions}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Save these ${questions.length} questions as a PDF`}
+            accessibilityState={{ disabled: loading || makingPdf || questions.length === 0, busy: makingPdf }}
+            disabled={loading || makingPdf || questions.length === 0}
+            onPress={handleMakePdf}
+            style={({ pressed }) => [
+              styles.filterToggleBtn,
+              { borderWidth: 1, borderColor: palette.primary },
+              (loading || questions.length === 0) && styles.disabled,
+              pressed && styles.pressed,
+            ]}
+          >
+            {makingPdf ? (
+              <ActivityIndicator size="small" color={palette.primary} />
+            ) : (
+              <SymbolView
+                name={{ ios: 'doc.richtext', android: 'picture_as_pdf', web: 'picture_as_pdf' }}
+                tintColor={palette.primary}
+                size={16}
+              />
+            )}
+            <Text style={[styles.filterToggleText, { color: palette.primary }]}>PDF</Text>
+          </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityState={{ expanded: showFilters }}
@@ -319,7 +391,44 @@ function BrowseQuestions({ onBack }: { onBack: () => void }) {
               </View>
             )}
           </Pressable>
+          </View>
         </View>
+        {pdfError ? (
+          <Text accessibilityLiveRegion="polite" style={[styles.pdfError, { color: palette.dangerInk }]}>
+            {pdfError}
+          </Text>
+        ) : null}
+        {madePdf ? (
+          <View
+            accessibilityLiveRegion="polite"
+            style={[styles.pdfBanner, { backgroundColor: palette.successSoft, borderColor: palette.successBorder }]}
+          >
+            <View style={styles.pdfBannerTop}>
+              <Text style={[styles.pdfBannerText, { color: palette.successInk }]} numberOfLines={2}>
+                Saved “{madePdf.name}” to My PDFs
+              </Text>
+              <Pressable accessibilityLabel="Dismiss" hitSlop={8} onPress={() => setMadePdf(null)}>
+                <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} tintColor={palette.successInk} size={14} />
+              </Pressable>
+            </View>
+            <View style={styles.pdfBannerActions}>
+              {([
+                ['Open', () => runPdfAction(openPdf)],
+                ['Share', () => runPdfAction(sharePdf)],
+                ['My PDFs', onViewPdfs],
+              ] as const).map(([label, onPress]) => (
+                <Pressable
+                  key={label}
+                  accessibilityRole="button"
+                  onPress={onPress}
+                  style={({ pressed }) => [styles.pdfBannerBtn, { borderColor: palette.successBorder }, pressed && styles.pressed]}
+                >
+                  <Text style={[styles.pdfBannerBtnText, { color: palette.successInk }]}>{label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         {/* Search Box */}
         <View style={styles.searchContainer}>
@@ -572,6 +681,53 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.8,
+  },
+  disabled: {
+    opacity: 0.45,
+  },
+  toolbarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pdfError: {
+    fontSize: 13,
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.two,
+  },
+  pdfBanner: {
+    marginHorizontal: Spacing.three,
+    marginBottom: Spacing.two,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 10,
+  },
+  pdfBannerTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  pdfBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  pdfBannerActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  pdfBannerBtn: {
+    flex: 1,
+    minHeight: 38,
+    borderWidth: 1,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pdfBannerBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   backRow: {
     flexDirection: 'row',

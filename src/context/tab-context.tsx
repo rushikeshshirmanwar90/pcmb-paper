@@ -18,8 +18,11 @@ export const DEFAULT_QUESTION_FILTERS: FilterState = {
   searchQuery: '',
 };
 
-/** The Questions tab opens on the create-room form; browsing the whole bank is the alternative. */
-export type QuestionsMode = 'create' | 'browse';
+/**
+ * The Questions tab opens on the create-PDF form; browsing the whole bank and
+ * My PDFs (every PDF made, saved on the device) are the alternatives.
+ */
+export type QuestionsMode = 'create' | 'browse' | 'pdfs';
 export type PapersSegment = 'papers' | 'rooms';
 
 interface TabContextValue {
