@@ -7,6 +7,11 @@ import { ExploreScreen } from '@/app/explore';
 import { ProfileScreen } from '@/app/profile';
 import { AccountProfileScreen } from '@/screens/account-profile-screen';
 import { WelcomeScreen } from '@/screens/welcome-screen';
+import { TuitionHomeScreen } from '@/screens/tuition/tuition-home';
+import { TuitionBatchesScreen } from '@/screens/tuition/tuition-batches';
+import { TuitionTeachersScreen } from '@/screens/tuition/tuition-teachers';
+import { TuitionStudentsScreen } from '@/screens/tuition/tuition-students';
+import { TuitionProfileScreen } from '@/screens/tuition/tuition-profile';
 
 // The bottom tabs each role sees after logging in.
 
@@ -36,9 +41,28 @@ const TEACHER_TABS: AppTab[] = [
   { ...PROFILE_TAB, render: () => <ProfileScreen /> },
 ];
 
+/** Tuition login: dashboard, then batches, teachers and students to manage. */
 const TUITION_TABS: AppTab[] = [
-  { key: 'home', label: 'Home', icon: HOME_ICON, render: () => <WelcomeScreen /> },
-  { ...PROFILE_TAB, render: () => <AccountProfileScreen /> },
+  { key: 'home', label: 'Home', icon: HOME_ICON, render: () => <TuitionHomeScreen /> },
+  {
+    key: 'batches',
+    label: 'Batches',
+    icon: { sf: { default: 'square.grid.2x2', selected: 'square.grid.2x2.fill' }, md: 'grid_view' },
+    render: () => <TuitionBatchesScreen />,
+  },
+  {
+    key: 'teachers',
+    label: 'Teachers',
+    icon: { sf: { default: 'person.crop.rectangle.stack', selected: 'person.crop.rectangle.stack.fill' }, md: 'co_present' },
+    render: () => <TuitionTeachersScreen />,
+  },
+  {
+    key: 'students',
+    label: 'Students',
+    icon: { sf: { default: 'person.3', selected: 'person.3.fill' }, md: 'groups' },
+    render: () => <TuitionStudentsScreen />,
+  },
+  { ...PROFILE_TAB, render: () => <TuitionProfileScreen /> },
 ];
 
 const STUDENT_TABS: AppTab[] = [

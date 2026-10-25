@@ -496,6 +496,63 @@ export function FormSheet({
   );
 }
 
+/** A full-screen page over the tab, e.g. a batch's details: title, close, scrolling body. */
+export function DetailSheet({
+  visible,
+  title,
+  onClose,
+  children,
+  footer,
+  onRefresh,
+  refreshing = false,
+}: PropsWithChildren<{
+  visible: boolean;
+  title: string;
+  onClose: () => void;
+  footer?: ReactNode;
+  onRefresh?: () => void;
+  refreshing?: boolean;
+}>) {
+  const palette = usePalette();
+  const insets = useSafeAreaInsets();
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={[styles.flex, { backgroundColor: palette.background }]}>
+        <View style={[styles.sheetHeader, { borderBottomColor: palette.border, backgroundColor: palette.card, paddingTop: Platform.OS === 'ios' ? 12 : insets.top + 8 }]}>
+          <Text accessibilityRole="header" style={[styles.sheetTitle, { color: palette.foreground }]} numberOfLines={1}>
+            {title}
+          </Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} hitSlop={10} style={styles.sheetClose}>
+            <Icon name={{ ios: 'xmark', android: 'close' }} color={palette.foreground} size={18} />
+          </Pressable>
+        </View>
+        <ScrollView
+          contentContainerStyle={[styles.sheetBody, { paddingBottom: footer ? 16 : Math.max(insets.bottom, 16) + 8 }]}
+          refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.primary} /> : undefined}
+        >
+          {children}
+        </ScrollView>
+        {footer ? (
+          <View style={[styles.sheetFooter, { borderTopColor: palette.border, backgroundColor: palette.card, paddingBottom: Math.max(insets.bottom, 12) }]}>
+            {footer}
+          </View>
+        ) : null}
+      </View>
+    </Modal>
+  );
+}
+
+/** A row of label and value, for details. */
+export function DetailRow({ label, value }: { label: string; value: string }) {
+  const palette = usePalette();
+  return (
+    <View style={styles.detailRow}>
+      <Text style={[styles.detailLabel, { color: palette.mutedForeground }]}>{label}</Text>
+      <Text style={[styles.detailValue, { color: palette.foreground }]}>{value}</Text>
+    </View>
+  );
+}
+
 // ─── Data loading ──────────────────────────────────────────────────────────
 
 /**
@@ -598,4 +655,7 @@ const styles = StyleSheet.create({
   sheetClose: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   sheetBody: { padding: 16, gap: 16, width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' },
   sheetFooter: { padding: 16, gap: 10, borderTopWidth: 1 },
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 16, paddingVertical: 4 },
+  detailLabel: { fontSize: 14 },
+  detailValue: { fontSize: 14, fontWeight: '600', flexShrink: 1, textAlign: 'right' },
 });
