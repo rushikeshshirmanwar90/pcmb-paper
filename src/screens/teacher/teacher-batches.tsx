@@ -20,7 +20,7 @@ import {
 import { TRACK_LABELS } from '@/constants/school';
 import { useDataVersion } from '@/context/data-version';
 import { SyllabusProgressView } from '@/screens/shared/syllabus-progress';
-import { StudentInsightSheet } from '@/screens/teacher/student-insight';
+import { BatchAnalysisSection } from '@/screens/shared/batch-analysis';
 import { dayLabel, schoolApi } from '@/services/school-api';
 import { describeSchedule } from '@/services/tuition-api';
 
@@ -71,7 +71,6 @@ function TeacherBatchDetail({ id, onClose }: { id: string; onClose: () => void }
   const version = useDataVersion();
   const { data, error, loading, reload } = useLoad(() => Promise.all([schoolApi.batch(id), schoolApi.progress(id)]), [id, version]);
   const [marking, setMarking] = useState(false);
-  const [studentId, setStudentId] = useState<string | null>(null);
   const [view, recentProgress] = data ?? [null, null];
   const batch = view?.batch;
 
@@ -109,28 +108,11 @@ function TeacherBatchDetail({ id, onClose }: { id: string; onClose: () => void }
             <Muted>No topics marked yet.</Muted>
           )}
 
-          <SectionTitle title={`Students (${view.students.length})`} />
-          {view.students.length ? (
-            <Card style={styles.listCard}>
-              {view.students.map((s, i) => (
-                <ListRow
-                  key={s.id}
-                  icon={{ ios: 'person.fill', android: 'person' }}
-                  title={s.name}
-                  subtitle="Strong and weak topics"
-                  onPress={() => setStudentId(s.id)}
-                  last={i === view.students.length - 1}
-                />
-              ))}
-            </Card>
-          ) : (
-            <Muted>No students in this batch yet.</Muted>
-          )}
+          <BatchAnalysisSection batchId={batch.id} />
 
           <DetailSheet visible={marking} title={`${batch.name} · syllabus`} onClose={() => setMarking(false)}>
             <SyllabusProgressView batchId={batch.id} subjects={view.mySubjects} editable />
           </DetailSheet>
-          {studentId ? <StudentInsightSheet studentId={studentId} onClose={() => setStudentId(null)} /> : null}
         </>
       ) : null}
     </DetailSheet>

@@ -25,6 +25,7 @@ import {
 } from '@/components/kit';
 import { SCHOOL_STANDARDS, SUBJECTS_BY_TRACK, TRACK_LABELS, TRACKS, type SchoolSubject, type Track } from '@/constants/school';
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
+import { BatchAnalysisSection } from '@/screens/shared/batch-analysis';
 import { ScheduleEditor } from '@/screens/tuition/schedule-editor';
 import { describeSchedule, formatMinutes, tuitionApi, type Batch, type BatchSlot } from '@/services/tuition-api';
 
@@ -157,16 +158,7 @@ function BatchDetail({ id, onClose }: { id: string; onClose: () => void }) {
             <Muted>Teachers mark topics as they cover them.</Muted>
           </Card>
 
-          <SectionTitle title={`Students (${data.students.length})`} />
-          {data.students.length === 0 ? (
-            <Muted>No students in this batch yet. Assign them from the Students tab.</Muted>
-          ) : (
-            <Card style={styles.listCard}>
-              {data.students.map((s, i) => (
-                <ListRow key={s.id} title={s.name} subtitle={s.email} last={i === data.students.length - 1} />
-              ))}
-            </Card>
-          )}
+          <BatchAnalysisSection batchId={batch.id} />
 
           <BatchForm visible={editing} onClose={() => setEditing(false)} batch={batch} />
         </>

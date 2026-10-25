@@ -1,6 +1,7 @@
 import { api } from '@/services/api-client';
 import type { SchoolStandard, SchoolSubject } from '@/constants/school';
 import type { Batch, Coverage, Student } from '@/services/tuition-api';
+import type { TopicStat } from '@/services/student-api';
 import type { Question } from '@/types/pcmb';
 
 // Teaching data shared by teachers and students: a batch's details, syllabus
@@ -156,3 +157,48 @@ export function todayISODate() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+
+// ─── Analysis ──────────────────────────────────────────────────────────────
+
+
+export interface StudentAnalysis {
+  student: { id: string; name: string; track: string | null; standard: string | null; batch: string | null };
+  summary: { testsTaken: number; averagePercent: number | null; answered: number; accuracy: number | null };
+  strong: TopicStat[];
+  weak: TopicStat[];
+  subjects: { subject: string; answered: number; accuracy: number; chapters: TopicStat[] }[];
+  tests: { testId: string; title: string; subject: string; score: number; maxScore: number; percent: number; correct: number; wrong: number; skipped: number; submittedAt: string }[];
+}
+
+export interface TestAnalysis {
+  submitted: number;
+  maxScore: number;
+  average: number | null;
+  highest: number | null;
+  lowest: number | null;
+  bands: { from: number; to: number; students: number }[];
+  topics: TopicStat[];
+  hardest: { index: number; chapter: string; topic: string; questionText: string; correctAnswer: string; answered: number; skipped: number; accuracy: number | null; choices: Record<string, number> }[];
+}
+
+export interface BatchAnalysis {
+  batch: { id: string; name: string };
+  students: {
+    student: { id: string; name: string };
+    testsTaken: number;
+    averagePercent: number | null;
+    accuracy: number | null;
+    level: TopicStat['level'];
+    strongTopics: number;
+    weakTopics: number;
+    weakest: string[];
+  }[];
+  weakTopics: TopicStat[];
+  strongTopics: TopicStat[];
+}
+
+export const analysisApi = {
+  student: (id: string) => api<StudentAnalysis>(`/analysis/student/${id}`),
+  test: (id: string) => api<TestAnalysis>(`/analysis/test/${id}`),
+  batch: (id: string) => api<BatchAnalysis>(`/analysis/batch/${id}`),
+};

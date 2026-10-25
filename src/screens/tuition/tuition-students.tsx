@@ -24,6 +24,7 @@ import {
 } from '@/components/kit';
 import { SCHOOL_STANDARDS, TRACK_LABELS, TRACKS, type Track } from '@/constants/school';
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
+import { StudentInsightSheet } from '@/screens/teacher/student-insight';
 import { ResetPasswordSheet } from '@/screens/tuition/reset-password-sheet';
 import { timeAgo, tuitionApi, type Batch, type Student } from '@/services/tuition-api';
 
@@ -109,6 +110,7 @@ export function TuitionStudentsScreen() {
 
 function StudentDetail({ student, batches, onClose }: { student: Student; batches: Batch[]; onClose: () => void }) {
   const [editing, setEditing] = useState(false);
+  const [insight, setInsight] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -155,6 +157,17 @@ function StudentDetail({ student, batches, onClose }: { student: Student; batche
         <DetailRow label="Last login" value={student.lastLoginAt ? timeAgo(student.lastLoginAt) : 'Never'} />
       </Card>
 
+      <SectionTitle title="Performance" />
+      <Card style={styles.listCard}>
+        <ListRow
+          icon={{ ios: 'chart.bar', android: 'bar_chart' }}
+          title="Tests, strong and weak topics"
+          subtitle="Scores and accuracy by subject and chapter"
+          onPress={() => setInsight(true)}
+          last
+        />
+      </Card>
+
       <SectionTitle title="Login" />
       <Card style={styles.listCard}>
         <ListRow icon={{ ios: 'key', android: 'key' }} title="Reset password" subtitle="Set a new password and log them out" onPress={() => setResetting(true)} />
@@ -168,6 +181,7 @@ function StudentDetail({ student, batches, onClose }: { student: Student; batche
       </Card>
 
       <StudentForm visible={editing} onClose={() => setEditing(false)} student={student} batches={batches} />
+      {insight ? <StudentInsightSheet studentId={student.id} onClose={() => setInsight(false)} /> : null}
       <ResetPasswordSheet
         visible={resetting}
         name={student.name}
