@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 import { api, ApiError, setApiToken, setOnLoginExpired } from '@/services/api-client';
+import { registerForPush, unregisterPush } from '@/services/notifications';
 import { clearToken, loadToken, saveToken } from '@/services/session-store';
 import type { Role, SchoolStandard, SchoolSubject, Track } from '@/constants/school';
 
@@ -43,6 +44,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<AuthUser | null>(null);
 
   const forget = useCallback(async () => {
+    // While the login still works: stop this phone's notifications.
+    await unregisterPush().catch(() => {});
     setApiToken(null);
     setUser(null);
     setStatus('signedOut');
@@ -88,6 +91,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setStatus('loading');
     setAttempt((n) => n + 1);
   }, []);
+
+  // Once someone is signed in on this phone, register it for notifications.
+  const signedInId = status === 'signedIn' ? user?.id : null;
+  useEffect(() => {
+    if (signedInId) void registerForPush();
+  }, [signedInId]);
 
   useEffect(() => {
     setOnLoginExpired(() => void forget());

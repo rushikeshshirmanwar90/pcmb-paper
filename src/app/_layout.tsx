@@ -1,19 +1,28 @@
+import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AppearanceProvider } from '@/context/appearance-context';
 import { AuthProvider, useAuth } from '@/context/auth-context';
-import { TabProvider } from '@/context/tab-context';
+import { TabProvider, useTabNavigation } from '@/context/tab-context';
 import { RoomsProvider } from '@/context/rooms-context';
 import { getPalette } from '@/constants/theme';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
 import { tabsFor } from '@/navigation/role-tabs';
+import { onNotificationTap } from '@/services/notifications';
 import { LoginScreen, UnreachableScreen } from '@/screens/login-screen';
 
 SplashScreen.preventAutoHideAsync();
+
+/** Opens the tab a tapped notification is about (e.g. Tests for a new test). */
+function NotificationTaps() {
+  const { goToTab } = useTabNavigation();
+  useEffect(() => onNotificationTap((tab) => goToTab(tab)), [goToTab]);
+  return null;
+}
 
 /** The login screen, or the signed-in role's tabs. */
 function SignedInGate() {
@@ -35,6 +44,7 @@ function SignedInGate() {
   return (
     <TabProvider key={user.id} tabKeys={tabs.map((t) => t.key)}>
       <RoomsProvider>
+        <NotificationTaps />
         <AppTabs tabs={tabs} />
       </RoomsProvider>
     </TabProvider>

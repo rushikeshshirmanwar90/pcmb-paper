@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Badge, Card, ErrorView, ListRow, LoadingView, Muted, ProgressBar, Screen, SectionTitle, useLoad, usePalette } from '@/components/kit';
 import { useSignedInUser } from '@/context/auth-context';
 import { useDataVersion } from '@/context/data-version';
+import { syncClassReminders } from '@/services/notifications';
 import { AnnouncementsSection } from '@/screens/shared/announcements';
 import { ClassRow, WeekTimetable } from '@/screens/shared/timetable';
 import { TestRunner } from '@/screens/student/test-runner';
@@ -19,6 +20,11 @@ export function StudentHomeScreen() {
   const palette = usePalette();
   const version = useDataVersion();
   const { data, error, loading, refreshing, refresh, reload } = useLoad(() => studentApi.overview(), [version]);
+  // Reminders 15 minutes before each weekly class.
+  const week = data?.week;
+  useEffect(() => {
+    if (week) void syncClassReminders(week);
+  }, [week]);
   const [openTest, setOpenTest] = useState<string | null>(null);
 
   return (

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, ErrorView, LoadingView, Muted, Screen, SectionTitle, StatGrid, StatTile, Button, useLoad } from '@/components/kit';
 import { useSignedInUser } from '@/context/auth-context';
 import { useDataVersion } from '@/context/data-version';
+import { syncClassReminders } from '@/services/notifications';
 import { AnnouncementsSection } from '@/screens/shared/announcements';
 import { ClassFormSheet, ClassRow, WeekTimetable } from '@/screens/shared/timetable';
 import { schoolApi, type TimetableEntry } from '@/services/school-api';
@@ -12,6 +13,11 @@ export function TeacherHomeScreen() {
   const user = useSignedInUser();
   const version = useDataVersion();
   const { data, error, loading, refreshing, refresh, reload } = useLoad(() => schoolApi.teacherOverview(), [version]);
+  // Reminders 15 minutes before each weekly class.
+  const week = data?.week;
+  useEffect(() => {
+    if (week) void syncClassReminders(week);
+  }, [week]);
   const [editing, setEditing] = useState<TimetableEntry | null | 'new'>(null);
   const batches = (data?.batches ?? []).map((b) => ({ id: b.id, name: b.name, mySubjects: b.mySubjects }));
 
