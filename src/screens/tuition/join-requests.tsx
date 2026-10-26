@@ -30,7 +30,7 @@ export function JoinRequestsSection() {
   );
 }
 
-function RequestCard({ request, onAccept, onDone }: { request: JoinRequest; onAccept: (as: 'student' | 'teacher') => void; onDone: () => void }) {
+export function RequestCard({ request, onAccept, onDone }: { request: JoinRequest; onAccept: (as: 'student' | 'teacher') => void; onDone: () => void }) {
   const palette = usePalette();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +73,7 @@ function RequestCard({ request, onAccept, onDone }: { request: JoinRequest; onAc
 }
 
 /** Accepting someone: as a student (track, class, batch) or a teacher (subjects). */
-function AcceptSheet({ accepting, onClose }: { accepting: { request: JoinRequest; as: 'student' | 'teacher' } | null; onClose: () => void }) {
+export function AcceptSheet({ accepting, onClose }: { accepting: { request: JoinRequest; as: 'student' | 'teacher' } | null; onClose: () => void }) {
   const version = useDataVersion();
   const visible = !!accepting;
   const { data: batches } = useLoad(() => tuitionApi.batches(), [version, visible], { enabled: visible });
@@ -162,7 +162,7 @@ function AcceptSheet({ accepting, onClose }: { accepting: { request: JoinRequest
 }
 
 /** The code people join with: share it, or make a new one. */
-function JoinCodeCard({ waiting }: { waiting: number }) {
+export function JoinCodeCard({ waiting }: { waiting: number }) {
   const palette = usePalette();
   const user = useSignedInUser();
   const { data: code, error, setData } = useLoad(() => tuitionApi.joinCode(), []);

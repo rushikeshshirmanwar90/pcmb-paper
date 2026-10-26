@@ -52,9 +52,12 @@ export function Screen({
   refreshing = false,
   scroll = true,
   footer,
+  headerRight,
 }: PropsWithChildren<{
   title: string;
   subtitle: string;
+  /** Shown at the right of the header, e.g. the notifications bell. */
+  headerRight?: ReactNode;
   onRefresh?: () => void;
   refreshing?: boolean;
   scroll?: boolean;
@@ -65,7 +68,7 @@ export function Screen({
   const tabBarHeight = useTabBarHeight();
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: palette.background }]}>
-      <AppHeader title={title} subtitle={subtitle} />
+      <AppHeader title={title} subtitle={subtitle} right={headerRight} />
       {scroll ? (
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 24 }]}

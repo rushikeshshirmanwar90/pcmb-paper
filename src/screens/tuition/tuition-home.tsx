@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
   Badge,
   Card,
   EmptyView,
   ErrorView,
+  ListRow,
   LoadingView,
   Muted,
   ProgressBar,
@@ -19,7 +20,8 @@ import { TRACK_LABELS } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
 import { useDataVersion } from '@/context/data-version';
 import { AnnouncementsSection } from '@/screens/shared/announcements';
-import { JoinRequestsSection } from '@/screens/tuition/join-requests';
+import { NotificationBell } from '@/screens/shared/notification-bell';
+import { TuitionNotificationsSheet, useJoinRequests } from '@/screens/tuition/tuition-notifications';
 import { tuitionApi, type Overview } from '@/services/tuition-api';
 
 /**
@@ -30,16 +32,38 @@ export function TuitionHomeScreen() {
   const user = useSignedInUser();
   const version = useDataVersion();
   const { data, error, loading, refreshing, refresh, reload } = useLoad(() => tuitionApi.overview(), [version]);
+  const requests = useJoinRequests();
+  const waiting = requests.data?.length ?? 0;
+  const [showNotifications, setShowNotifications] = useState(false);
 
   return (
-    <Screen title={user.tuition.name || 'Your tuition'} subtitle="Students, teachers and batches at a glance" onRefresh={refresh} refreshing={refreshing}>
+    <Screen
+      title={user.tuition.name || 'Your tuition'}
+      subtitle="Students, teachers and batches at a glance"
+      headerRight={<NotificationBell count={waiting} onPress={() => setShowNotifications(true)} />}
+      onRefresh={() => {
+        refresh();
+        requests.reload();
+      }}
+      refreshing={refreshing}
+    >
       {loading ? (
         <LoadingView />
       ) : error && !data ? (
         <ErrorView message={error} onRetry={reload} />
       ) : data ? (
         <>
-          <JoinRequestsSection />
+          {waiting ? (
+            <Card>
+              <ListRow
+                icon={{ ios: 'person.crop.circle.badge.plus', android: 'person_add' }}
+                title={`${waiting} ${waiting === 1 ? 'person wants' : 'people want'} to join`}
+                subtitle="Accept them as students or teachers"
+                onPress={() => setShowNotifications(true)}
+                last
+              />
+            </Card>
+          ) : null}
           <StatGrid>
             <StatTile label="Students" value={data.totals.students} icon={{ ios: 'person.3.fill', android: 'groups' }} />
             <StatTile label="Teachers" value={data.totals.teachers} icon={{ ios: 'person.crop.rectangle.stack', android: 'co_present' }} tone="violet" />
@@ -68,6 +92,7 @@ export function TuitionHomeScreen() {
           <AnnouncementsSection batches={data.batches.map((b) => ({ id: b.id, name: b.name }))} canPost allowAllBatches />
         </>
       ) : null}
+      <TuitionNotificationsSheet visible={showNotifications} onClose={() => setShowNotifications(false)} requests={requests} />
     </Screen>
   );
 }

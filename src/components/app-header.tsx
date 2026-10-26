@@ -1,3 +1,4 @@
+import type React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { getPalette } from '@/constants/theme';
@@ -7,9 +8,11 @@ type AppHeaderProps = {
   title: string;
   subtitle: string;
   onMenuPress?: () => void;
+  /** e.g. the notifications bell. */
+  right?: React.ReactNode;
 };
 
-export function AppHeader({ title, subtitle, onMenuPress }: AppHeaderProps) {
+export function AppHeader({ title, subtitle, onMenuPress, right }: AppHeaderProps) {
   const scheme = useColorScheme();
   const palette = getPalette(scheme === 'dark');
 
@@ -37,6 +40,7 @@ export function AppHeader({ title, subtitle, onMenuPress }: AppHeaderProps) {
           <Text style={[styles.title, { color: palette.foreground }]} numberOfLines={1}>{title}</Text>
           <Text style={[styles.subtitle, { color: palette.mutedForeground }]} numberOfLines={1}>{subtitle}</Text>
         </View>
+        {right}
       </View>
     </View>
   );
