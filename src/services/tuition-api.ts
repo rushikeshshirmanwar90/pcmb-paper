@@ -34,8 +34,6 @@ export interface Teacher {
   phone: string;
   subjects: SchoolSubject[];
   active: boolean;
-  /** Signed up with the join code and waiting for the tuition's approval. */
-  pending: boolean;
   createdAt: string;
   lastLoginAt: string | null;
   batches: { id: string; name: string; subject: SchoolSubject }[];
@@ -142,7 +140,6 @@ export const tuitionApi = {
   updateTeacher: (id: string, input: TeacherInput) =>
     api<{ teacher: Teacher }>(`/tuition/teachers/${id}`, { method: 'PATCH', body: input }).then((r) => r.teacher),
   deleteTeacher: (id: string) => api(`/tuition/teachers/${id}`, { method: 'DELETE' }),
-  approveTeacher: (id: string) => api(`/tuition/teachers/${id}/approve`, { method: 'POST' }),
   joinCode: () => api<{ code: string }>('/tuition/join-code').then((r) => r.code),
   renewJoinCode: () => api<{ code: string }>('/tuition/join-code', { method: 'POST' }).then((r) => r.code),
   resetTeacherPassword: (id: string, password: string) => api(`/tuition/teachers/${id}/password`, { method: 'POST', body: { password } }),
@@ -158,6 +155,38 @@ export const tuitionApi = {
   weightage: (track: Track, subject: SchoolSubject) => api<Weightage>(`/tuition/weightage${q({ track, subject })}`),
   saveWeightage: (track: Track, subject: SchoolSubject, chapters: Weightage['chapters']) =>
     api<Weightage>('/tuition/weightage', { method: 'PUT', body: { track, subject, chapters } }),
+};
+
+export interface JoinRequest {
+  id: string;
+  createdAt: string;
+  person: { name: string; email: string; phone: string };
+}
+
+export type AcceptAs =
+  | { as: 'student'; track: Track; standard: SchoolStandard | null; batchId: string | null }
+  | { as: 'teacher'; subjects: SchoolSubject[] };
+
+export const joinRequestsApi = {
+  /** People waiting to join (tuition). */
+  pending: () => api<{ requests: JoinRequest[] }>('/tuition/join-requests').then((r) => r.requests),
+  accept: (id: string, input: AcceptAs) => api(`/tuition/join-requests/${id}/accept`, { method: 'POST', body: input }),
+  reject: (id: string) => api(`/tuition/join-requests/${id}/reject`, { method: 'POST' }),
+};
+
+export interface MyJoinRequest {
+  id?: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  acceptedAs?: 'student' | 'teacher' | null;
+  createdAt?: string;
+  tuition: { name: string; address: string };
+}
+
+export const myJoinApi = {
+  /** The signed-in person's latest request (before they're in a tuition). */
+  latest: () => api<{ request: MyJoinRequest | null }>('/join-requests/mine').then((r) => r.request),
+  send: (code: string) => api<{ request: MyJoinRequest }>('/join-requests', { method: 'POST', body: { code } }).then((r) => r.request),
+  cancel: () => api('/join-requests/mine', { method: 'DELETE' }),
 };
 
 export const announcementsApi = {

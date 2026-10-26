@@ -19,6 +19,7 @@ import { TRACK_LABELS } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
 import { useDataVersion } from '@/context/data-version';
 import { AnnouncementsSection } from '@/screens/shared/announcements';
+import { JoinRequestsSection } from '@/screens/tuition/join-requests';
 import { tuitionApi, type Overview } from '@/services/tuition-api';
 
 /**
@@ -38,6 +39,7 @@ export function TuitionHomeScreen() {
         <ErrorView message={error} onRetry={reload} />
       ) : data ? (
         <>
+          <JoinRequestsSection />
           <StatGrid>
             <StatTile label="Students" value={data.totals.students} icon={{ ios: 'person.3.fill', android: 'groups' }} />
             <StatTile label="Teachers" value={data.totals.teachers} icon={{ ios: 'person.crop.rectangle.stack', android: 'co_present' }} tone="violet" />

@@ -8,7 +8,8 @@ import type { Role, SchoolStandard, SchoolSubject, Track } from '@/constants/sch
 export interface AuthUser {
   id: string;
   email: string;
-  role: Role;
+  /** null until a tuition accepts them as a student or teacher. */
+  role: Role | null;
   name: string;
   phone: string;
   tuition: { id: string; name: string };
@@ -26,6 +27,8 @@ interface AuthContextValue {
   status: AuthStatus;
   user: AuthUser | null;
   signIn: (email: string, password: string) => Promise<void>;
+  /** Creates an account (no tuition yet) and logs in. */
+  register: (input: { name: string; email: string; phone: string; password: string }) => Promise<void>;
   signOut: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   updateProfile: (changes: Partial<Pick<AuthUser, 'name' | 'phone' | 'parentPhone'>>) => Promise<void>;
@@ -110,6 +113,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
     [keep]
   );
 
+  const register = useCallback(
+    async (input: { name: string; email: string; phone: string; password: string }) => {
+      await keep(await api<Session>('/auth/register', { method: 'POST', body: input, auth: false }));
+    },
+    [keep]
+  );
+
   const changePassword = useCallback(
     async (currentPassword: string, newPassword: string) => {
       await keep(await api<Session>('/auth/change-password', { method: 'POST', body: { currentPassword, newPassword } }));
@@ -128,8 +138,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const value = useMemo(
-    () => ({ status, user, signIn, signOut: forget, changePassword, updateProfile, refresh, retry }),
-    [status, user, signIn, forget, changePassword, updateProfile, refresh, retry]
+    () => ({ status, user, signIn, register, signOut: forget, changePassword, updateProfile, refresh, retry }),
+    [status, user, signIn, register, forget, changePassword, updateProfile, refresh, retry]
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -43,8 +43,8 @@ export function AccountSection() {
               {user.email}
             </Text>
             <View style={styles.badges}>
-              <Badge label={ROLE_LABEL[user.role]} tone="primary" />
-              {user.role !== 'tuition' && user.tuition.name ? <Badge label={user.tuition.name} /> : null}
+              {user.role ? <Badge label={ROLE_LABEL[user.role]} tone="primary" /> : null}
+              {user.role && user.role !== 'tuition' && user.tuition.name ? <Badge label={user.tuition.name} /> : null}
             </View>
           </View>
         </View>
