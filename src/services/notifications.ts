@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
+import type * as NotificationsModule from 'expo-notifications';
 import { api } from '@/services/api-client';
 import type { TimetableEntry } from '@/services/school-api';
 import { formatTime } from '@/services/tuition-api';
@@ -10,20 +10,38 @@ import { formatTime } from '@/services/tuition-api';
 // today's topics, timetable changes) and class reminders scheduled on the
 // phone itself from the weekly timetable.
 //
-// Push needs a development or store build: Expo Go on Android can't receive
-// it. Class reminders work everywhere except the web.
+// Push needs a development or store build. In Expo Go on Android
+// notifications are off altogether (the module can't load there); on the
+// web too.
 
 const REMINDER_MINUTES = 15;
 const REMINDER_KIND = 'class-reminder';
 
-// Show notifications that arrive while the app is open, too.
-if (Platform.OS !== 'web') {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }),
-  });
+// expo-notifications is loaded on first use, not imported: in Expo Go on
+// Android its native push module is missing and importing it throws, which
+// would take the whole app down. There, notifications are simply off.
+type Notifications = typeof NotificationsModule;
+let loaded: Notifications | null | undefined;
+
+function notifications(): Notifications | null {
+  if (loaded !== undefined) return loaded;
+  loaded = null;
+  if (Platform.OS === 'web') return null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require('expo-notifications') as Notifications;
+    // Show notifications that arrive while the app is open, too.
+    mod.setNotificationHandler({
+      handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }),
+    });
+    loaded = mod;
+  } catch (error) {
+    if (__DEV__) console.log('[notifications] off in this build:', error instanceof Error ? error.message : error);
+  }
+  return loaded;
 }
 
-async function ensureChannel() {
+async function ensureChannel(Notifications: Notifications) {
   if (Platform.OS !== 'android') return;
   // Android 13+ only asks for permission once a channel exists.
   await Notifications.setNotificationChannelAsync('default', {
@@ -34,8 +52,9 @@ async function ensureChannel() {
 
 /** Asks for permission (once); true when notifications are allowed. */
 async function allowed(): Promise<boolean> {
-  if (Platform.OS === 'web') return false;
-  await ensureChannel();
+  const Notifications = notifications();
+  if (!Notifications) return false;
+  await ensureChannel(Notifications);
   const current = await Notifications.getPermissionsAsync();
   if (current.granted) return true;
   if (!current.canAskAgain) return false;
@@ -47,7 +66,8 @@ let registeredToken: string | null = null;
 /** Registers this phone for push with the server. Quietly does nothing where push can't work. */
 export async function registerForPush() {
   try {
-    if (!Device.isDevice || !(await allowed())) return;
+    const Notifications = notifications();
+    if (!Notifications || !Device.isDevice || !(await allowed())) return;
     const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
     const { data: token } = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
     await api('/push', { method: 'POST', body: { token, platform: Platform.OS } });
@@ -71,6 +91,8 @@ export async function unregisterPush() {
 }
 
 async function clearClassReminders() {
+  const Notifications = notifications();
+  if (!Notifications) return;
   try {
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
     await Promise.all(
@@ -90,7 +112,8 @@ let lastSynced = '';
  * ones scheduled before. Called whenever the timetable loads.
  */
 export async function syncClassReminders(entries: TimetableEntry[]) {
-  if (Platform.OS === 'web') return;
+  const Notifications = notifications();
+  if (!Notifications) return;
   const signature = JSON.stringify(entries.map((e) => [e.id, e.day, e.start, e.subject, e.batch.name]));
   if (signature === lastSynced) return;
   try {
@@ -130,8 +153,9 @@ export async function syncClassReminders(entries: TimetableEntry[]) {
 
 /** Calls back with the tab a tapped notification points to (e.g. "tests"). */
 export function onNotificationTap(handler: (tab: string) => void) {
-  if (Platform.OS === 'web') return () => {};
-  const open = (response: Notifications.NotificationResponse | null) => {
+  const Notifications = notifications();
+  if (!Notifications) return () => {};
+  const open = (response: NotificationsModule.NotificationResponse | null) => {
     const tab = response?.notification.request.content.data?.tab;
     if (typeof tab === 'string') handler(tab);
   };
