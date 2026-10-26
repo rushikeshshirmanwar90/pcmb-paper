@@ -240,7 +240,7 @@ function BatchForm({ visible, onClose, batch, onSaved }: { visible: boolean; onC
 
       <Text style={[styles.groupLabel, { color: palette.foreground }]}>Teachers</Text>
       {subjects.map((subject) => {
-        const able = (teachers ?? []).filter((t) => t.subjects.includes(subject));
+        const able = (teachers ?? []).filter((t) => !t.pending && t.subjects.includes(subject));
         const choices = ['none', ...able.map((t) => t.id)];
         const labels = Object.fromEntries([['none', 'No teacher'], ...able.map((t) => [t.id, t.name])]);
         return (

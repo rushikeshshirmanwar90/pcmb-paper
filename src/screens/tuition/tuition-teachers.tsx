@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Share, StyleSheet, Text, View } from 'react-native';
 import { confirmAction } from '@/components/account-section';
 import {
   Badge,
@@ -20,8 +20,11 @@ import {
   Screen,
   SectionTitle,
   useLoad,
+  usePalette,
+  Icon,
 } from '@/components/kit';
 import { SCHOOL_SUBJECTS, type SchoolSubject } from '@/constants/school';
+import { useSignedInUser } from '@/context/auth-context';
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
 import { ResetPasswordSheet } from '@/screens/tuition/reset-password-sheet';
 import { timeAgo, tuitionApi, type Teacher } from '@/services/tuition-api';
@@ -33,28 +36,45 @@ export function TuitionTeachersScreen() {
   const [adding, setAdding] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const open = data?.find((t) => t.id === openId) ?? null;
+  const pending = (data ?? []).filter((t) => t.pending);
+  const approved = (data ?? []).filter((t) => !t.pending);
 
   return (
     <Screen title="Teachers" subtitle="Who teaches which subjects and batches" onRefresh={refresh} refreshing={refreshing}>
-      <Button label="Add teacher" icon={{ ios: 'person.badge.plus', android: 'person_add' }} onPress={() => setAdding(true)} />
+      <JoinCodeCard />
+      {pending.length ? (
+        <>
+          <SectionTitle title={`Waiting for approval (${pending.length})`} />
+          {pending.map((t) => (
+            <PendingTeacher key={t.id} teacher={t} />
+          ))}
+        </>
+      ) : null}
+
+      <SectionTitle title="Your teachers" />
+      <Button label="Add teacher" variant="secondary" icon={{ ios: 'person.badge.plus', android: 'person_add' }} onPress={() => setAdding(true)} />
       {loading ? (
         <LoadingView />
       ) : error && !data ? (
         <ErrorView message={error} onRetry={reload} />
-      ) : !data?.length ? (
+      ) : !approved.length ? (
         <Card>
-          <EmptyView icon={{ ios: 'person.crop.rectangle.stack', android: 'co_present' }} title="No teachers yet" text="Add a teacher with their email and a starting password; they log in to this app with it." />
+          <EmptyView
+            icon={{ ios: 'person.crop.rectangle.stack', android: 'co_present' }}
+            title="No teachers yet"
+            text="Share your join code so teachers can sign up, or add one yourself with their email and a starting password."
+          />
         </Card>
       ) : (
         <Card style={styles.listCard}>
-          {data.map((t, i) => (
+          {approved.map((t, i) => (
             <ListRow
               key={t.id}
               icon={{ ios: 'person.fill', android: 'person' }}
               title={t.name}
               subtitle={[t.subjects.join(', ') || 'No subjects', `${t.batches.length} batch${t.batches.length === 1 ? '' : 'es'}`, !t.active ? 'Login off' : null].filter(Boolean).join(' · ')}
               onPress={() => setOpenId(t.id)}
-              last={i === data.length - 1}
+              last={i === approved.length - 1}
             />
           ))}
         </Card>
@@ -63,6 +83,107 @@ export function TuitionTeachersScreen() {
       <TeacherForm visible={adding} onClose={() => setAdding(false)} />
       {open ? <TeacherDetail teacher={open} onClose={() => setOpenId(null)} /> : null}
     </Screen>
+  );
+}
+
+/** The code teachers sign up with: share it, or make a new one. */
+function JoinCodeCard() {
+  const palette = usePalette();
+  const user = useSignedInUser();
+  const { data: code, error, setData } = useLoad(() => tuitionApi.joinCode(), []);
+  const [busy, setBusy] = useState(false);
+  const [renewError, setRenewError] = useState<string | null>(null);
+
+  const share = () =>
+    code &&
+    Share.share({
+      message: `Join ${user.tuition.name} on the PCMB app as a teacher: open the app, tap "Join your tuition" and enter the code ${code}.`,
+    }).catch(() => {});
+
+  const renew = () =>
+    confirmAction('Make a new join code?', 'The current code stops working. Teachers who already signed up are not affected.', 'Make new code', async () => {
+      setBusy(true);
+      setRenewError(null);
+      try {
+        const next = await tuitionApi.renewJoinCode();
+        setData(() => next);
+      } catch (e) {
+        setRenewError(e instanceof Error ? e.message : "Couldn't make a new code.");
+      } finally {
+        setBusy(false);
+      }
+    });
+
+  return (
+    <Card>
+      <Text style={[styles.codeTitle, { color: palette.foreground }]}>Teacher join code</Text>
+      <Text style={[styles.codeHelp, { color: palette.mutedForeground }]}>
+        Teachers sign up in the app with this code. You approve each one before they can log in.
+      </Text>
+      <View style={[styles.codeBox, { backgroundColor: palette.background, borderColor: palette.border }]}>
+        <Text selectable accessibilityLabel={`Join code ${code ?? ''}`} style={[styles.code, { color: palette.foreground }]}>
+          {code ?? '····-····'}
+        </Text>
+      </View>
+      <ErrorText message={error ?? renewError} />
+      <View style={styles.codeActions}>
+        <Button label="Share code" icon={{ ios: 'square.and.arrow.up', android: 'share' }} onPress={share} disabled={!code} style={styles.flex2} />
+        <Button label="New code" variant="secondary" onPress={renew} loading={busy} disabled={!code} style={styles.flex} />
+      </View>
+    </Card>
+  );
+}
+
+/** A teacher who signed up with the join code: approve or reject. */
+function PendingTeacher({ teacher }: { teacher: Teacher }) {
+  const palette = usePalette();
+  const [busy, setBusy] = useState<'approve' | 'reject' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const act = async (kind: 'approve' | 'reject') => {
+    setBusy(kind);
+    setError(null);
+    try {
+      if (kind === 'approve') await tuitionApi.approveTeacher(teacher.id);
+      else await tuitionApi.deleteTeacher(teacher.id);
+      bumpDataVersion();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong.');
+      setBusy(null);
+    }
+  };
+
+  return (
+    <Card>
+      <View style={styles.pendingTop}>
+        <View style={[styles.pendingIcon, { backgroundColor: palette.warningSoft }]}>
+          <Icon name={{ ios: 'person.crop.circle.badge.clock', android: 'pending' }} color={palette.warning} size={20} />
+        </View>
+        <View style={styles.flex}>
+          <Text style={[styles.pendingName, { color: palette.foreground }]}>{teacher.name}</Text>
+          <Text style={[styles.pendingMeta, { color: palette.mutedForeground }]}>{teacher.email}</Text>
+          {teacher.phone ? <Text style={[styles.pendingMeta, { color: palette.mutedForeground }]}>{teacher.phone}</Text> : null}
+        </View>
+        <Text style={[styles.pendingMeta, { color: palette.mutedForeground }]}>{timeAgo(teacher.createdAt)}</Text>
+      </View>
+      <View style={styles.badges}>
+        {teacher.subjects.map((s) => (
+          <Badge key={s} label={s} tone="violet" />
+        ))}
+      </View>
+      <ErrorText message={error} />
+      <View style={styles.codeActions}>
+        <Button
+          label="Reject"
+          variant="danger"
+          onPress={() => confirmAction(`Reject ${teacher.name}?`, 'Their sign-up is deleted. They can ask again with the join code.', 'Reject', () => act('reject'))}
+          loading={busy === 'reject'}
+          disabled={busy !== null}
+          style={styles.flex}
+        />
+        <Button label="Approve" onPress={() => act('approve')} loading={busy === 'approve'} disabled={busy !== null} style={styles.flex2} />
+      </View>
+    </Card>
   );
 }
 
@@ -201,6 +322,17 @@ function TeacherForm({ visible, onClose, teacher }: { visible: boolean; onClose:
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  flex2: { flex: 2 },
+  codeTitle: { fontSize: 16, fontWeight: '700' },
+  codeHelp: { fontSize: 13, lineHeight: 19 },
+  codeBox: { borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  code: { fontSize: 28, fontWeight: '800', letterSpacing: 4, fontVariant: ['tabular-nums'] },
+  codeActions: { flexDirection: 'row', gap: 10 },
+  pendingTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  pendingIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  pendingName: { fontSize: 16, fontWeight: '700' },
+  pendingMeta: { fontSize: 13 },
   listCard: { paddingVertical: 0 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
 });

@@ -3,9 +3,16 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, ErrorText, Field, Icon, PasswordField, usePalette } from '@/components/kit';
 import { useAuth } from '@/context/auth-context';
+import { TeacherSignupScreen } from '@/screens/teacher-signup-screen';
 
 /** Email and password, for the tuition, its teachers and its students alike. */
 export function LoginScreen() {
+  const [signingUp, setSigningUp] = useState(false);
+  if (signingUp) return <TeacherSignupScreen onBack={() => setSigningUp(false)} />;
+  return <LoginForm onSignUp={() => setSigningUp(true)} />;
+}
+
+function LoginForm({ onSignUp }: { onSignUp: () => void }) {
   const palette = usePalette();
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
@@ -72,8 +79,14 @@ export function LoginScreen() {
             <Button label="Log in" onPress={submit} loading={submitting} />
           </View>
 
+          <View style={[styles.join, { borderColor: palette.border }]}>
+            <Text style={[styles.joinTitle, { color: palette.foreground }]}>New teacher?</Text>
+            <Text style={[styles.joinText, { color: palette.mutedForeground }]}>Sign up with your tuition&apos;s join code.</Text>
+            <Button label="Join your tuition" variant="secondary" onPress={onSignUp} />
+          </View>
+
           <Text style={[styles.note, { color: palette.mutedForeground }]}>
-            Teachers and students get their login from their tuition. Forgot your password? Ask your tuition to reset it.
+            Students get their login from their tuition. Forgot your password? Ask your tuition to reset it.
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -112,5 +125,8 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15, textAlign: 'center', marginBottom: 16 },
   card: { borderWidth: 1, borderRadius: 16, padding: 16, gap: 14 },
   note: { fontSize: 13, lineHeight: 19, textAlign: 'center', marginTop: 12 },
+  join: { borderWidth: 1, borderStyle: 'dashed', borderRadius: 16, padding: 16, gap: 6, marginTop: 16 },
+  joinTitle: { fontSize: 16, fontWeight: '700' },
+  joinText: { fontSize: 14, marginBottom: 6 },
   actions: { alignSelf: 'stretch', gap: 10, marginTop: 12, maxWidth: 360, width: '100%', marginHorizontal: 'auto' },
 });

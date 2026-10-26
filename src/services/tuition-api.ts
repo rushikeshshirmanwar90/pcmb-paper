@@ -34,6 +34,9 @@ export interface Teacher {
   phone: string;
   subjects: SchoolSubject[];
   active: boolean;
+  /** Signed up with the join code and waiting for the tuition's approval. */
+  pending: boolean;
+  createdAt: string;
   lastLoginAt: string | null;
   batches: { id: string; name: string; subject: SchoolSubject }[];
 }
@@ -139,6 +142,9 @@ export const tuitionApi = {
   updateTeacher: (id: string, input: TeacherInput) =>
     api<{ teacher: Teacher }>(`/tuition/teachers/${id}`, { method: 'PATCH', body: input }).then((r) => r.teacher),
   deleteTeacher: (id: string) => api(`/tuition/teachers/${id}`, { method: 'DELETE' }),
+  approveTeacher: (id: string) => api(`/tuition/teachers/${id}/approve`, { method: 'POST' }),
+  joinCode: () => api<{ code: string }>('/tuition/join-code').then((r) => r.code),
+  renewJoinCode: () => api<{ code: string }>('/tuition/join-code', { method: 'POST' }).then((r) => r.code),
   resetTeacherPassword: (id: string, password: string) => api(`/tuition/teachers/${id}/password`, { method: 'POST', body: { password } }),
 
   students: (filter: { batchId?: string | null; q?: string } = {}) =>
