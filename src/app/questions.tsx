@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 import { AppHeader } from '@/components/app-header';
 import { SideDrawer } from '@/components/side-drawer';
@@ -216,12 +216,13 @@ function BrowseQuestions({
   const dark = scheme === 'dark';
   const palette = getPalette(dark);
   const colors = Colors[dark ? 'dark' : 'light'];
-  const insets = useSafeAreaInsets();
-  const { isTablet, isDesktop } = useResponsive();
   const { questionFilters: filters, setQuestionFilters: setFilters } = useTabNavigation();
 
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [loading, setLoading] = useState(false);
+  // The questions last loaded and the filters they were loaded for: until they
+  // match the current filters, a load is under way (the last results stay shown).
+  const [loaded, setLoaded] = useState<{ filters: FilterState; questions: Question[] } | null>(null);
+  const questions = loaded?.questions ?? [];
+  const loading = loaded?.filters !== filters;
   const [showFilters, setShowFilters] = useState(false);
   const [makingPdf, setMakingPdf] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
@@ -276,12 +277,8 @@ function BrowseQuestions({
   // Load questions whenever filters change
   useEffect(() => {
     let isCancelled = false;
-    setLoading(true);
     fetchQuestions(filters).then((qs) => {
-      if (!isCancelled) {
-        setQuestions(qs);
-        setLoading(false);
-      }
+      if (!isCancelled) setLoaded({ filters, questions: qs });
     });
 
     return () => {
