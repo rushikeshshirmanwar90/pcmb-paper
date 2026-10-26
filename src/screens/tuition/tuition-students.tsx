@@ -15,6 +15,7 @@ import {
   FormSheet,
   Icon,
   ListRow,
+  Muted,
   LoadingView,
   PasswordField,
   Screen,
@@ -112,6 +113,7 @@ function StudentDetail({ student, batches, onClose }: { student: Student; batche
   const [editing, setEditing] = useState(false);
   const [insight, setInsight] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -157,6 +159,33 @@ function StudentDetail({ student, batches, onClose }: { student: Student; batche
         <DetailRow label="Last login" value={student.lastLoginAt ? timeAgo(student.lastLoginAt) : 'Never'} />
       </Card>
 
+      <SectionTitle title="Batch" />
+      <Card style={styles.listCard}>
+        <ListRow
+          icon={{ ios: 'square.grid.2x2', android: 'grid_view' }}
+          title={student.batch ? 'Change batch' : 'Add to batch'}
+          subtitle={student.batch ? `Now in ${student.batch.name}` : 'They see a batch\'s classes, tests and announcements'}
+          onPress={busy ? undefined : () => setPicking(true)}
+          last={!student.batch}
+        />
+        {student.batch ? (
+          <ListRow
+            icon={{ ios: 'minus.circle', android: 'remove_circle_outline' }}
+            title="Take out of batch"
+            subtitle={`Removes them from ${student.batch.name}`}
+            onPress={
+              busy
+                ? undefined
+                : () =>
+                    confirmAction(`Take ${student.name} out of ${student.batch!.name}?`, 'You can add them to a batch again any time.', 'Take out', () =>
+                      run(() => tuitionApi.updateStudent(student.id, { batchId: null }))
+                    )
+            }
+            last
+          />
+        ) : null}
+      </Card>
+
       <SectionTitle title="Performance" />
       <Card style={styles.listCard}>
         <ListRow
@@ -181,6 +210,7 @@ function StudentDetail({ student, batches, onClose }: { student: Student; batche
       </Card>
 
       <StudentForm visible={editing} onClose={() => setEditing(false)} student={student} batches={batches} />
+      <BatchPicker visible={picking} student={student} batches={batches} onClose={() => setPicking(false)} />
       {insight ? <StudentInsightSheet studentId={student.id} onClose={() => setInsight(false)} /> : null}
       <ResetPasswordSheet
         visible={resetting}
@@ -189,6 +219,64 @@ function StudentDetail({ student, batches, onClose }: { student: Student; batche
         onReset={(password) => tuitionApi.resetStudentPassword(student.id, password)}
       />
     </DetailSheet>
+  );
+}
+
+/** Puts the student in one of the tuition's batches; their own track's batches come first. */
+function BatchPicker({ visible, student, batches, onClose }: { visible: boolean; student: Student; batches: Batch[]; onClose: () => void }) {
+  const [batchId, setBatchId] = useState<string>(NONE);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [openedFor, setOpenedFor] = useState(false);
+  if (visible !== openedFor) {
+    setOpenedFor(visible);
+    if (visible) {
+      setBatchId(student.batch?.id ?? NONE);
+      setError(null);
+    }
+  }
+
+  const sorted = [...batches].sort(
+    (a, b) => Number(b.track === student.track) - Number(a.track === student.track) || a.name.localeCompare(b.name)
+  );
+  const labels = Object.fromEntries(sorted.map((b) => [b.id, !student.track || b.track === student.track ? b.name : `${b.name} (${b.track})`]));
+
+  const save = async () => {
+    if (batchId === NONE) return setError('Pick a batch.');
+    if (batchId === student.batch?.id) return onClose();
+    setSaving(true);
+    setError(null);
+    try {
+      await tuitionApi.updateStudent(student.id, { batchId });
+      bumpDataVersion();
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't add them to the batch.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <FormSheet
+      visible={visible}
+      title={student.batch ? `Move ${student.name}` : `Add ${student.name} to a batch`}
+      onClose={onClose}
+      submitLabel={student.batch ? 'Move to batch' : 'Add to batch'}
+      onSubmit={save}
+      submitting={saving}
+      error={error}
+    >
+      {sorted.length ? (
+        <>
+          <Chips label="Batch" choices={sorted.map((b) => b.id)} selected={batchId} onChange={setBatchId} labels={labels} />
+          <Muted>A student is in one batch at a time. They see its classes, tests and announcements.</Muted>
+        </>
+      ) : (
+        <Muted>No batches yet. Create one from the Batches tab first.</Muted>
+      )}
+    </FormSheet>
   );
 }
 
