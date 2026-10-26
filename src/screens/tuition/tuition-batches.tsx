@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { confirmAction } from '@/components/account-section';
 import {
   Badge,
@@ -13,6 +13,7 @@ import {
   ErrorView,
   Field,
   FormSheet,
+  Icon,
   ListRow,
   LoadingView,
   Muted,
@@ -35,6 +36,7 @@ export function TuitionBatchesScreen() {
   const { data, error, loading, refreshing, refresh, reload } = useLoad(() => tuitionApi.batches(), [version]);
   const [creating, setCreating] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [editingBatch, setEditingBatch] = useState<Batch | null>(null);
 
   return (
     <Screen title="Batches" subtitle="Timings, venues, teachers and students" onRefresh={refresh} refreshing={refreshing}>
@@ -55,6 +57,7 @@ export function TuitionBatchesScreen() {
               icon={{ ios: 'square.grid.2x2', android: 'grid_view' }}
               title={batch.name}
               subtitle={`${TRACK_LABELS[batch.track]}${batch.standard ? ` · ${batch.standard}` : ''} · ${batch.studentCount} student${batch.studentCount === 1 ? '' : 's'}${batch.schedule.length ? ` · ${formatMinutes(batch.weeklyMinutes)} a week` : ''}`}
+              right={<EditPill label={`Edit ${batch.name}`} onPress={() => setEditingBatch(batch)} />}
               onPress={() => setOpenId(batch.id)}
               last={i === data.length - 1}
             />
@@ -63,8 +66,26 @@ export function TuitionBatchesScreen() {
       )}
 
       <BatchForm visible={creating} onClose={() => setCreating(false)} onSaved={(b) => setOpenId(b.id)} />
+      <BatchForm visible={!!editingBatch} onClose={() => setEditingBatch(null)} batch={editingBatch ?? undefined} />
       {openId ? <BatchDetail id={openId} onClose={() => setOpenId(null)} /> : null}
     </Screen>
+  );
+}
+
+/** A small "Edit" button inside a list row. */
+function EditPill({ label, onPress }: { label: string; onPress: () => void }) {
+  const palette = usePalette();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      hitSlop={6}
+      style={({ pressed }) => [styles.pill, { borderColor: palette.border, backgroundColor: palette.background }, pressed && styles.pressed]}
+    >
+      <Icon name={{ ios: 'pencil', android: 'edit' }} color={palette.primary} size={14} />
+      <Text style={[styles.pillText, { color: palette.primary }]}>Edit</Text>
+    </Pressable>
   );
 }
 
@@ -117,6 +138,7 @@ function BatchDetail({ id, onClose }: { id: string; onClose: () => void }) {
       ) : batch && data ? (
         <>
           <ErrorText message={deleteError} />
+          <Button label="Edit batch" variant="secondary" icon={{ ios: 'pencil', android: 'edit' }} onPress={() => setEditing(true)} />
           <Card>
             <View style={styles.badges}>
               <Badge label={TRACK_LABELS[batch.track]} tone="primary" />
@@ -265,6 +287,9 @@ const styles = StyleSheet.create({
   flex2: { flex: 2 },
   listCard: { paddingVertical: 0 },
   footerRow: { flexDirection: 'row', gap: 10 },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
+  pillText: { fontSize: 13, fontWeight: '700' },
+  pressed: { opacity: 0.7 },
   badges: { flexDirection: 'row', gap: 6 },
   schedule: { fontSize: 15, lineHeight: 24 },
   coverage: { gap: 5 },
