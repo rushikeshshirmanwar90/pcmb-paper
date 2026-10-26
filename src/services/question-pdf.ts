@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { authHeaders, reportLoginExpired } from '@/services/api-client';
 import { API_BASE_URL } from '@/services/apiService';
 import { addPdf, loadPdfQuestions, type PdfContent, type SavedPdf } from '@/services/pdf-library';
 import type { Question } from '@/types/pcmb';
@@ -118,7 +119,8 @@ async function downloadPdf(
     try {
       res = await fetch(`${API_BASE_URL}/question-paper-pdf`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        // The server makes PDFs only for signed-in teachers and tuition accounts.
+        headers: { 'Content-Type': 'application/json', Accept: 'application/pdf', ...authHeaders() },
         body: requestBody(opts, marksPerQuestion),
         signal: controller.signal,
       });
@@ -130,7 +132,10 @@ async function downloadPdf(
       );
     }
     if (!res.ok || !res.headers.get('content-type')?.includes('application/pdf')) {
-      throw new PdfRequestError((await serverError(res)) ?? 'The server could not make the PDF. Try again.');
+      const message = await serverError(res);
+      // Signs the user out, as every other signed-in request does on a 401.
+      if (res.status === 401) reportLoginExpired();
+      throw new PdfRequestError(message ?? 'The server could not make the PDF. Try again.');
     }
 
     const serverDone = Date.now();
@@ -140,6 +145,10 @@ async function downloadPdf(
       bytes = new Uint8Array(await res.arrayBuffer());
     } catch {
       throw new PdfRequestError('The download was cut off. Check your internet connection and try again.');
+    }
+    // A PDF starts with "%PDF-"; anything else (e.g. a proxy's error page) isn't saved.
+    if (bytes.length < 5 || String.fromCharCode(...bytes.subarray(0, 5)) !== '%PDF-') {
+      throw new PdfRequestError('The server sent back something that isn’t a PDF. Try again.');
     }
 
     const pages = Number(res.headers.get('x-page-count')) || 0;
