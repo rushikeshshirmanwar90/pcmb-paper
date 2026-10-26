@@ -85,8 +85,8 @@ export function ScheduleEditor({
   };
 
   const add = () => {
-    const result = applyDraft(value, isEmpty(draft) ? { ...draft, days: ['_'] } : draft);
     if (isEmpty(draft)) return setError('Pick the days and enter the times.');
+    const result = applyDraft(value, draft);
     if (result.error) return setError(result.error);
     onChange(result.schedule);
     // Keep the times: the next days often share them.

@@ -27,7 +27,7 @@ import {
 import { SCHOOL_STANDARDS, SUBJECTS_BY_TRACK, TRACK_LABELS, TRACKS, type SchoolSubject, type Track } from '@/constants/school';
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
 import { BatchAnalysisSection } from '@/screens/shared/batch-analysis';
-import { ScheduleEditor } from '@/screens/tuition/schedule-editor';
+import { applyDraft, EMPTY_DRAFT, ScheduleEditor, type ScheduleDraft } from '@/screens/tuition/schedule-editor';
 import { describeSchedule, formatMinutes, tuitionApi, type Batch, type BatchSlot } from '@/services/tuition-api';
 
 /** The tuition's batches: list, details, create, edit and delete. */
@@ -201,6 +201,7 @@ function BatchForm({ visible, onClose, batch, onSaved }: { visible: boolean; onC
   const [subjects, setSubjects] = useState<SchoolSubject[]>([]);
   const [venue, setVenue] = useState('');
   const [schedule, setSchedule] = useState<BatchSlot[]>([]);
+  const [draft, setDraft] = useState<ScheduleDraft>(EMPTY_DRAFT);
   const [assigned, setAssigned] = useState<Partial<Record<SchoolSubject, string>>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -215,6 +216,7 @@ function BatchForm({ visible, onClose, batch, onSaved }: { visible: boolean; onC
       setSubjects(batch?.subjects ?? SUBJECTS_BY_TRACK.NEET);
       setVenue(batch?.venue ?? '');
       setSchedule(batch?.schedule ?? []);
+      setDraft(EMPTY_DRAFT);
       setAssigned(Object.fromEntries((batch?.teachers ?? []).map((t) => [t.subject, t.teacherId])));
       setError(null);
     }
@@ -228,6 +230,11 @@ function BatchForm({ visible, onClose, batch, onSaved }: { visible: boolean; onC
   const save = async () => {
     if (!name.trim()) return setError('Enter a batch name.');
     if (!subjects.length) return setError('Pick at least one subject.');
+    // A timing filled in but not added with "Add timing" is added now.
+    const timings = applyDraft(schedule, draft);
+    if (timings.error) return setError(`Class timings: ${timings.error}`);
+    setSchedule(timings.schedule);
+    setDraft(EMPTY_DRAFT);
     setSaving(true);
     setError(null);
     const input = {
@@ -236,7 +243,7 @@ function BatchForm({ visible, onClose, batch, onSaved }: { visible: boolean; onC
       standard: standard === 'both' ? null : standard,
       subjects,
       venue: venue.trim(),
-      schedule,
+      schedule: timings.schedule,
       teachers: subjects.flatMap((subject) => (assigned[subject] ? [{ subject, teacherId: assigned[subject]! }] : [])),
     };
     try {
@@ -258,7 +265,7 @@ function BatchForm({ visible, onClose, batch, onSaved }: { visible: boolean; onC
       <Chips label="Class" choices={STANDARD_CHOICES} selected={standard} onChange={setStandard} labels={{ both: '11th & 12th' }} />
       <MultiChips label="Subjects" choices={SUBJECTS_BY_TRACK[track]} selected={subjects} onChange={setSubjects} />
       <Field label="Venue" value={venue} onChangeText={setVenue} placeholder="e.g. Room 2, Main branch" maxLength={200} />
-      <ScheduleEditor value={schedule} onChange={setSchedule} />
+      <ScheduleEditor value={schedule} onChange={setSchedule} draft={draft} onDraftChange={setDraft} />
 
       <Text style={[styles.groupLabel, { color: palette.foreground }]}>Teachers</Text>
       {subjects.map((subject) => {
