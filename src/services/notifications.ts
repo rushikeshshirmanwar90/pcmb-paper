@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Device from 'expo-device';
 import type * as NotificationsModule from 'expo-notifications';
 import { api } from '@/services/api-client';
@@ -18,8 +18,9 @@ const REMINDER_MINUTES = 15;
 const REMINDER_KIND = 'class-reminder';
 
 // expo-notifications is loaded on first use, not imported: in Expo Go on
-// Android its native push module is missing and importing it throws, which
-// would take the whole app down. There, notifications are simply off.
+// Android its native push module is missing and loading it throws. There
+// it isn't loaded at all and notifications are off; development and store
+// builds have it.
 type Notifications = typeof NotificationsModule;
 let loaded: Notifications | null | undefined;
 
@@ -27,6 +28,9 @@ function notifications(): Notifications | null {
   if (loaded !== undefined) return loaded;
   loaded = null;
   if (Platform.OS === 'web') return null;
+  // Don't even try in Expo Go on Android: loading the package there fails,
+  // and the dev tools show that failure as an error even though it's caught.
+  if (Platform.OS === 'android' && Constants.executionEnvironment === ExecutionEnvironment.StoreClient) return null;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require('expo-notifications') as Notifications;
