@@ -14,6 +14,7 @@ import AppTabs from '@/components/app-tabs';
 import { tabsFor } from '@/navigation/role-tabs';
 import { onNotificationTap } from '@/services/notifications';
 import { JoinTuitionScreen } from '@/screens/join-tuition-screen';
+import { VerifyEmailScreen } from '@/screens/verify-email-screen';
 import { LoginScreen, UnreachableScreen } from '@/screens/login-screen';
 
 SplashScreen.preventAutoHideAsync();
@@ -39,8 +40,8 @@ function SignedInGate() {
   }
   if (status === 'unreachable') return <UnreachableScreen onRetry={retry} onLogOut={() => void signOut()} />;
   if (!user) return <LoginScreen />;
-  // Registered, but no tuition has accepted them yet.
-  if (!user.role) return <JoinTuitionScreen />;
+  // Registered, but not yet in a tuition: first verify the email, then join.
+  if (!user.role) return user.emailVerified ? <JoinTuitionScreen /> : <VerifyEmailScreen />;
 
   // Keyed by the user, so logging in as someone else starts on a fresh first tab.
   const tabs = tabsFor(user.role);

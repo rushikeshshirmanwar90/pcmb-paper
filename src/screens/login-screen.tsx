@@ -1,21 +1,42 @@
 import React, { useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, ErrorText, Field, Icon, PasswordField, usePalette } from '@/components/kit';
 import { useAuth } from '@/context/auth-context';
+import { ForgotPasswordScreen } from '@/screens/forgot-password-screen';
 import { RegisterScreen } from '@/screens/register-screen';
 
 /** Email and password, for the tuition, its teachers and its students alike. */
 export function LoginScreen() {
-  const [signingUp, setSigningUp] = useState(false);
-  if (signingUp) return <RegisterScreen onBack={() => setSigningUp(false)} />;
-  return <LoginForm onSignUp={() => setSigningUp(true)} />;
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
+  const [email, setEmail] = useState('');
+  if (mode === 'register') return <RegisterScreen onBack={() => setMode('login')} />;
+  if (mode === 'forgot')
+    return (
+      <ForgotPasswordScreen
+        initialEmail={email}
+        onBack={(used) => {
+          if (used) setEmail(used);
+          setMode('login');
+        }}
+      />
+    );
+  return <LoginForm email={email} setEmail={setEmail} onSignUp={() => setMode('register')} onForgot={() => setMode('forgot')} />;
 }
 
-function LoginForm({ onSignUp }: { onSignUp: () => void }) {
+function LoginForm({
+  email,
+  setEmail,
+  onSignUp,
+  onForgot,
+}: {
+  email: string;
+  setEmail: (v: string) => void;
+  onSignUp: () => void;
+  onForgot: () => void;
+}) {
   const palette = usePalette();
   const { signIn } = useAuth();
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +98,9 @@ function LoginForm({ onSignUp }: { onSignUp: () => void }) {
             />
             <ErrorText message={error} />
             <Button label="Log in" onPress={submit} loading={submitting} />
+            <Pressable accessibilityRole="button" onPress={onForgot} hitSlop={8} style={styles.forgot}>
+              <Text style={[styles.forgotText, { color: palette.primary }]}>Forgot password?</Text>
+            </Pressable>
           </View>
 
           <View style={[styles.join, { borderColor: palette.border }]}>
@@ -87,7 +111,6 @@ function LoginForm({ onSignUp }: { onSignUp: () => void }) {
             <Button label="Create an account" variant="secondary" onPress={onSignUp} />
           </View>
 
-          <Text style={[styles.note, { color: palette.mutedForeground }]}>Forgot your password? Ask your tuition to reset it.</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -125,6 +148,8 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15, textAlign: 'center', marginBottom: 16 },
   card: { borderWidth: 1, borderRadius: 16, padding: 16, gap: 14 },
   note: { fontSize: 13, lineHeight: 19, textAlign: 'center', marginTop: 12 },
+  forgot: { alignSelf: 'center', paddingVertical: 4 },
+  forgotText: { fontSize: 15, fontWeight: '700' },
   join: { borderWidth: 1, borderStyle: 'dashed', borderRadius: 16, padding: 16, gap: 6, marginTop: 16 },
   joinTitle: { fontSize: 16, fontWeight: '700' },
   joinText: { fontSize: 14, marginBottom: 6 },

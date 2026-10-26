@@ -661,3 +661,59 @@ const styles = StyleSheet.create({
   detailLabel: { fontSize: 14 },
   detailValue: { fontSize: 14, fontWeight: '600', flexShrink: 1, textAlign: 'right' },
 });
+
+// ─── One-time code ─────────────────────────────────────────────────────────
+
+/**
+ * Six boxes for a 6-digit code. One hidden input takes the typing, so paste
+ * and the phone's "code from Messages/Gmail" autofill work.
+ */
+export function CodeInput({ value, onChange, onComplete, autoFocus = true }: { value: string; onChange: (code: string) => void; onComplete?: (code: string) => void; autoFocus?: boolean }) {
+  const palette = usePalette();
+  const ref = useRef<TextInput>(null);
+  const [focused, setFocused] = useState(false);
+  const digits = value.split('');
+  return (
+    <Pressable accessibilityLabel={`Code, ${value.length} of 6 digits entered`} onPress={() => ref.current?.focus()} style={codeStyles.row}>
+      {Array.from({ length: 6 }, (_, i) => {
+        const active = focused && (i === value.length || (value.length === 6 && i === 5));
+        return (
+          <View
+            key={i}
+            style={[
+              codeStyles.box,
+              { borderColor: active ? palette.primary : digits[i] ? palette.borderStrong : palette.border, backgroundColor: palette.card },
+            ]}
+          >
+            <Text style={[codeStyles.digit, { color: palette.foreground }]}>{digits[i] ?? ''}</Text>
+          </View>
+        );
+      })}
+      <TextInput
+        ref={ref}
+        value={value}
+        onChangeText={(t) => {
+          const code = t.replace(/\D/g, '').slice(0, 6);
+          onChange(code);
+          if (code.length === 6) onComplete?.(code);
+        }}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        autoFocus={autoFocus}
+        keyboardType="number-pad"
+        textContentType="oneTimeCode"
+        autoComplete="one-time-code"
+        maxLength={6}
+        caretHidden
+        style={codeStyles.hidden}
+      />
+    </Pressable>
+  );
+}
+
+const codeStyles = StyleSheet.create({
+  row: { flexDirection: 'row', gap: 8, justifyContent: 'center' },
+  box: { width: 46, height: 56, borderWidth: 1.5, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  digit: { fontSize: 24, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  hidden: { position: 'absolute', opacity: 0, width: 1, height: 1 },
+});

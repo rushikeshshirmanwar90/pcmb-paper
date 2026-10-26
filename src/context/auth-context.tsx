@@ -10,6 +10,8 @@ export interface AuthUser {
   email: string;
   /** null until a tuition accepts them as a student or teacher. */
   role: Role | null;
+  /** Proved with a code sent to it. */
+  emailVerified: boolean;
   name: string;
   phone: string;
   tuition: { id: string; name: string };
