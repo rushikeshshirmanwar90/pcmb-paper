@@ -7,10 +7,23 @@ import { formatTime, type BatchSlot } from '@/services/tuition-api';
 const DAY_KEYS = ['1', '2', '3', '4', '5', '6', '0'] as const; // Monday first
 const DAY_LABELS = Object.fromEntries(DAY_KEYS.map((d) => [d, WEEKDAY_SHORT[Number(d)]]));
 
-/** "7:00", "07:00", "7.00" or "700" → "07:00"; null if it isn't a time. */
+/**
+ * A time as typed → "HH:MM" (24-hour), or null if it isn't one. Takes
+ * "16:00", "7:00", "7.00", "700", "4 pm", "4:30pm", "4.30 PM", "12 am".
+ */
 export function parseTime(text: string): string | null {
-  const cleaned = text.trim().replace('.', ':');
-  const match = /^(\d{1,2}):?(\d{2})$/.exec(cleaned);
+  const t = text.trim().toLowerCase().replace(/\s+/g, ' ');
+  const ampm = /^(\d{1,2})(?:[:.](\d{2}))?\s?(am|pm|a\.m\.|p\.m\.)$/.exec(t);
+  if (ampm) {
+    let h = Number(ampm[1]);
+    const m = Number(ampm[2] ?? 0);
+    if (h < 1 || h > 12 || m > 59) return null;
+    const pm = ampm[3].startsWith('p');
+    if (h === 12) h = pm ? 12 : 0;
+    else if (pm) h += 12;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  }
+  const match = /^(\d{1,2})[:.]?(\d{2})$/.exec(t);
   if (!match) return null;
   const h = Number(match[1]);
   const m = Number(match[2]);
@@ -20,26 +33,72 @@ export function parseTime(text: string): string | null {
 
 const minutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
 
-/** The batch's weekly class times: a list to remove from, and a row to add days at one time. */
-export function ScheduleEditor({ value, onChange }: { value: BatchSlot[]; onChange: (next: BatchSlot[]) => void }) {
+/** What's typed in the "add timing" row but not added yet. */
+export interface ScheduleDraft {
+  days: string[];
+  start: string;
+  end: string;
+}
+
+export const EMPTY_DRAFT: ScheduleDraft = { days: [], start: '', end: '' };
+
+const isEmpty = (d: ScheduleDraft) => !d.days.length && !d.start.trim() && !d.end.trim();
+
+/**
+ * Adds the draft's days and times to the schedule. An empty draft changes
+ * nothing; a half-filled one returns what's missing.
+ */
+export function applyDraft(value: BatchSlot[], draft: ScheduleDraft): { schedule: BatchSlot[]; error: string | null } {
+  if (isEmpty(draft)) return { schedule: value, error: null };
+  const s = parseTime(draft.start);
+  const e = parseTime(draft.end);
+  if (!draft.days.length) return { schedule: value, error: 'Pick the days for the timing.' };
+  if (!draft.start.trim() || !draft.end.trim()) return { schedule: value, error: 'Enter when the class starts and ends.' };
+  if (!s || !e) return { schedule: value, error: 'Enter times like 16:00 or 4:00 pm.' };
+  if (minutes(e) <= minutes(s)) return { schedule: value, error: 'The class must end after it starts.' };
+  const added = draft.days.map((d) => ({ day: Number(d), start: s, end: e }));
+  const next = [...value.filter((slot) => !added.some((a) => a.day === slot.day && a.start === slot.start)), ...added];
+  return { schedule: next.sort((a, b) => a.day - b.day || minutes(a.start) - minutes(b.start)), error: null };
+}
+
+/**
+ * The batch's weekly class times: a list to remove from, and a row to add
+ * days at one time. The row's contents (draft) belong to the form, so saving
+ * the form can add a timing that wasn't added yet.
+ */
+export function ScheduleEditor({
+  value,
+  onChange,
+  draft,
+  onDraftChange,
+}: {
+  value: BatchSlot[];
+  onChange: (next: BatchSlot[]) => void;
+  draft: ScheduleDraft;
+  onDraftChange: (next: ScheduleDraft) => void;
+}) {
   const palette = usePalette();
-  const [days, setDays] = useState<string[]>([]);
-  const [start, setStart] = useState('');
-  const [end, setEnd] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const set = (patch: Partial<ScheduleDraft>) => {
+    setError(null);
+    onDraftChange({ ...draft, ...patch });
+  };
 
   const add = () => {
-    const s = parseTime(start);
-    const e = parseTime(end);
-    if (!days.length) return setError('Pick the days.');
-    if (!s || !e) return setError('Enter times in 24-hour form, like 16:00 and 18:30.');
-    if (minutes(e) <= minutes(s)) return setError('The class must end after it starts.');
-    const added = days.map((d) => ({ day: Number(d), start: s, end: e }));
-    const next = [...value.filter((slot) => !added.some((a) => a.day === slot.day && a.start === slot.start)), ...added];
-    onChange(next.sort((a, b) => a.day - b.day || minutes(a.start) - minutes(b.start)));
-    setDays([]);
+    const result = applyDraft(value, isEmpty(draft) ? { ...draft, days: ['_'] } : draft);
+    if (isEmpty(draft)) return setError('Pick the days and enter the times.');
+    if (result.error) return setError(result.error);
+    onChange(result.schedule);
+    // Keep the times: the next days often share them.
+    onDraftChange({ ...draft, days: [] });
     setError(null);
   };
+
+  const preview = (() => {
+    const s = parseTime(draft.start);
+    const e = parseTime(draft.end);
+    return s && e && minutes(e) > minutes(s) ? `${formatTime(s)} – ${formatTime(e)}` : null;
+  })();
 
   return (
     <View style={styles.wrap}>
@@ -68,15 +127,22 @@ export function ScheduleEditor({ value, onChange }: { value: BatchSlot[]; onChan
       )}
 
       <View style={[styles.adder, { backgroundColor: palette.secondary }]}>
-        <MultiChips label="Days" choices={DAY_KEYS} selected={days} onChange={setDays} labels={DAY_LABELS} />
+        <MultiChips label="Days" choices={DAY_KEYS} selected={draft.days} onChange={(days) => set({ days })} labels={DAY_LABELS} />
         <View style={styles.times}>
           <View style={styles.time}>
-            <Field label="Starts" value={start} onChangeText={setStart} placeholder="16:00" keyboardType="numbers-and-punctuation" maxLength={5} />
+            <Field label="Starts" value={draft.start} onChangeText={(start) => set({ start })} placeholder="4:00 pm" autoCapitalize="none" maxLength={9} />
           </View>
           <View style={styles.time}>
-            <Field label="Ends" value={end} onChangeText={setEnd} placeholder="18:00" keyboardType="numbers-and-punctuation" maxLength={5} />
+            <Field label="Ends" value={draft.end} onChangeText={(end) => set({ end })} placeholder="6:00 pm" autoCapitalize="none" maxLength={9} />
           </View>
         </View>
+        {preview && draft.days.length ? (
+          <Text style={[styles.empty, { color: palette.mutedForeground }]}>
+            {draft.days.map((d) => WEEKDAY_SHORT[Number(d)]).join(', ')}, {preview}. Tap Add timing, or it&apos;s added when you save.
+          </Text>
+        ) : (
+          <Text style={[styles.empty, { color: palette.mutedForeground }]}>Times like 16:00 or 4:00 pm.</Text>
+        )}
         <ErrorText message={error} />
         <Button label="Add timing" variant="secondary" icon={{ ios: 'plus', android: 'add' }} onPress={add} />
       </View>
