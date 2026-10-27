@@ -159,7 +159,8 @@ function ChapterItem({ row, last, onPress }: { row: ChapterRow; last: boolean; o
 /** A run through questions: the bank (loaded page by page), or a retry of this session's wrong ones. */
 type Round = { kind: 'bank' } | { kind: 'retry'; questions: PyqQuestion[]; number: number };
 
-function PracticeSheet({ subject, chapter, onClose }: { subject: SchoolSubject; chapter: string | null; onClose: () => void }) {
+/** Practising PYQs one at a time: the whole subject, or one chapter. Also opened from Home for a weak chapter. */
+export function PracticeSheet({ subject, chapter, onClose }: { subject: SchoolSubject; chapter: string | null; onClose: () => void }) {
   const palette = usePalette();
   const [round, setRound] = useState<Round>({ kind: 'bank' });
   // The bank, page by page: the first page, then any more loaded on the way
