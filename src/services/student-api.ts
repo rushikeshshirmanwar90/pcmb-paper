@@ -109,7 +109,8 @@ export const studentApi = {
   overview: () => api<StudentOverview>('/student/overview'),
   roadmap: (subject: SchoolSubject) => api<Roadmap>(`/student/roadmap?subject=${enc(subject)}`),
 
-  tests: () => api<{ tests: StudentTest[] }>('/tests').then((r) => r.tests),
+  /** The batch's tests, upcoming (scheduled) ones included as summaries; they can't be opened until they open. */
+  tests: () => api<{ tests: StudentTest[] }>('/tests?upcoming=1').then((r) => r.tests),
   test: (id: string) => api<{ test: TestSummary; attempt: Attempt | null; questions: TestQuestion[] }>(`/tests/${id}`),
   start: (id: string) => api<{ attempt: Attempt; questions: TestQuestion[] }>(`/tests/${id}/start`, { method: 'POST' }),
   saveAnswers: (id: string, answers: { index: number; selected: string | null }[]) =>
