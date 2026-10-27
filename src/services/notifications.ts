@@ -3,6 +3,7 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Device from 'expo-device';
 import type * as NotificationsModule from 'expo-notifications';
 import { api } from '@/services/api-client';
+import { loadPreference, savePreference } from '@/services/preferences';
 import type { TimetableEntry } from '@/services/school-api';
 import { formatTime } from '@/services/tuition-api';
 
@@ -110,14 +111,64 @@ async function clearClassReminders() {
 }
 
 let lastSynced = '';
+let lastEntries: TimetableEntry[] = [];
+
+// Class reminders can be turned off in Profile; on unless turned off. Kept on
+// this device per signed-in user, so one account's choice doesn't carry over
+// to another account on the same phone.
+let reminderUser: string | null = null;
+const remindersKey = () => `pcmb.class-reminders.${(reminderUser ?? 'none').replace(/[^A-Za-z0-9]/g, '')}`;
+let remindersOn: { user: string | null; on: Promise<boolean> } | null = null;
+const remindersEnabled = () => {
+  if (!remindersOn || remindersOn.user !== reminderUser) {
+    remindersOn = { user: reminderUser, on: loadPreference(remindersKey()).then((v) => v !== 'off') };
+  }
+  return remindersOn.on;
+};
+
+/** Who is signed in (null after logging out): class-reminder settings are theirs. */
+export function setNotificationsUser(userId: string | null) {
+  if (userId === reminderUser) return;
+  reminderUser = userId;
+  lastSynced = '';
+}
+
+/** Whether this build can show class reminders at all (not on the web or in Expo Go on Android). */
+export const classRemindersSupported = () => notifications() !== null;
+
+/** Whether class reminders are turned on (on unless turned off). */
+export const classRemindersOn = () => remindersEnabled();
+
+/**
+ * Turns class reminders on or off. On: schedules them for the last timetable
+ * loaded, asking for permission if needed. Resolves to whether they're on now:
+ * false when turning on failed because notifications aren't allowed.
+ */
+export async function setClassReminders(on: boolean): Promise<boolean> {
+  if (!on) {
+    remindersOn = { user: reminderUser, on: Promise.resolve(false) };
+    await savePreference(remindersKey(), 'off');
+    lastSynced = '';
+    await clearClassReminders();
+    return false;
+  }
+  if (!(await allowed())) return false;
+  remindersOn = { user: reminderUser, on: Promise.resolve(true) };
+  await savePreference(remindersKey(), 'on');
+  lastSynced = '';
+  await syncClassReminders(lastEntries);
+  return true;
+}
 
 /**
  * Schedules a reminder 15 minutes before each weekly class, replacing the
- * ones scheduled before. Called whenever the timetable loads.
+ * ones scheduled before. Called whenever the timetable loads. Does nothing
+ * while reminders are turned off.
  */
 export async function syncClassReminders(entries: TimetableEntry[]) {
+  lastEntries = entries;
   const Notifications = notifications();
-  if (!Notifications) return;
+  if (!Notifications || !(await remindersEnabled())) return;
   const signature = JSON.stringify(entries.map((e) => [e.id, e.day, e.start, e.subject, e.batch.name]));
   if (signature === lastSynced) return;
   try {
