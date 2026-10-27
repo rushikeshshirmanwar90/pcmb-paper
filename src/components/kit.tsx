@@ -112,13 +112,25 @@ export function Muted({ children, style }: PropsWithChildren<{ style?: StyleProp
 }
 
 /** A number with its label, for dashboards. */
-export function StatTile({ label, value, icon, tone = 'primary' }: { label: string; value: string | number; icon: IconName; tone?: 'primary' | 'success' | 'violet' | 'warning' }) {
+export function StatTile({
+  label,
+  value,
+  icon,
+  tone = 'primary',
+}: {
+  label: string;
+  value: string | number;
+  icon: IconName;
+  tone?: 'primary' | 'success' | 'violet' | 'warning' | 'danger' | 'neutral';
+}) {
   const palette = usePalette();
   const colors = {
     primary: [palette.primarySoft, palette.primary],
     success: [palette.successSoft, palette.success],
     violet: [palette.violetSoft, palette.violet],
     warning: [palette.warningSoft, palette.warning],
+    danger: [palette.dangerSoft, palette.danger],
+    neutral: [palette.secondary, palette.mutedForeground],
   }[tone];
   return (
     <View style={[styles.stat, { backgroundColor: palette.card, borderColor: palette.border }]}>
@@ -330,26 +342,32 @@ export function Button({
   disabled = false,
   icon,
   style,
+  accessibilityLabel,
 }: {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'danger';
+  /** primary: the one main action of a view; tonal: a quieter accent action, e.g. one of several in a list. */
+  variant?: 'primary' | 'tonal' | 'secondary' | 'danger';
   loading?: boolean;
   disabled?: boolean;
   icon?: IconName;
   style?: StyleProp<ViewStyle>;
+  accessibilityLabel?: string;
 }) {
   const palette = usePalette();
   const off = disabled || loading;
   const [bg, fg, border] =
     variant === 'primary'
       ? [palette.primary, palette.onPrimary, palette.primary]
+      : variant === 'tonal'
+      ? [palette.primarySoft, palette.primaryInk, palette.primaryBorder]
       : variant === 'danger'
       ? [palette.dangerSoft, palette.dangerInk, palette.dangerBorder]
       : [palette.card, palette.foreground, palette.border];
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled: off, busy: loading }}
       disabled={off}
       onPress={onPress}
@@ -447,6 +465,102 @@ function ChipRow<T extends string>({
           );
         })}
       </View>
+    </View>
+  );
+}
+
+/**
+ * Switches between closely related views of the same content, e.g. All /
+ * Wrong / Skipped answers. Each segment can show a count.
+ */
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+  label,
+}: {
+  options: readonly { value: T; label: string; count?: number }[];
+  value: T;
+  onChange: (value: T) => void;
+  /** Read by screen readers, e.g. "Show answers". */
+  label?: string;
+}) {
+  const palette = usePalette();
+  return (
+    <View accessibilityRole="tablist" accessibilityLabel={label} style={[styles.segmented, { backgroundColor: palette.secondary }]}>
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <Pressable
+            key={o.value}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: on }}
+            accessibilityLabel={o.count === undefined ? o.label : `${o.label}, ${o.count}`}
+            onPress={() => onChange(o.value)}
+            style={({ pressed }) => [
+              styles.segment,
+              on && { backgroundColor: palette.card, borderColor: palette.border },
+              pressed && !on && styles.pressed,
+            ]}
+          >
+            <Text numberOfLines={1} style={[styles.segmentText, { color: on ? palette.foreground : palette.inkSoft, fontWeight: on ? '700' : '600' }]}>
+              {o.label}
+            </Text>
+            {o.count !== undefined ? (
+              <Text style={[styles.segmentCount, { color: on ? palette.primaryInk : palette.inkSoft }]}>{o.count}</Text>
+            ) : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+const NOTICE_ICONS: Record<'info' | 'success' | 'warning' | 'danger', IconName> = {
+  info: { ios: 'info.circle', android: 'info' },
+  success: { ios: 'checkmark.circle', android: 'check_circle' },
+  warning: { ios: 'exclamationmark.triangle', android: 'warning' },
+  danger: { ios: 'exclamationmark.octagon', android: 'error' },
+};
+
+/** A short inline message in the flow of the screen: info, success, a warning or a problem. */
+export function Notice({
+  tone = 'info',
+  title,
+  text,
+  icon,
+  onDismiss,
+  live = false,
+}: {
+  tone?: 'info' | 'success' | 'warning' | 'danger';
+  title?: string;
+  text?: string;
+  icon?: IconName;
+  onDismiss?: () => void;
+  /** Announce it to screen readers when it appears. */
+  live?: boolean;
+}) {
+  const palette = usePalette();
+  const [bg, fg, border] = {
+    info: [palette.secondary, palette.foreground, palette.border],
+    success: [palette.successSoft, palette.successInk, palette.successBorder],
+    warning: [palette.warningSoft, palette.warningInk, palette.warningBorder],
+    danger: [palette.dangerSoft, palette.dangerInk, palette.dangerBorder],
+  }[tone];
+  return (
+    <View accessibilityLiveRegion={live ? 'polite' : undefined} style={[styles.notice, { backgroundColor: bg, borderColor: border }]}>
+      <View style={styles.noticeIcon}>
+        <Icon name={icon ?? NOTICE_ICONS[tone]} color={fg} size={18} />
+      </View>
+      <View style={styles.flex}>
+        {title ? <Text style={[styles.noticeTitle, { color: fg }]}>{title}</Text> : null}
+        {text ? <Text style={[styles.noticeText, { color: tone === 'info' ? palette.mutedForeground : fg }]}>{text}</Text> : null}
+      </View>
+      {onDismiss ? (
+        <Pressable accessibilityRole="button" accessibilityLabel="Dismiss" onPress={onDismiss} style={({ pressed }) => [styles.noticeClose, pressed && styles.pressed]}>
+          <Icon name={{ ios: 'xmark', android: 'close' }} color={fg} size={15} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -655,6 +769,26 @@ const styles = StyleSheet.create({
   chip: { borderWidth: 1.2, borderRadius: 999, paddingHorizontal: 14, minHeight: 38, justifyContent: 'center' },
   chipText: { fontSize: 14 },
   pressed: { opacity: 0.75 },
+  segmented: { flexDirection: 'row', borderRadius: 12, padding: 3, gap: 3 },
+  segment: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 40,
+    paddingHorizontal: 8,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  segmentText: { fontSize: 14, flexShrink: 1 },
+  segmentCount: { fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  notice: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderWidth: 1, borderRadius: 12, paddingVertical: 10, paddingLeft: 12, paddingRight: 4 },
+  noticeIcon: { paddingTop: 1 },
+  noticeTitle: { fontSize: 15, fontWeight: '700', lineHeight: 20 },
+  noticeText: { fontSize: 13, lineHeight: 18 },
+  noticeClose: { width: 44, height: 44, marginVertical: -10, alignItems: 'center', justifyContent: 'center' },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, gap: 12 },
   sheetTitle: { flex: 1, fontSize: 17, fontWeight: '700' },
   sheetClose: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },

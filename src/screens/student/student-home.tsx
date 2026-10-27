@@ -19,7 +19,15 @@ export function StudentHomeScreen() {
   const user = useSignedInUser();
   const palette = usePalette();
   const version = useDataVersion();
-  const { data, error, loading, refreshing, refresh, reload } = useLoad(() => studentApi.overview(), [version]);
+  // The overview's open tests don't say whether one is under way, so the
+  // student's test list (which does) loads alongside it. If that list fails,
+  // the tests still show, with a neutral "Open test" instead of a guess.
+  const { data: loaded, error, loading, refreshing, refresh, reload } = useLoad(async () => {
+    const [overview, tests] = await Promise.all([studentApi.overview(), studentApi.tests().catch(() => null)]);
+    return { overview, tests };
+  }, [version]);
+  const data = loaded?.overview ?? null;
+  const mineOf = (id: string) => (loaded?.tests ? loaded.tests.find((t) => t.id === id)?.mine ?? null : undefined);
   // Reminders 15 minutes before each weekly class.
   const week = data?.week;
   useEffect(() => {
@@ -44,7 +52,7 @@ export function StudentHomeScreen() {
           {data.openTests.length ? (
             <>
               <SectionTitle title="Tests to take" />
-              <TestList tests={data.openTests.map((t) => ({ ...t, mine: null }))} onOpen={setOpenTest} />
+              <TestList tests={data.openTests.map((t) => ({ ...t, mine: mineOf(t.id) }))} onOpen={setOpenTest} />
             </>
           ) : null}
 
