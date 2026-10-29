@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 import { api, ApiError, setApiToken, setOnLoginExpired } from '@/services/api-client';
-import { registerForPush, unregisterPush } from '@/services/notifications';
+import { registerForPush, setNotificationsUser, unregisterPush } from '@/services/notifications';
 import { clearToken, loadToken, saveToken } from '@/services/session-store';
 import type { Role, SchoolStandard, SchoolSubject, Track } from '@/constants/school';
 
@@ -100,6 +100,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   // Once someone is signed in on this phone, register it for notifications.
   const signedInId = status === 'signedIn' ? user?.id : null;
   useEffect(() => {
+    // Class-reminder settings belong to whoever is signed in.
+    setNotificationsUser(signedInId ?? null);
     if (signedInId) void registerForPush();
   }, [signedInId]);
 

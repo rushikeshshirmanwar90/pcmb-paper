@@ -8,10 +8,9 @@ import {
   ScrollView,
   StyleSheet,
   useWindowDimensions,
-  Platform,
 } from 'react-native';
 import { SymbolView } from 'expo-symbols';
-import { getPalette, Spacing } from '@/constants/theme';
+import { getPalette } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export interface DropdownSelectProps {

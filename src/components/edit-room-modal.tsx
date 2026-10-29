@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
-import { getPalette, Spacing, MaxContentWidth } from '@/constants/theme';
+import { getPalette, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { subjectsFor } from '@/constants/syllabus';
 import { DropdownSelect } from '@/components/dropdown-select';

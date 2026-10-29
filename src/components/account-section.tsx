@@ -22,7 +22,48 @@ export function confirmAction(title: string, message: string, confirmLabel: stri
  * editing their details, changing the password and logging out.
  */
 export function AccountSection() {
+  return (
+    <>
+      <ProfileHeader />
+      <SectionTitle title="Account" />
+      <AccountSettings />
+    </>
+  );
+}
+
+/** Who is signed in: initials, name, email and badges (role and tuition, unless `badges` replaces them). */
+export function ProfileHeader({ badges }: { badges?: React.ReactNode }) {
   const palette = usePalette();
+  const user = useSignedInUser();
+  return (
+    <Card>
+      <View style={styles.identity} accessible accessibilityLabel={`${user.name}, ${user.email}`}>
+        <View style={[styles.avatar, { backgroundColor: palette.primary }]}>
+          <Text style={[styles.avatarText, { color: palette.onPrimary }]}>{initials(user.name)}</Text>
+        </View>
+        <View style={styles.flex}>
+          <Text style={[styles.name, { color: palette.foreground }]} numberOfLines={1}>
+            {user.name}
+          </Text>
+          <Text style={[styles.email, { color: palette.mutedForeground }]} numberOfLines={1}>
+            {user.email}
+          </Text>
+          <View style={styles.badges}>
+            {badges ?? (
+              <>
+                {user.role ? <Badge label={ROLE_LABEL[user.role]} tone="primary" /> : null}
+                {user.role && user.role !== 'tuition' && user.tuition.name ? <Badge label={user.tuition.name} /> : null}
+              </>
+            )}
+          </View>
+        </View>
+      </View>
+    </Card>
+  );
+}
+
+/** Editing details, changing the password and logging out. */
+export function AccountSettings() {
   const user = useSignedInUser();
   const { signOut } = useAuth();
   const [editing, setEditing] = useState(false);
@@ -30,27 +71,6 @@ export function AccountSection() {
 
   return (
     <>
-      <Card>
-        <View style={styles.identity}>
-          <View style={[styles.avatar, { backgroundColor: palette.primary }]}>
-            <Text style={[styles.avatarText, { color: palette.onPrimary }]}>{initials(user.name)}</Text>
-          </View>
-          <View style={styles.flex}>
-            <Text style={[styles.name, { color: palette.foreground }]} numberOfLines={1}>
-              {user.name}
-            </Text>
-            <Text style={[styles.email, { color: palette.mutedForeground }]} numberOfLines={1}>
-              {user.email}
-            </Text>
-            <View style={styles.badges}>
-              {user.role ? <Badge label={ROLE_LABEL[user.role]} tone="primary" /> : null}
-              {user.role && user.role !== 'tuition' && user.tuition.name ? <Badge label={user.tuition.name} /> : null}
-            </View>
-          </View>
-        </View>
-      </Card>
-
-      <SectionTitle title="Account" />
       <Card style={styles.listCard}>
         <ListRow
           icon={{ ios: 'person.text.rectangle', android: 'badge' }}

@@ -21,7 +21,7 @@ import { EditRoomModal } from '@/components/edit-room-modal';
 import { DropdownSelect } from '@/components/dropdown-select';
 import { useChapterTopicOptions } from '@/hooks/use-chapter-topic-options';
 import { subjectsFor } from '@/constants/syllabus';
-import { Colors, getPalette, Spacing, BottomTabInset, MaxContentWidth } from '@/constants/theme';
+import { Colors, getPalette, Spacing, BottomTabInset } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { ExamRoom, FilterState, Paper, Standard } from '@/types/pcmb';
 import { fetchPapers } from '@/services/apiService';
