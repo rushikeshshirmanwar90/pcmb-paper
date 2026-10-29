@@ -14,7 +14,7 @@ import { TeacherProfileScreen } from '@/screens/teacher/teacher-profile';
 import { StudentHomeScreen } from '@/screens/student/student-home';
 import { StudentTestsScreen } from '@/screens/student/student-tests';
 import { StudentRoadmapScreen } from '@/screens/student/student-roadmap';
-import { StudentPyqScreen } from '@/screens/student/student-pyq';
+import { PRACTICE_TAB, StudentPracticeScreen } from '@/screens/student/student-practice';
 import { StudentProfileScreen } from '@/screens/student/student-profile';
 
 // The bottom tabs each role sees after logging in.
@@ -78,7 +78,7 @@ const TUITION_TABS: AppTab[] = [
   { ...PROFILE_TAB, render: () => <TuitionProfileScreen /> },
 ];
 
-/** Student login: their day, tests, syllabus roadmap and past-year questions. */
+/** Student login: their day, tests, syllabus roadmap and topic practice (past-year questions). */
 const STUDENT_TABS: AppTab[] = [
   { key: 'home', label: 'Home', icon: HOME_ICON, render: () => <StudentHomeScreen /> },
   {
@@ -94,10 +94,10 @@ const STUDENT_TABS: AppTab[] = [
     render: () => <StudentRoadmapScreen />,
   },
   {
-    key: 'pyqs',
-    label: 'PYQs',
-    icon: { sf: { default: 'clock.arrow.circlepath', selected: 'clock.arrow.circlepath' }, md: 'history' },
-    render: () => <StudentPyqScreen />,
+    key: PRACTICE_TAB,
+    label: 'Practice',
+    icon: { sf: { default: 'book', selected: 'book.fill' }, md: 'menu_book' },
+    render: () => <StudentPracticeScreen />,
   },
   { ...PROFILE_TAB, render: () => <StudentProfileScreen /> },
 ];

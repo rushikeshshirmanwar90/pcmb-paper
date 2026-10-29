@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { isRunningInExpoGo } from 'expo';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Device from 'expo-device';
 import type * as NotificationsModule from 'expo-notifications';
@@ -29,9 +30,11 @@ function notifications(): Notifications | null {
   if (loaded !== undefined) return loaded;
   loaded = null;
   if (Platform.OS === 'web') return null;
-  // Don't even try in Expo Go on Android: loading the package there fails,
-  // and the dev tools show that failure as an error even though it's caught.
-  if (Platform.OS === 'android' && Constants.executionEnvironment === ExecutionEnvironment.StoreClient) return null;
+  // Don't even try in Expo Go on Android: its notification modules are
+  // missing (channels, push), so every call fails. isRunningInExpoGo() is how
+  // expo-notifications itself tells; executionEnvironment alone misses it on
+  // newer Expo Go versions.
+  if (Platform.OS === 'android' && (isRunningInExpoGo() || Constants.executionEnvironment === ExecutionEnvironment.StoreClient)) return null;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require('expo-notifications') as Notifications;

@@ -2,8 +2,9 @@ import { api } from '@/services/api-client';
 import type { SchoolStandard, SchoolSubject, Track } from '@/constants/school';
 import type { TestSummary, TimetableEntry } from '@/services/school-api';
 import type { Batch, Coverage } from '@/services/tuition-api';
+import { practiceQuery, type PracticeNode, type PracticeStatus } from '@/screens/student/topic-practice';
 
-// The student's side: home, tests (take and review), roadmap and PYQ practice.
+// The student's side: home, tests (take and review), roadmap and topic practice (PYQs).
 
 export type Level = 'strong' | 'average' | 'weak' | 'not-enough';
 
@@ -82,9 +83,48 @@ export interface Roadmap {
   chapters: RoadmapChapter[];
 }
 
-export interface PyqQuestion {
+/** Counts for a chapter or topic in topic practice, from the student's saved answers. */
+export interface PracticeStats {
+  questions: number;
+  answered: number;
+  correct: number;
+  wrong: number;
+  remaining: number;
+  accuracy: number | null;
+}
+
+export interface PracticeTopic extends PracticeStats {
+  topic: string;
+  coveredOn: string | null;
+}
+
+export interface PracticeChapter extends PracticeStats {
+  standard: SchoolStandard;
+  chapter: string;
+  /** The student's own class. */
+  mine: boolean;
+  /** For a chapter without named topics: when the batch covered it. */
+  coveredOn: string | null;
+  coveredTopics: number;
+  totalTopics: number;
+  /** Questions in the chapter tagged to none of its topics. */
+  untagged: number;
+  /** Empty when the chapter has no named topics: it's practised as a whole. */
+  topics: PracticeTopic[];
+}
+
+export interface PracticeTree {
+  subject: SchoolSubject;
+  track: Track;
+  standard: SchoolStandard | null;
+  hasBatch: boolean;
+  summary: PracticeStats & { coveredTopics: number; totalTopics: number };
+  chapters: PracticeChapter[];
+}
+
+/** A topic practice question. The answer and solution come only when reviewing answered ones. */
+export interface PracticeQuestion {
   _id: string;
-  subject: string;
   standard: string;
   chapter: string;
   topic: string;
@@ -95,13 +135,31 @@ export interface PyqQuestion {
   optionC: string;
   optionD: string;
   answerType: string;
-  correctAnswer: string;
-  explanation: string;
   diagramUrls: string[];
   optionDiagramUrls: { A: string[]; B: string[]; C: string[]; D: string[] };
-  explanationDiagramUrls: string[];
   mine: { selected: string; correct: boolean } | null;
+  correctAnswer?: string;
+  explanation?: string;
+  explanationDiagramUrls?: string[];
 }
+
+export interface PracticePage {
+  total: number;
+  summary: PracticeStats;
+  questions: PracticeQuestion[];
+  /** Pass as `after` for the next page; null on the last one. */
+  next: string | null;
+}
+
+export type PyqAnswerResult = {
+  correct: boolean;
+  selected: string;
+  /** Whether the server kept the answer (always, for a student). */
+  saved?: boolean;
+  correctAnswer: string;
+  explanation: string;
+  explanationDiagramUrls: string[];
+};
 
 const enc = encodeURIComponent;
 
@@ -118,15 +176,17 @@ export const studentApi = {
   submit: (id: string, answers: { index: number; selected: string | null }[]) =>
     api<{ attempt: Attempt; questions: TestQuestion[] }>(`/tests/${id}/submit`, { method: 'POST', body: { answers } }),
 
-  pyqChapters: (subject: SchoolSubject) =>
-    api<{ total: number; chapters: { chapter: string; standard: string; questions: number; practised: number; correct: number }[] }>(`/pyq/chapters?subject=${enc(subject)}`),
-  pyq: (subject: SchoolSubject, chapter: string | null, skip = 0) =>
-    api<{ total: number; nextSkip: number | null; questions: PyqQuestion[] }>(`/pyq?subject=${enc(subject)}${chapter ? `&chapter=${enc(chapter)}` : ''}&skip=${skip}`),
   answerPyq: (questionId: string, selected: string) =>
-    api<{ correct: boolean; selected: string; correctAnswer: string; explanation: string; explanationDiagramUrls: string[] }>('/pyq/answer', {
+    api<PyqAnswerResult>('/pyq/answer', {
       method: 'POST',
       body: { questionId, selected },
     }),
+
+  /** Topic practice: the subject's syllabus with question counts, coverage and the student's progress. */
+  practiceTree: (subject: SchoolSubject) => api<PracticeTree>(`/pyq/topics?subject=${enc(subject)}`),
+  /** A page of a chapter's or topic's questions; see practiceQuery. */
+  practiceQuestions: (node: PracticeNode, status: PracticeStatus, after: string | null) =>
+    api<PracticePage>(`/pyq/questions?${practiceQuery(node, status, after)}`),
 };
 
 export const LEVEL_LABEL: Record<Level, string> = {

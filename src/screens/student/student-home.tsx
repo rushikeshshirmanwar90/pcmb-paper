@@ -4,12 +4,13 @@ import { Badge, Button, Card, DetailSheet, EmptyView, ErrorView, Icon, ListRow, 
 import { SCHOOL_SUBJECTS, WEEKDAY_NAMES, type SchoolSubject } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
 import { useDataVersion } from '@/context/data-version';
+import { openPracticeAt } from '@/context/practice-target';
 import { useTabNavigation } from '@/context/tab-context';
 import { syncClassReminders } from '@/services/notifications';
 import { AnnouncementsSection } from '@/screens/shared/announcements';
 import { ClassRow, WeekTimetable } from '@/screens/shared/timetable';
 import { nextClass, type NextClass } from '@/screens/student/home-next-up';
-import { PracticeSheet } from '@/screens/student/student-pyq';
+import { PRACTICE_TAB } from '@/screens/student/student-practice';
 import { TestList } from '@/screens/student/student-tests';
 import { byUrgency, kindOf, percentOf, resultTone, type ListedTest } from '@/screens/student/test-format';
 import { TestRunner } from '@/screens/student/test-runner';
@@ -47,7 +48,11 @@ export function StudentHomeScreen() {
   const [openTest, setOpenTest] = useState<string | null>(null);
   const [showWeek, setShowWeek] = useState(false);
   const [showRecent, setShowRecent] = useState(false);
-  const [practise, setPractise] = useState<{ subject: SchoolSubject; chapter: string } | null>(null);
+  // A weak topic's Practise opens it in the Practice tab (topic practice).
+  const practise = (subject: SchoolSubject, chapter: string, topic: string) => {
+    openPracticeAt({ subject, chapter, topic: topic || null });
+    goToTab(PRACTICE_TAB);
+  };
 
   // "Now" is when the data loaded, so Next up matches what was fetched.
   const now = loaded?.at ?? 0;
@@ -125,7 +130,7 @@ export function StudentHomeScreen() {
 
           {/* Your progress: last result, weak topics to practise, syllabus. */}
           <SectionTitle title="Your progress" />
-          <ResultCard insight={data.insight} onPractise={(subject, chapter) => setPractise({ subject, chapter })} />
+          <ResultCard insight={data.insight} onPractise={practise} />
           {data.batch ? (
             <SyllabusCard batch={data.batch} recent={data.recent} onShowRecent={() => setShowRecent(true)} />
           ) : null}
@@ -145,7 +150,6 @@ export function StudentHomeScreen() {
         </>
       ) : null}
       {openTest ? <TestRunner testId={openTest} onClose={() => setOpenTest(null)} /> : null}
-      {practise ? <PracticeSheet subject={practise.subject} chapter={practise.chapter} onClose={() => setPractise(null)} /> : null}
     </Screen>
   );
 }
@@ -174,7 +178,7 @@ function NextClassCard({ next }: { next: NextClass }) {
   );
 }
 
-function ResultCard({ insight, onPractise }: { insight: StudentOverview['insight']; onPractise: (subject: SchoolSubject, chapter: string) => void }) {
+function ResultCard({ insight, onPractise }: { insight: StudentOverview['insight']; onPractise: (subject: SchoolSubject, chapter: string, topic: string) => void }) {
   const palette = usePalette();
   const last = insight.lastResult;
   const percent = last ? percentOf(last.score, last.maxScore) : null;
@@ -219,7 +223,7 @@ function ResultCard({ insight, onPractise }: { insight: StudentOverview['insight
   );
 }
 
-function WeakTopicRow({ stat, onPractise }: { stat: TopicStat; onPractise: (subject: SchoolSubject, chapter: string) => void }) {
+function WeakTopicRow({ stat, onPractise }: { stat: TopicStat; onPractise: (subject: SchoolSubject, chapter: string, topic: string) => void }) {
   const palette = usePalette();
   const subject = asSubject(stat.subject);
   const name = stat.topic || stat.chapter;
@@ -238,8 +242,8 @@ function WeakTopicRow({ stat, onPractise }: { stat: TopicStat; onPractise: (subj
         <Button
           label="Practise"
           variant="tonal"
-          onPress={() => onPractise(subject, stat.chapter)}
-          accessibilityLabel={`Practise ${stat.chapter} past-year questions`}
+          onPress={() => onPractise(subject, stat.chapter, stat.topic)}
+          accessibilityLabel={`Practise ${name} in Practice`}
           style={styles.practise}
         />
       ) : null}
