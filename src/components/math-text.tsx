@@ -1,9 +1,8 @@
-import React, { useMemo, useCallback, useRef, useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
-import { WebView } from 'react-native-webview';
 import katex from 'katex';
 import { hasLatex, splitLatex } from '@/shared/latex';
-import { mathTextToHtml } from '@/shared/math-html';
+import { NativeLatexText } from '@/components/native-math';
 import { parseMathNodes, type MathNode, type MathSegment, type AccentType } from '@/shared/mathText';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getPalette } from '@/constants/theme';
@@ -169,106 +168,6 @@ function WebKaTeXRenderer({
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Native WebView KaTeX renderer (for iOS / Android)
-// ────────────────────────────────────────────────────────────────────────────
-
-/**
- * The page a native web view shows: the text with its maths already rendered
- * to MathML (mathTextToHtml), so it shows straight away and works offline. It
- * used to load KaTeX from a CDN in <head>, which left the view blank for as
- * long as that download stalled. The script only reports the height.
- */
-function buildMathHTML(text: string, textColor: string, bgColor: string, fontSize: number): string {
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body {
-      background: ${bgColor};
-      color: ${textColor};
-      font-size: ${fontSize}px;
-      line-height: 1.5;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      overflow: hidden;
-      -webkit-text-size-adjust: none;
-    }
-    #content { word-break: break-word; }
-    math { font-size: 1.1em; }
-    math[display="block"] { margin: 4px 0; overflow-x: auto; }
-  </style>
-</head>
-<body>
-  <div id="content">${mathTextToHtml(text)}</div>
-  <script>
-    var lastHeight = -1;
-    function sendHeight() {
-      var h = Math.ceil(document.getElementById('content').getBoundingClientRect().height);
-      if (h === lastHeight || !window.ReactNativeWebView) return;
-      lastHeight = h;
-      window.ReactNativeWebView.postMessage(JSON.stringify({ height: h }));
-    }
-    sendHeight();
-    if (window.ResizeObserver) {
-      new ResizeObserver(sendHeight).observe(document.getElementById('content'));
-    }
-    window.addEventListener('load', function() { setTimeout(sendHeight, 50); });
-    window.addEventListener('resize', sendHeight);
-  <\/script>
-</body>
-</html>`;
-}
-
-function KaTeXView({
-  text,
-  fontSize,
-  textColor,
-  bgColor,
-  style,
-}: {
-  text: string;
-  fontSize: number;
-  textColor: string;
-  bgColor: string;
-  style?: object;
-}) {
-  const [height, setHeight] = useState(fontSize * 2 + 4);
-  const webViewRef = useRef<WebView>(null);
-
-  const html = useMemo(() => buildMathHTML(text, textColor, bgColor, fontSize), [text, textColor, bgColor, fontSize]);
-
-  const onMessage = useCallback((event: { nativeEvent: { data: string } }) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data);
-      if (typeof data.height === 'number' && data.height > 0) {
-        setHeight(Math.ceil(data.height) + 2);
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  return (
-    <View style={[{ height, minHeight: fontSize * 1.5, overflow: 'hidden' }, style]}>
-      <WebView
-        ref={webViewRef}
-        originWhitelist={['*']}
-        source={{ html }}
-        style={{ backgroundColor: 'transparent', height, opacity: 0.99 }}
-        scrollEnabled={false}
-        nestedScrollEnabled={false}
-        showsHorizontalScrollIndicator={false}
-        showsVerticalScrollIndicator={false}
-        onMessage={onMessage}
-        javaScriptEnabled
-      />
-    </View>
-  );
-}
-
-// ────────────────────────────────────────────────────────────────────────────
 // Public component
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -306,9 +205,9 @@ export function MathText({ text: rawText, fontSize = 14, color, style }: MathTex
     );
   }
 
-  // Native path:
+  // Native path: maths drawn with native views (no web view, see native-math.tsx).
   if (hasLatex(text)) {
-    return <KaTeXView text={text} fontSize={fontSize} textColor={textColor} bgColor={'transparent'} style={style} />;
+    return <NativeLatexText text={text} fontSize={fontSize} color={textColor} style={style} />;
   }
 
   return (

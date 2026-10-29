@@ -669,8 +669,6 @@ function BrowseQuestions({
             data={questions}
             keyExtractor={(item) => item._id}
             renderItem={({ item }) => <QuestionCard question={item} dark={dark} />}
-            // Detaching off-screen rows leaves their maths web views blank on Android.
-            removeClippedSubviews={false}
             ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
             contentContainerStyle={[styles.listContent, { paddingBottom: BottomTabInset + 40 }]}
             showsVerticalScrollIndicator={false}

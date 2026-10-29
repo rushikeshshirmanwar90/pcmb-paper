@@ -12,6 +12,7 @@ import {
   TextInput,
   View,
   type StyleProp,
+  type TextInputInstance,
   type TextInputProps,
   type ViewStyle,
 } from 'react-native';
@@ -277,7 +278,7 @@ export function ErrorText({ message }: { message: string | null | undefined }) {
 
 // ─── Inputs ────────────────────────────────────────────────────────────────
 
-type FieldProps = TextInputProps & { label: string; hint?: string; error?: string | null; ref?: React.Ref<TextInput> };
+type FieldProps = TextInputProps & { label: string; hint?: string; error?: string | null; ref?: React.Ref<TextInputInstance> };
 
 export function Field({ label, hint, error, style, ...input }: FieldProps) {
   const palette = usePalette();
@@ -673,7 +674,7 @@ const styles = StyleSheet.create({
  */
 export function CodeInput({ value, onChange, onComplete, autoFocus = true }: { value: string; onChange: (code: string) => void; onComplete?: (code: string) => void; autoFocus?: boolean }) {
   const palette = usePalette();
-  const ref = useRef<TextInput>(null);
+  const ref = useRef<TextInputInstance>(null);
   const [focused, setFocused] = useState(false);
   const digits = value.split('');
   return (
