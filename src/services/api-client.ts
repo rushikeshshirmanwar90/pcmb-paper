@@ -15,6 +15,16 @@ export function setOnLoginExpired(handler: (() => void) | null) {
   onExpired = handler;
 }
 
+/** The login header, for requests that can't go through api() (e.g. a PDF download). */
+export function authHeaders(): Record<string, string> {
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/** Tells the app the login has expired, as api() does when a signed-in request gets a 401. */
+export function reportLoginExpired() {
+  if (token) onExpired?.();
+}
+
 /** The request failed; the message is fit for the screen. */
 export class ApiError extends Error {
   constructor(
@@ -31,9 +41,8 @@ export async function api<T>(
   path: string,
   { method = 'GET', body, auth = true }: { method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'; body?: unknown; auth?: boolean } = {}
 ): Promise<T> {
-  const headers: Record<string, string> = { Accept: 'application/json' };
+  const headers: Record<string, string> = { Accept: 'application/json', ...(auth ? authHeaders() : {}) };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
-  if (auth && token) headers.Authorization = `Bearer ${token}`;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);

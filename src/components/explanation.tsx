@@ -3,7 +3,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { MathText } from './math-text';
 import { Diagrams } from './diagrams';
-import { parseExplanation, type ExplanationBlock, type ExplanationChunk } from '@/shared/explanation';
+import { parseExplanation, type ExplanationBlock } from '@/shared/explanation';
 import { hasLatex } from '@/shared/latex';
 import { getPalette } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';

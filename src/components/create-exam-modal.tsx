@@ -974,7 +974,7 @@ export function QuestionSetFlow({
         </ScrollView>
       )}
 
-      {/* ── Making the PDF: the list and its maths web views make way for the progress card ── */}
+      {/* ── Making the PDF: the list makes way for the progress card ── */}
       {step === 'questions' && makingPdf && (
         <View style={[styles.progressPanel, { paddingBottom: bottomInset }]}>
           <View style={[styles.progressCard, { backgroundColor: palette.card, borderColor: palette.border }]}>
@@ -1059,8 +1059,6 @@ export function QuestionSetFlow({
             initialNumToRender={5}
             maxToRenderPerBatch={5}
             windowSize={5}
-            // Detaching off-screen rows leaves their maths web views blank on Android.
-            removeClippedSubviews={false}
             contentContainerStyle={styles.questionsList}
             showsVerticalScrollIndicator={false}
           />
