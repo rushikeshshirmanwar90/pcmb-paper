@@ -26,6 +26,7 @@ import { bumpDataVersion, useDataVersion } from '@/context/data-version';
 import { clearPracticeTarget, usePracticeTarget, type PracticeTarget } from '@/context/practice-target';
 import { useTabNavigation } from '@/context/tab-context';
 import { toneOf } from '@/screens/student/practice-session';
+import { SelfAssessmentFlow } from '@/screens/student/self-assessment-flow';
 import { TopicPracticeSheet } from '@/screens/student/topic-practice-sheet';
 import {
   actionsFor,
@@ -66,6 +67,7 @@ export function StudentPracticeScreen() {
   /** A topic name, ALL for the whole chapter, or null while choosing. */
   const [topic, setTopic] = useState<string | null>(null);
   const [session, setSession] = useState<{ node: PracticeNode; mode: PracticeMode } | null>(null);
+  const [assessing, setAssessing] = useState(false);
   const { data, setData, error, loading, refreshing, refresh, reload } = useLoad(() => studentApi.practiceTree(subject), [subject, version]);
 
   // Only this subject's data is shown: a chapter picked in another subject is forgotten.
@@ -166,6 +168,7 @@ export function StudentPracticeScreen() {
 
   return (
     <Screen title="Practice" subtitle="Past-year questions, topic by topic" onRefresh={refresh} refreshing={refreshing}>
+      {!chapter ? <SelfAssessmentCard onPress={() => setAssessing(true)} /> : null}
       {!chapter ? <Chips choices={subjects} selected={subject} onChange={pickSubject} /> : null}
       {error && tree ? <Muted>{error}</Muted> : null}
       {body}
@@ -184,7 +187,30 @@ export function StudentPracticeScreen() {
           }}
         />
       ) : null}
+      {assessing ? <SelfAssessmentFlow subject={subject} onClose={() => setAssessing(false)} /> : null}
     </Screen>
+  );
+}
+
+/** The way into self-assessment: a test the student makes from chosen chapters and topics. */
+function SelfAssessmentCard({ onPress }: { onPress: () => void }) {
+  const palette = usePalette();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Self-assessment. Make a test from chapters and topics you choose and see your strong and weak topics"
+      onPress={onPress}
+      style={({ pressed }) => [styles.assessCard, { backgroundColor: palette.primarySoft, borderColor: palette.primaryBorder }, pressed && styles.pressed]}
+    >
+      <View style={[styles.tile, { backgroundColor: palette.card }]}>
+        <Icon name={{ ios: 'checklist', android: 'fact_check' }} color={palette.primary} size={20} />
+      </View>
+      <View style={styles.flex}>
+        <Text style={[styles.rowTitle, { color: palette.primaryInk }]}>Self-assessment</Text>
+        <Text style={[styles.meta, { color: palette.primaryInk }]}>Make a test from your chosen topics and find where you&apos;re strong or weak</Text>
+      </View>
+      <Icon name={{ ios: 'chevron.right', android: 'chevron_right' }} color={palette.primaryInk} size={16} />
+    </Pressable>
   );
 }
 
@@ -552,4 +578,5 @@ const styles = StyleSheet.create({
   path: { fontSize: 13, fontWeight: '600' },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   actions: { gap: 10, marginTop: 4 },
+  assessCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, borderWidth: 1, minHeight: 72 },
 });

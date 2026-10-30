@@ -1,4 +1,4 @@
-import { api } from '@/services/api-client';
+import { api, ApiError } from '@/services/api-client';
 import type { SchoolStandard, SchoolSubject, Track } from '@/constants/school';
 import type { TestSummary, TimetableEntry } from '@/services/school-api';
 import type { Batch, Coverage } from '@/services/tuition-api';
@@ -161,7 +161,164 @@ export type PyqAnswerResult = {
   explanationDiagramUrls: string[];
 };
 
+
+// ─── Self-assessment ───────────────────────────────────────────────────────
+// A test the student makes from past-year questions (papers/src/lib/self-assessment.ts).
+
+export type AssessmentMix = 'smart' | 'balanced' | 'challenge';
+export type Difficulty = 'Easy' | 'Medium' | 'Hard';
+export type DifficultySplit = Record<Difficulty, number>;
+export type StrengthLevel = 'strong' | 'average' | 'weak';
+
+/** A chapter picked, with the topics picked (none: the whole chapter). */
+export interface AssessmentScope {
+  standard: SchoolStandard;
+  chapter: string;
+  topics: string[];
+}
+
+export interface AssessmentSetup {
+  subject: SchoolSubject;
+  scope: AssessmentScope[];
+  count: number;
+  mix: AssessmentMix;
+  /** null: no time limit. */
+  durationMinutes: number | null;
+  negativeMarking: boolean;
+  /** The plan's seed, so the test made matches the plan shown. */
+  seed?: number;
+}
+
+/** Why the Smart mix chose its split. */
+export interface AssessmentBasis {
+  kind: 'fixed' | 'no-history' | 'struggling' | 'steady' | 'confident';
+  accuracy: number | null;
+  answered: number;
+}
+
+export interface AssessmentPlan {
+  /** Send back with the setup when making the test. */
+  seed: number;
+  plan: {
+    count: number;
+    requested: number;
+    byDifficulty: DifficultySplit;
+    split: DifficultySplit;
+    fresh: number;
+    available: DifficultySplit & { total: number; fresh: number };
+  };
+  basis: AssessmentBasis;
+  topics: { standard: string; chapter: string; topic: string; count: number; available: number; level: Level; accuracy: number | null }[];
+}
+
+export interface AssessmentSummary {
+  id: string;
+  title: string;
+  subject: SchoolSubject;
+  mix: AssessmentMix;
+  state: 'ready' | 'in-progress' | 'submitted';
+  scope: AssessmentScope[];
+  questionCount: number;
+  plan: DifficultySplit & { fresh: number; requested: number };
+  basis: AssessmentBasis;
+  marksPerQuestion: number;
+  negativeMarks: number;
+  maxScore: number;
+  durationMinutes: number | null;
+  createdAt: string;
+  startedAt: string | null;
+  /** null without a time limit (or before it starts). */
+  deadline: string | null;
+  submittedAt: string | null;
+  answeredCount: number;
+  result: {
+    score: number;
+    maxScore: number;
+    correct: number;
+    wrong: number;
+    skipped: number;
+    timeTakenSeconds: number;
+    strength: number;
+    strongTopics: number;
+    weakTopics: number;
+  } | null;
+}
+
+export interface AssessmentQuestion {
+  index: number;
+  subject: string;
+  standard: string;
+  chapter: string;
+  topic: string;
+  questionText: string;
+  optionA: string;
+  optionB: string;
+  optionC: string;
+  optionD: string;
+  answerType: string;
+  diagramUrls: string[];
+  optionDiagramUrls: { A: string[]; B: string[]; C: string[]; D: string[] };
+  /** Only once submitted. */
+  difficulty?: Difficulty;
+  correctAnswer?: string;
+  explanation?: string;
+  explanationDiagramUrls?: string[];
+}
+
+/** Right, wrong and skipped for one part of the test. strength = % right of all asked; weakness = 100 − strength. */
+export interface StrengthTally {
+  total: number;
+  correct: number;
+  wrong: number;
+  skipped: number;
+  strength: number;
+  weakness: number;
+  accuracy: number | null;
+  level: StrengthLevel;
+}
+
+export interface TopicStrength extends StrengthTally {
+  standard: string;
+  chapter: string;
+  topic: string;
+  /** % of all the questions lost (wrong + skipped) that are in this topic. */
+  shareOfMistakes: number;
+  wrongNumbers: number[];
+  skippedNumbers: number[];
+  fewQuestions: boolean;
+}
+
+export interface AssessmentReport {
+  overall: StrengthTally;
+  /** Weakest first. */
+  topics: TopicStrength[];
+  chapters: (StrengthTally & { standard: string; chapter: string; topics: number })[];
+  difficulty: (StrengthTally & { difficulty: Difficulty })[];
+  strongTopics: number;
+  weakTopics: number;
+  headline: string;
+  advice: string[];
+}
+
+export interface AssessmentDetail {
+  assessment: AssessmentSummary;
+  answers: { index: number; selected: string | null; correct: boolean | null }[];
+  /** Empty until started. */
+  questions: AssessmentQuestion[];
+  report: AssessmentReport | null;
+}
+
 const enc = encodeURIComponent;
+
+/**
+ * Self-assessment calls that can only 404 when the server is older than the
+ * app (the routes are missing), so say that instead of "couldn't do that (404)".
+ */
+const SERVER_TOO_OLD = "Self-assessment isn't on the server yet. The server needs the latest update; try again after that.";
+const needsAssessments = <T,>(request: Promise<T>) =>
+  request.catch((e: unknown) => {
+    throw e instanceof ApiError && e.status === 404 ? new ApiError(404, SERVER_TOO_OLD) : e;
+  });
 
 export const studentApi = {
   overview: () => api<StudentOverview>('/student/overview'),
@@ -187,6 +344,19 @@ export const studentApi = {
   /** A page of a chapter's or topic's questions; see practiceQuery. */
   practiceQuestions: (node: PracticeNode, status: PracticeStatus, after: string | null) =>
     api<PracticePage>(`/pyq/questions?${practiceQuery(node, status, after)}`),
+
+  /** Self-assessment: the student's own, newest first. */
+  assessments: () => needsAssessments(api<{ assessments: AssessmentSummary[] }>('/self-assessments')).then((r) => r.assessments),
+  /** What a self-assessment with these choices would be, without making it. */
+  planAssessment: (setup: AssessmentSetup) => needsAssessments(api<AssessmentPlan>('/self-assessments/plan', { method: 'POST', body: setup })),
+  createAssessment: (setup: AssessmentSetup) => needsAssessments(api<AssessmentDetail>('/self-assessments', { method: 'POST', body: setup })),
+  assessment: (id: string) => api<AssessmentDetail>(`/self-assessments/${id}`),
+  startAssessment: (id: string) => api<AssessmentDetail>(`/self-assessments/${id}/start`, { method: 'POST' }),
+  saveAssessmentAnswers: (id: string, answers: { index: number; selected: string | null }[]) =>
+    api<{ saved: number }>(`/self-assessments/${id}/answers`, { method: 'PUT', body: { answers } }),
+  submitAssessment: (id: string, answers: { index: number; selected: string | null }[]) =>
+    api<AssessmentDetail>(`/self-assessments/${id}/submit`, { method: 'POST', body: { answers } }),
+  deleteAssessment: (id: string) => api<{ ok: true }>(`/self-assessments/${id}`, { method: 'DELETE' }),
 };
 
 export const LEVEL_LABEL: Record<Level, string> = {
