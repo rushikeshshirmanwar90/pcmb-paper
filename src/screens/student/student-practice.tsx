@@ -1,24 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, type PropsWithChildren } from 'react';
 import { BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   Badge,
   Button,
   Card,
-  Chips,
   EmptyView,
   ErrorView,
   Icon,
   LoadingView,
   Muted,
   Notice,
-  ProgressBar,
   Screen,
   SectionTitle,
-  StatGrid,
-  StatTile,
+  Segmented,
   useLoad,
   usePalette,
   type IconName,
+  type Palette,
 } from '@/components/kit';
 import { SUBJECTS_BY_TRACK, type SchoolSubject } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
@@ -32,7 +30,6 @@ import {
   actionsFor,
   ALL_CHAPTER_QUESTIONS,
   applyAnswer,
-  breadcrumb,
   completionText,
   countLabel,
   coverageLabel,
@@ -168,8 +165,15 @@ export function StudentPracticeScreen() {
 
   return (
     <Screen title="Practice" subtitle="Past-year questions, topic by topic" onRefresh={refresh} refreshing={refreshing}>
+      {!chapter ? (
+        <Segmented
+          label="Subject"
+          options={subjects.map((s) => ({ value: s, label: s === 'Mathematics' ? 'Maths' : s }))}
+          value={subject}
+          onChange={pickSubject}
+        />
+      ) : null}
       {!chapter ? <SelfAssessmentCard onPress={() => setAssessing(true)} /> : null}
-      {!chapter ? <Chips choices={subjects} selected={subject} onChange={pickSubject} /> : null}
       {error && tree ? <Muted>{error}</Muted> : null}
       {body}
       {session ? (
@@ -200,16 +204,16 @@ function SelfAssessmentCard({ onPress }: { onPress: () => void }) {
       accessibilityRole="button"
       accessibilityLabel="Self-assessment. Make a test from chapters and topics you choose and see your strong and weak topics"
       onPress={onPress}
-      style={({ pressed }) => [styles.assessCard, { backgroundColor: palette.primarySoft, borderColor: palette.primaryBorder }, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.assessCard, { backgroundColor: palette.card, borderColor: palette.border }, pressed && styles.pressed]}
     >
-      <View style={[styles.tile, { backgroundColor: palette.card }]}>
+      <View style={[styles.tile, { backgroundColor: palette.primarySoft }]}>
         <Icon name={{ ios: 'checklist', android: 'fact_check' }} color={palette.primary} size={20} />
       </View>
       <View style={styles.flex}>
-        <Text style={[styles.rowTitle, { color: palette.primaryInk }]}>Self-assessment</Text>
-        <Text style={[styles.meta, { color: palette.primaryInk }]}>Make a test from your chosen topics and find where you&apos;re strong or weak</Text>
+        <Text style={[styles.rowTitle, { color: palette.foreground }]}>Self-assessment</Text>
+        <Text style={[styles.meta, { color: palette.mutedForeground }]}>Make a test from topics you choose and find where you&apos;re strong or weak</Text>
       </View>
-      <Icon name={{ ios: 'chevron.right', android: 'chevron_right' }} color={palette.primaryInk} size={16} />
+      <Icon name={{ ios: 'chevron.right', android: 'chevron_right' }} color={palette.mutedForeground} size={16} />
     </Pressable>
   );
 }
@@ -229,20 +233,7 @@ function ChapterList({ tree, onOpen }: { tree: PracticeTree; onOpen: (c: Practic
   const standards = [...new Set(tree.chapters.map((c) => c.standard))];
   return (
     <>
-      <Card style={styles.overview}>
-        <View style={styles.overviewTop}>
-          <View style={[styles.tile, { backgroundColor: palette.primarySoft }]}>
-            <Icon name={{ ios: 'book', android: 'menu_book' }} color={palette.primary} size={20} />
-          </View>
-          <View style={styles.flex}>
-            <Text style={[styles.overviewTitle, { color: palette.foreground }]}>{tree.subject}</Text>
-            <Text style={[styles.meta, { color: palette.mutedForeground }]}>
-              {summary.answered} of {summary.questions} practised{summary.accuracy !== null ? ` · ${summary.accuracy}% right` : ''}
-            </Text>
-          </View>
-          {summary.accuracy !== null ? <Badge label={`${summary.accuracy}%`} tone={toneOf(summary.accuracy)} /> : null}
-        </View>
-        <ProgressBar value={summary.questions ? (summary.answered / summary.questions) * 100 : 0} tone="success" />
+      <ResultSummary stats={summary}>
         {tree.hasBatch ? (
           <Muted>
             Covered in class: {summary.coveredTopics} of {summary.totalTopics} topics
@@ -250,7 +241,7 @@ function ChapterList({ tree, onOpen }: { tree: PracticeTree; onOpen: (c: Practic
         ) : (
           <Muted>You&apos;re not in a batch yet, so nothing is marked as covered. Every topic is open to practise.</Muted>
         )}
-      </Card>
+      </ResultSummary>
       {standards.map((standard) => {
         const rows = tree.chapters.filter((c) => c.standard === standard);
         const mine = rows[0]?.mine;
@@ -263,7 +254,8 @@ function ChapterList({ tree, onOpen }: { tree: PracticeTree; onOpen: (c: Practic
                   key={chapterId(c)}
                   title={c.chapter}
                   subtitle={[tree.hasBatch ? coverageLabel(c) : null, countLabel(c)].filter(Boolean).join(' · ')}
-                  icon={coverageIcon(c.coveredTopics, c.totalTopics)}
+                  // Coverage marks only mean something once a batch marks topics as covered.
+                  icon={tree.hasBatch ? coverageIcon(c.coveredTopics, c.totalTopics) : undefined}
                   iconColor={c.coveredTopics ? palette.success : palette.mutedForeground}
                   stats={c}
                   last={i === rows.length - 1}
@@ -301,9 +293,8 @@ function ChapterView({
         <Row
           key={t.topic}
           title={t.topic}
+          // The section headings say covered or not, so the rows carry no mark of their own.
           subtitle={[t.coveredOn ? `Covered ${dayLabel(t.coveredOn)}` : null, countLabel(t)].filter(Boolean).join(' · ')}
-          icon={t.coveredOn ? { ios: 'checkmark.circle.fill', android: 'check_circle' } : { ios: 'circle', android: 'radio_button_unchecked' }}
-          iconColor={t.coveredOn ? palette.success : palette.mutedForeground}
           stats={t}
           last={i === rows.length - 1}
           onPress={() => onOpen(t.topic)}
@@ -321,7 +312,6 @@ function ChapterView({
         <View style={styles.badges}>
           <Badge label={chapter.standard} tone={chapter.mine ? 'primary' : 'neutral'} />
           {hasBatch ? <Badge label={coverageLabel(chapter)} tone={chapter.coveredTopics ? 'success' : 'neutral'} /> : null}
-          {chapter.accuracy !== null ? <Badge label={`${chapter.accuracy}% right`} tone={toneOf(chapter.accuracy)} /> : null}
         </View>
       </View>
       <Card style={styles.listCard}>
@@ -386,7 +376,6 @@ function NodeView({
     <>
       <BackRow label={backLabel} onPress={onBack} />
       <View style={styles.heading}>
-        <Text style={[styles.path, { color: palette.mutedForeground }]}>{breadcrumb(node)}</Text>
         <Text accessibilityRole="header" style={[styles.headingTitle, { color: palette.foreground }]}>
           {node.topic ?? (coverage ? ALL_CHAPTER_QUESTIONS : node.chapter)}
         </Text>
@@ -408,16 +397,9 @@ function NodeView({
         </Card>
       ) : (
         <>
-          <StatGrid>
-            <StatTile label="Total" value={stats.questions} icon={{ ios: 'square.stack', android: 'stacks' }} />
-            <StatTile label="Answered" value={stats.answered} icon={{ ios: 'pencil.and.list.clipboard', android: 'edit_note' }} tone="violet" />
-            <StatTile label="Remaining" value={stats.remaining} icon={{ ios: 'hourglass', android: 'hourglass_empty' }} tone="neutral" />
-            <StatTile label="Correct" value={stats.correct} icon={{ ios: 'checkmark.circle', android: 'check_circle' }} tone="success" />
-            <StatTile label="Incorrect" value={stats.wrong} icon={{ ios: 'xmark.circle', android: 'cancel' }} tone="danger" />
-            <StatTile label="Accuracy" value={stats.accuracy === null ? '–' : `${stats.accuracy}%`} icon={{ ios: 'target', android: 'my_location' }} tone={stats.accuracy === null ? 'neutral' : toneOf(stats.accuracy)} />
-          </StatGrid>
-          <ProgressBar value={stats.questions ? (stats.answered / stats.questions) * 100 : 0} tone="success" />
-          {untagged ? <Muted>Includes {untagged} question{untagged === 1 ? '' : 's'} of this chapter not tagged to a topic.</Muted> : null}
+          <ResultSummary stats={stats}>
+            {untagged ? <Muted>Includes {untagged} question{untagged === 1 ? '' : 's'} of this chapter not tagged to a topic.</Muted> : null}
+          </ResultSummary>
 
           {actions.continue === 'done' ? (
             <Notice
@@ -488,6 +470,73 @@ function coverageIcon(covered: number, total: number): IconName {
   return { ios: 'circle', android: 'radio_button_unchecked' };
 }
 
+/** Accuracy as text: the darker "ink" shade of its band, so it reads at small sizes in both themes. */
+const accuracyInk = (palette: Palette, accuracy: number | null) =>
+  accuracy === null ? palette.mutedForeground : { success: palette.successInk, warning: palette.warningInk, danger: palette.dangerInk }[toneOf(accuracy)];
+
+/**
+ * One bar split into correct, incorrect and still to answer. Visual only: the
+ * numbers it shows are always written out next to it.
+ */
+function AnswerStrip({ stats, thick = false }: { stats: PracticeStats; thick?: boolean }) {
+  const palette = usePalette();
+  const height = thick ? 8 : 4;
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={[styles.strip, { height, borderRadius: height / 2, gap: thick ? 2 : 1, backgroundColor: palette.secondary }]}
+    >
+      {stats.correct ? <View style={{ flex: stats.correct, backgroundColor: palette.success }} /> : null}
+      {stats.wrong ? <View style={{ flex: stats.wrong, backgroundColor: palette.danger }} /> : null}
+      {stats.remaining ? <View style={{ flex: stats.remaining }} /> : null}
+    </View>
+  );
+}
+
+/** Where a subject, chapter or topic stands: answered of total, accuracy, and the answer strip with its key. */
+function ResultSummary({ stats, children }: PropsWithChildren<{ stats: PracticeStats }>) {
+  const palette = usePalette();
+  return (
+    <Card style={styles.summary}>
+      <View style={styles.summaryTop}>
+        <View accessible accessibilityLabel={`${stats.answered} of ${stats.questions} answered`} style={styles.flex}>
+          <Text style={[styles.bigNumber, { color: palette.foreground }]}>
+            {stats.answered}
+            <Text style={[styles.bigOf, { color: palette.mutedForeground }]}> / {stats.questions}</Text>
+          </Text>
+          <Text style={[styles.meta, { color: palette.mutedForeground }]}>answered</Text>
+        </View>
+        <View
+          accessible
+          accessibilityLabel={stats.accuracy === null ? 'No accuracy yet' : `${stats.accuracy}% accuracy`}
+          style={styles.summaryRight}
+        >
+          <Text style={[styles.bigNumber, { color: accuracyInk(palette, stats.accuracy) }]}>{stats.accuracy === null ? '–' : `${stats.accuracy}%`}</Text>
+          <Text style={[styles.meta, { color: palette.mutedForeground }]}>accuracy</Text>
+        </View>
+      </View>
+      <AnswerStrip stats={stats} thick />
+      <View style={styles.legend}>
+        <LegendItem color={palette.success} label={`${stats.correct} correct`} />
+        <LegendItem color={palette.danger} label={`${stats.wrong} incorrect`} />
+        <LegendItem color={palette.secondary} border={palette.borderStrong} label={`${stats.remaining} left`} />
+      </View>
+      {children}
+    </Card>
+  );
+}
+
+function LegendItem({ color, border, label }: { color: string; border?: string; label: string }) {
+  const palette = usePalette();
+  return (
+    <View style={styles.legendItem}>
+      <View style={[styles.dot, { backgroundColor: color }, border ? { borderWidth: 1, borderColor: border } : null]} />
+      <Text style={[styles.legendText, { color: palette.inkSoft }]}>{label}</Text>
+    </View>
+  );
+}
+
 function BackRow({ label, onPress }: { label: string; onPress: () => void }) {
   const palette = usePalette();
   return (
@@ -517,8 +566,8 @@ function Row({
 }: {
   title: string;
   subtitle: string;
-  icon: IconName;
-  iconColor: string;
+  icon?: IconName;
+  iconColor?: string;
   stats: PracticeStats;
   last: boolean;
   onPress: () => void;
@@ -528,30 +577,32 @@ function Row({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${title}, ${subtitle}`}
+      accessibilityLabel={[title, subtitle, stats.accuracy !== null ? `${stats.accuracy}% right` : null].filter(Boolean).join(', ')}
       accessibilityState={{ disabled: empty }}
       disabled={empty}
       onPress={onPress}
       style={({ pressed }) => [
         styles.row,
         !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border },
-        empty && styles.empty,
         pressed && styles.pressed,
       ]}
     >
-      <Icon name={icon} color={iconColor} size={20} />
+      {icon && iconColor ? <Icon name={icon} color={iconColor} size={20} /> : null}
       <View style={styles.flex}>
-        <Text style={[styles.rowTitle, { color: palette.foreground }]} numberOfLines={2}>
+        {/* An empty row stays readable: a muted title and no chevron, not faded text. */}
+        <Text style={[styles.rowTitle, { color: empty ? palette.mutedForeground : palette.foreground }]} numberOfLines={2}>
           {title}
         </Text>
         <Text style={[styles.meta, { color: palette.mutedForeground }]}>{subtitle}</Text>
         {stats.answered ? (
           <View style={styles.rowBar}>
-            <ProgressBar value={(stats.answered / Math.max(1, stats.questions)) * 100} tone="success" />
+            <AnswerStrip stats={stats} />
           </View>
         ) : null}
       </View>
-      {stats.accuracy !== null ? <Badge label={`${stats.accuracy}%`} tone={toneOf(stats.accuracy)} /> : null}
+      {stats.accuracy !== null ? (
+        <Text style={[styles.rowAccuracy, { color: accuracyInk(palette, stats.accuracy) }]}>{stats.accuracy}%</Text>
+      ) : null}
       {empty ? null : <Icon name={{ ios: 'chevron.right', android: 'chevron_right' }} color={palette.mutedForeground} size={16} />}
     </Pressable>
   );
@@ -560,12 +611,19 @@ function Row({
 const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
   pressed: { opacity: 0.7 },
-  empty: { opacity: 0.55 },
   group: { gap: 8 },
   listCard: { paddingVertical: 0 },
-  overview: { gap: 12, padding: 16 },
-  overviewTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  overviewTitle: { fontSize: 17, fontWeight: '700' },
+  summary: { gap: 12, padding: 16 },
+  summaryTop: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },
+  summaryRight: { alignItems: 'flex-end' },
+  bigNumber: { fontSize: 28, lineHeight: 34, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  bigOf: { fontSize: 17, fontWeight: '600' },
+  strip: { flexDirection: 'row', overflow: 'hidden' },
+  legend: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 16, rowGap: 6 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: { fontSize: 13, lineHeight: 18, fontVariant: ['tabular-nums'] },
+  rowAccuracy: { fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'] },
   tile: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   meta: { fontSize: 13, lineHeight: 18, marginTop: 2 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, minHeight: 60 },
@@ -575,7 +633,6 @@ const styles = StyleSheet.create({
   backText: { fontSize: 15, fontWeight: '700' },
   heading: { gap: 6 },
   headingTitle: { fontSize: 22, fontWeight: '800', lineHeight: 28 },
-  path: { fontSize: 13, fontWeight: '600' },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   actions: { gap: 10, marginTop: 4 },
   assessCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, borderWidth: 1, minHeight: 72 },
