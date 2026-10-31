@@ -20,7 +20,7 @@ import {
   usePalette,
   type IconName,
 } from '@/components/kit';
-import { SUBJECTS_BY_TRACK, type SchoolSubject } from '@/constants/school';
+import { PROGRAM_LABELS, programOf, programSubjects, questionBankOf, type Program, type SchoolSubject } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
 import { clearPracticeTarget, usePracticeTarget, type PracticeTarget } from '@/context/practice-target';
@@ -55,18 +55,23 @@ const chapterId = (c: { standard: string; chapter: string }) => `${c.standard}|$
  * Topic practice: past-year questions by the student's syllabus. Subject →
  * chapter → topic (chapters without named topics skip the topic step), then
  * continue, review or retry. Progress is saved on the server.
+ *
+ * Only JEE and NEET have a question bank. Students of other programs see
+ * that practice isn't available yet; nothing is loaded for them.
  */
 export function StudentPracticeScreen() {
   const user = useSignedInUser();
   const version = useDataVersion();
   const { activeKey } = useTabNavigation();
-  const subjects = SUBJECTS_BY_TRACK[user.track ?? 'General'];
+  const program = programOf(user);
+  const subjects = programSubjects(program);
+  const hasBank = questionBankOf(program) !== null;
   const [subject, setSubject] = useState<SchoolSubject>(subjects[0]);
   const [chapterKey, setChapterKey] = useState<string | null>(null);
   /** A topic name, ALL for the whole chapter, or null while choosing. */
   const [topic, setTopic] = useState<string | null>(null);
   const [session, setSession] = useState<{ node: PracticeNode; mode: PracticeMode } | null>(null);
-  const { data, setData, error, loading, refreshing, refresh, reload } = useLoad(() => studentApi.practiceTree(subject), [subject, version]);
+  const { data, setData, error, loading, refreshing, refresh, reload } = useLoad(() => studentApi.practiceTree(subject), [subject, version], { enabled: hasBank });
 
   // Only this subject's data is shown: a chapter picked in another subject is forgotten.
   const tree = data?.subject === subject ? data : null;
@@ -137,8 +142,12 @@ export function StudentPracticeScreen() {
   const sessionStats = session && tree ? statsAt(tree.chapters, session.node) : null;
   const sessionNext = session && tree ? nextPlace(tree.chapters, session.node) : null;
 
+  // The server has the last word: it may know of no bank for this student either.
+  const unavailable = !hasBank || tree?.available === false;
+
   let body: React.ReactNode;
-  if (loading || (!tree && !error)) body = <LoadingView label={`Loading ${subject}…`} />;
+  if (unavailable) body = <PracticeUnavailable program={program} />;
+  else if (loading || (!tree && !error)) body = <LoadingView label={`Loading ${subject}…`} />;
   else if (!tree) body = <ErrorView message={error ?? "Couldn't load practice."} onRetry={reload} />;
   else if (!chapter) {
     body = <ChapterList tree={tree} onOpen={(c) => { setChapterKey(chapterId(c)); setTopic(null); }} />;
@@ -166,7 +175,7 @@ export function StudentPracticeScreen() {
 
   return (
     <Screen title="Practice" subtitle="Past-year questions, topic by topic" onRefresh={refresh} refreshing={refreshing}>
-      {!chapter ? <Chips choices={subjects} selected={subject} onChange={pickSubject} /> : null}
+      {!chapter && !unavailable ? <Chips choices={subjects} selected={subject} onChange={pickSubject} /> : null}
       {error && tree ? <Muted>{error}</Muted> : null}
       {body}
       {session ? (
@@ -185,6 +194,23 @@ export function StudentPracticeScreen() {
         />
       ) : null}
     </Screen>
+  );
+}
+
+/** For programs without a question bank: say so plainly, never show another program's questions. */
+function PracticeUnavailable({ program }: { program: Program | null }) {
+  return (
+    <Card>
+      <EmptyView
+        icon={{ ios: 'book', android: 'menu_book' }}
+        title={program ? `${PROGRAM_LABELS[program]} practice isn't available yet` : "Practice isn't available yet"}
+        text={
+          program
+            ? 'Past-year questions are ready for JEE and NEET only. Your tests, roadmap, timetable and announcements work as usual.'
+            : 'Your tuition hasn\'t set your program yet. Your tests, timetable and announcements work as usual.'
+        }
+      />
+    </Card>
   );
 }
 

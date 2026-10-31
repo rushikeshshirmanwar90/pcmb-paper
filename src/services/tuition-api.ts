@@ -1,5 +1,5 @@
 import { api } from '@/services/api-client';
-import type { SchoolStandard, SchoolSubject, Track } from '@/constants/school';
+import { PROGRAM_INFO, programOf, type Program, type SchoolStandard, type SchoolSubject, type Track } from '@/constants/school';
 
 // The tuition's data on the papers backend: batches, teachers, students,
 // announcements, chapter weightage and the syllabus.
@@ -16,16 +16,34 @@ export type Coverage = Record<string, { covered: number; total: number; percent:
 export interface Batch {
   id: string;
   name: string;
+  /** Always set here: filled from `track` when an older server doesn't send it. */
+  program: Program;
+  /** The older field the server keeps beside the program. */
   track: Track;
   standard: SchoolStandard | null;
+  /** e.g. "2026-2027"; null for batches made before academic years. */
+  academicYear: string | null;
   subjects: SchoolSubject[];
   venue: string;
   schedule: BatchSlot[];
   weeklyMinutes: number;
   teachers: { teacherId: string; name: string; subject: SchoolSubject }[];
   studentCount: number;
+  /** The subject timetable at a glance (zeros from servers before it). */
+  classes: TimetableSummary;
   coverage?: Coverage;
 }
+
+export interface TimetableSummary {
+  /** Classes a week. */
+  classes: number;
+  weeklyMinutes: number;
+  /** Weekdays with a class, 0 = Sunday. */
+  days: number[];
+  withoutTeacher: number;
+}
+
+const NO_CLASSES: TimetableSummary = { classes: 0, weeklyMinutes: 0, days: [], withoutTeacher: 0 };
 
 export interface Teacher {
   id: string;
@@ -45,6 +63,8 @@ export interface Student {
   email: string;
   phone: string;
   parentPhone: string;
+  /** Filled from `track` when an older server doesn't send it; null when neither is set. */
+  program: Program | null;
   track: Track | null;
   standard: SchoolStandard | null;
   batch: { id: string; name: string } | null;
@@ -92,8 +112,9 @@ export interface Weightage {
 
 export type BatchInput = Partial<{
   name: string;
-  track: Track;
+  program: Program;
   standard: SchoolStandard | null;
+  academicYear: string;
   subjects: SchoolSubject[];
   venue: string;
   schedule: BatchSlot[];
@@ -107,12 +128,22 @@ export type StudentInput = Partial<{
   email: string;
   phone: string;
   parentPhone: string;
-  track: Track;
+  program: Program;
   standard: SchoolStandard | null;
   batchId: string | null;
   password: string;
   active: boolean;
 }>;
+
+// The server sends `program` and `academicYear` from Step 2 on; older
+// servers don't, so they're filled in here from the legacy track.
+type FromServer<T> = Omit<T, 'program' | 'academicYear' | 'classes'> & { program?: Program | null; academicYear?: string | null; classes?: TimetableSummary };
+const withBatch = <T extends Batch>(b: FromServer<T>) => ({ ...b, program: programOf(b) ?? 'GENERAL', academicYear: b.academicYear ?? null, classes: b.classes ?? NO_CLASSES }) as T;
+const withStudent = (s: FromServer<Student>): Student => ({ ...s, program: programOf(s) });
+// The program's legacy track goes along with it, so an older server (which
+// only knows tracks) still saves the batch or student. Newer servers check
+// that the two agree.
+const withTrack = <T extends { program?: Program }>(input: T) => (input.program ? { ...input, track: PROGRAM_INFO[input.program].track } : input);
 
 const q = (params: Record<string, string | undefined | null>) => {
   const search = new URLSearchParams();
@@ -122,17 +153,23 @@ const q = (params: Record<string, string | undefined | null>) => {
 };
 
 export const tuitionApi = {
-  overview: () => api<Overview>('/tuition/overview'),
+  overview: () =>
+    api<Omit<Overview, 'batches'> & { batches: FromServer<Overview['batches'][number]>[] }>('/tuition/overview').then((r) => ({ ...r, batches: r.batches.map(withBatch) })),
 
   profile: () => api<{ tuition: TuitionDetails }>('/tuition/profile').then((r) => r.tuition),
   updateProfile: (changes: Partial<TuitionDetails>) =>
     api<{ tuition: TuitionDetails }>('/tuition/profile', { method: 'PATCH', body: changes }).then((r) => r.tuition),
 
-  batches: () => api<{ batches: Batch[] }>('/tuition/batches').then((r) => r.batches),
-  batch: (id: string) => api<{ batch: Batch & { coverage: Coverage }; students: Student[] }>(`/tuition/batches/${id}`),
-  createBatch: (input: BatchInput) => api<{ batch: Batch }>('/tuition/batches', { method: 'POST', body: input }).then((r) => r.batch),
+  batches: () => api<{ batches: FromServer<Batch>[] }>('/tuition/batches').then((r) => r.batches.map(withBatch)),
+  batch: (id: string) =>
+    api<{ batch: FromServer<Batch & { coverage: Coverage }>; students: FromServer<Student>[] }>(`/tuition/batches/${id}`).then((r) => ({
+      batch: withBatch<Batch & { coverage: Coverage }>(r.batch),
+      students: r.students.map(withStudent),
+    })),
+  createBatch: (input: BatchInput) =>
+    api<{ batch: FromServer<Batch> }>('/tuition/batches', { method: 'POST', body: withTrack(input) }).then((r) => withBatch(r.batch)),
   updateBatch: (id: string, input: BatchInput) =>
-    api<{ batch: Batch }>(`/tuition/batches/${id}`, { method: 'PATCH', body: input }).then((r) => r.batch),
+    api<{ batch: FromServer<Batch> }>(`/tuition/batches/${id}`, { method: 'PATCH', body: withTrack(input) }).then((r) => withBatch(r.batch)),
   deleteBatch: (id: string) => api(`/tuition/batches/${id}`, { method: 'DELETE' }),
 
   teachers: () => api<{ teachers: Teacher[] }>('/tuition/teachers').then((r) => r.teachers),
@@ -145,10 +182,11 @@ export const tuitionApi = {
   resetTeacherPassword: (id: string, password: string) => api(`/tuition/teachers/${id}/password`, { method: 'POST', body: { password } }),
 
   students: (filter: { batchId?: string | null; q?: string } = {}) =>
-    api<{ students: Student[] }>(`/tuition/students${q({ batchId: filter.batchId, q: filter.q })}`).then((r) => r.students),
-  createStudent: (input: StudentInput) => api<{ student: Student }>('/tuition/students', { method: 'POST', body: input }).then((r) => r.student),
+    api<{ students: FromServer<Student>[] }>(`/tuition/students${q({ batchId: filter.batchId, q: filter.q })}`).then((r) => r.students.map(withStudent)),
+  createStudent: (input: StudentInput) =>
+    api<{ student: FromServer<Student> }>('/tuition/students', { method: 'POST', body: withTrack(input) }).then((r) => withStudent(r.student)),
   updateStudent: (id: string, input: StudentInput) =>
-    api<{ student: Student }>(`/tuition/students/${id}`, { method: 'PATCH', body: input }).then((r) => r.student),
+    api<{ student: FromServer<Student> }>(`/tuition/students/${id}`, { method: 'PATCH', body: withTrack(input) }).then((r) => withStudent(r.student)),
   deleteStudent: (id: string) => api(`/tuition/students/${id}`, { method: 'DELETE' }),
   resetStudentPassword: (id: string, password: string) => api(`/tuition/students/${id}/password`, { method: 'POST', body: { password } }),
 
@@ -164,13 +202,13 @@ export interface JoinRequest {
 }
 
 export type AcceptAs =
-  | { as: 'student'; track: Track; standard: SchoolStandard | null; batchId: string | null }
+  | { as: 'student'; program: Program; standard: SchoolStandard | null; batchId: string | null }
   | { as: 'teacher'; subjects: SchoolSubject[] };
 
 export const joinRequestsApi = {
   /** People waiting to join (tuition). */
   pending: () => api<{ requests: JoinRequest[] }>('/tuition/join-requests').then((r) => r.requests),
-  accept: (id: string, input: AcceptAs) => api(`/tuition/join-requests/${id}/accept`, { method: 'POST', body: input }),
+  accept: (id: string, input: AcceptAs) => api(`/tuition/join-requests/${id}/accept`, { method: 'POST', body: input.as === 'student' ? withTrack(input) : input }),
   reject: (id: string) => api(`/tuition/join-requests/${id}/reject`, { method: 'POST' }),
 };
 

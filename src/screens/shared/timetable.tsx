@@ -4,7 +4,8 @@ import { confirmAction } from '@/components/account-section';
 import { Button, Card, Chips, Field, FormSheet, Muted, usePalette } from '@/components/kit';
 import { WEEKDAY_NAMES, WEEKDAY_SHORT, type SchoolSubject } from '@/constants/school';
 import { bumpDataVersion } from '@/context/data-version';
-import { parseTime } from '@/screens/tuition/schedule-editor';
+import { TimeField } from '@/screens/tuition/time-field';
+import { DEFAULT_END, DEFAULT_START, label12 } from '@/screens/tuition/timetable-draft';
 import { schoolApi, type TimetableEntry } from '@/services/school-api';
 import { formatTime } from '@/services/tuition-api';
 
@@ -90,8 +91,8 @@ export function ClassFormSheet({
       setBatchId(entry?.batch.id ?? first?.id ?? null);
       setSubject(entry?.subject ?? first?.mySubjects[0] ?? null);
       setDay(String(entry?.day ?? 1));
-      setStart(entry?.start ?? '');
-      setEnd(entry?.end ?? '');
+      setStart(entry?.start ?? DEFAULT_START);
+      setEnd(entry?.end ?? DEFAULT_END);
       setNote(entry?.note ?? '');
       setError(null);
     }
@@ -105,13 +106,11 @@ export function ClassFormSheet({
   };
 
   const save = async () => {
-    const s = parseTime(start);
-    const e = parseTime(end);
     if (!batchId || !subject) return setError('Pick the batch and subject.');
-    if (!s || !e) return setError('Enter times in 24-hour form, like 16:00 and 17:30.');
+    if (end <= start) return setError('The class must end after it starts.');
     setSaving(true);
     setError(null);
-    const input = { batchId, subject, day: Number(day), start: s, end: e, note: note.trim() };
+    const input = { batchId, subject, day: Number(day), start, end, note: note.trim() };
     try {
       if (entry) await schoolApi.updateClass(entry.id, input);
       else await schoolApi.addClass(input);
@@ -155,13 +154,10 @@ export function ClassFormSheet({
           {batch ? <Chips label="Subject" choices={batch.mySubjects} selected={subject} onChange={setSubject} /> : null}
           <Chips label="Day" choices={DAY_KEYS} selected={day} onChange={setDay} labels={DAY_LABELS} />
           <View style={styles.times}>
-            <View style={styles.flex}>
-              <Field label="Starts" value={start} onChangeText={setStart} placeholder="16:00" keyboardType="numbers-and-punctuation" maxLength={5} />
-            </View>
-            <View style={styles.flex}>
-              <Field label="Ends" value={end} onChangeText={setEnd} placeholder="17:30" keyboardType="numbers-and-punctuation" maxLength={5} />
-            </View>
+            <TimeField label="Starts" value={start} onChange={setStart} />
+            <TimeField label="Ends" value={end} onChange={setEnd} />
           </View>
+          <Muted>{end > start ? `${label12(start)} – ${label12(end)}` : 'The class must end after it starts.'}</Muted>
           <Field label="Note" value={note} onChangeText={setNote} placeholder="e.g. Doubt session (optional)" maxLength={200} />
           <Muted>Students of the batch see this class in their timetable and get a reminder before it.</Muted>
         </>

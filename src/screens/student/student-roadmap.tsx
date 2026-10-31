@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Badge, Card, Chips, ErrorView, Icon, LoadingView, Muted, ProgressBar, Screen, StatGrid, StatTile, useLoad, usePalette } from '@/components/kit';
-import { SUBJECTS_BY_TRACK, type SchoolSubject } from '@/constants/school';
+import { programOf, programSubjects, type SchoolSubject } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
 import { useDataVersion } from '@/context/data-version';
 import { dayLabel } from '@/services/school-api';
@@ -15,7 +15,7 @@ import { LEVEL_LABEL, LEVEL_TONE, studentApi, type RoadmapChapter } from '@/serv
 export function StudentRoadmapScreen() {
   const user = useSignedInUser();
   const version = useDataVersion();
-  const subjects = SUBJECTS_BY_TRACK[user.track ?? 'General'];
+  const subjects = programSubjects(programOf(user));
   const [subject, setSubject] = useState<SchoolSubject>(subjects[0]);
   const { data, error, loading, refreshing, refresh, reload } = useLoad(() => studentApi.roadmap(subject), [subject, version]);
   const [open, setOpen] = useState<string | null>(null);

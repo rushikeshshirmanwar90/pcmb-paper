@@ -1,9 +1,18 @@
+import Constants from "expo-constants";
+import { Platform } from "react-native";
+import { resolveApiOrigin } from "@/services/api-origin";
 import { DifficultyLevel, ExamCategory, FilterOptions, FilterState, Paper, Question, Standard, Subject } from "@/types/pcmb";
 
-const API_ORIGIN = ("https://papers-jet.vercel.app")
-  .trim()
-  .replace(/\/+$/, "")
-  .replace(/\/api$/, "");
+// The live server for release builds; a development build can point at a
+// local one with EXPO_PUBLIC_API_URL (see src/services/api-origin.ts and .env.example).
+const API = resolveApiOrigin({
+  dev: __DEV__,
+  configured: process.env.EXPO_PUBLIC_API_URL,
+  hostUri: Constants.expoConfig?.hostUri,
+  platform: Platform.OS,
+});
+if (__DEV__ && API.source !== "production") console.log(`[api] using ${API.origin} (EXPO_PUBLIC_API_URL)`);
+export const API_ORIGIN = API.origin;
 export const API_BASE_URL = `${API_ORIGIN}/api`;
 
 export const MOCK_QUESTIONS: Question[] = [

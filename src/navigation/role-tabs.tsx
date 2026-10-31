@@ -4,8 +4,8 @@ import type { AppTab } from '@/navigation/tabs';
 import { QuestionsScreen } from '@/app/questions';
 import { TuitionHomeScreen } from '@/screens/tuition/tuition-home';
 import { TuitionBatchesScreen } from '@/screens/tuition/tuition-batches';
-import { TuitionTeachersScreen } from '@/screens/tuition/tuition-teachers';
-import { TuitionStudentsScreen } from '@/screens/tuition/tuition-students';
+import { TuitionPeopleScreen } from '@/screens/tuition/tuition-people';
+import { TuitionTestsScreen } from '@/screens/tuition/tuition-tests';
 import { TuitionProfileScreen } from '@/screens/tuition/tuition-profile';
 import { TeacherHomeScreen } from '@/screens/teacher/teacher-home';
 import { TeacherBatchesScreen } from '@/screens/teacher/teacher-batches';
@@ -54,7 +54,10 @@ const TEACHER_TABS: AppTab[] = [
   { ...PROFILE_TAB, render: () => <TeacherProfileScreen /> },
 ];
 
-/** Tuition login: dashboard, then batches, teachers and students to manage. */
+/**
+ * Tuition login: dashboard, batches, people (students and teachers, switched
+ * at the top), every test's results (view-only), and the profile.
+ */
 const TUITION_TABS: AppTab[] = [
   { key: 'home', label: 'Home', icon: HOME_ICON, render: () => <TuitionHomeScreen /> },
   {
@@ -64,16 +67,16 @@ const TUITION_TABS: AppTab[] = [
     render: () => <TuitionBatchesScreen />,
   },
   {
-    key: 'teachers',
-    label: 'Teachers',
-    icon: { sf: { default: 'person.crop.rectangle.stack', selected: 'person.crop.rectangle.stack.fill' }, md: 'co_present' },
-    render: () => <TuitionTeachersScreen />,
+    key: 'people',
+    label: 'People',
+    icon: { sf: { default: 'person.3', selected: 'person.3.fill' }, md: 'groups' },
+    render: () => <TuitionPeopleScreen />,
   },
   {
-    key: 'students',
-    label: 'Students',
-    icon: { sf: { default: 'person.3', selected: 'person.3.fill' }, md: 'groups' },
-    render: () => <TuitionStudentsScreen />,
+    key: 'tests',
+    label: 'Tests',
+    icon: { sf: { default: 'list.clipboard', selected: 'list.clipboard.fill' }, md: 'assignment' },
+    render: () => <TuitionTestsScreen />,
   },
   { ...PROFILE_TAB, render: () => <TuitionProfileScreen /> },
 ];

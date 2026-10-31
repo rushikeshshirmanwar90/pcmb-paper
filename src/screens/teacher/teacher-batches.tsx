@@ -17,7 +17,7 @@ import {
   useLoad,
   usePalette,
 } from '@/components/kit';
-import { TRACK_LABELS } from '@/constants/school';
+import { PROGRAM_LABELS, programOf } from '@/constants/school';
 import { useDataVersion } from '@/context/data-version';
 import { SyllabusProgressView } from '@/screens/shared/syllabus-progress';
 import { BatchAnalysisSection } from '@/screens/shared/batch-analysis';
@@ -84,7 +84,7 @@ function TeacherBatchDetail({ id, onClose }: { id: string; onClose: () => void }
         <>
           <Card>
             <View style={styles.badges}>
-              <Badge label={TRACK_LABELS[batch.track]} tone="primary" />
+              <Badge label={PROGRAM_LABELS[programOf(batch) ?? 'GENERAL']} tone="primary" />
               <Badge label={batch.standard ?? '11th & 12th'} />
               {view.mySubjects.map((s) => (
                 <Badge key={s} label={`You: ${s}`} tone="violet" />
