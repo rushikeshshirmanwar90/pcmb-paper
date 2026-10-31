@@ -8,6 +8,8 @@ import {
   isTopicPicked,
   pickedQuestions,
   questionList,
+  resultTree,
+  retakeSetup,
   scopeOf,
   secondsLeft,
   selectionLabel,
@@ -108,5 +110,66 @@ describe('labels', () => {
       summaryLine({ ...base, state: 'submitted', result: { correct: 12, weakTopics: 2 } }),
       'Physics · 12/20 right · 2 weak topics'
     );
+  });
+});
+
+describe('retakeSetup', () => {
+  const from = { subject: 'Physics', questionCount: 30, durationMinutes: 60, negativeMarks: 1 };
+
+  test('every weak topic, grouped by chapter, in the 30/30/40 Retake mix, same size, timed at exam pace', () => {
+    const setup = retakeSetup(from, [
+      { standard: '11th', chapter: 'Kinematics', topic: 'Projectile Motion' },
+      { standard: '11th', chapter: 'Laws of Motion', topic: 'Friction' },
+      { standard: '11th', chapter: 'Kinematics', topic: 'Relative Velocity' },
+    ]);
+    assert.deepEqual(setup, {
+      subject: 'Physics',
+      scope: [
+        { standard: '11th', chapter: 'Kinematics', topics: ['Projectile Motion', 'Relative Velocity'] },
+        { standard: '11th', chapter: 'Laws of Motion', topics: ['Friction'] },
+      ],
+      count: 30,
+      mix: 'retake',
+      durationMinutes: 60,
+      negativeMarking: true,
+    });
+  });
+
+  test('a chapter without named topics is taken whole; untimed and unmarked stay so; never under the minimum', () => {
+    const setup = retakeSetup({ ...from, questionCount: 3, durationMinutes: null, negativeMarks: 0 }, [
+      { standard: '12th', chapter: 'Optics', topic: 'Lenses' },
+      { standard: '12th', chapter: 'Optics', topic: '' },
+    ]);
+    assert.deepEqual(setup.scope, [{ standard: '12th', chapter: 'Optics', topics: [] }]);
+    assert.equal(setup.count, 5);
+    assert.equal(setup.durationMinutes, null);
+    assert.equal(setup.negativeMarking, false);
+  });
+});
+
+describe('resultTree', () => {
+  const chapters = [
+    { standard: '11th', chapter: 'Kinematics', strength: 40 },
+    { standard: '12th', chapter: 'Optics', strength: 70 },
+    { standard: '11th', chapter: 'Optics', strength: 90 },
+  ];
+  test('puts each topic under its chapter, keeping both orders', () => {
+    const tree = resultTree(chapters, [
+      { standard: '11th', chapter: 'Kinematics', topic: 'Projectile Motion' },
+      { standard: '12th', chapter: 'Optics', topic: 'Lenses' },
+      { standard: '11th', chapter: 'kinematics ', topic: 'Relative Velocity' },
+      { standard: '11th', chapter: 'Optics', topic: '' },
+    ]);
+    assert.deepEqual(
+      tree.map((n) => [n.chapter.standard, n.chapter.chapter, n.topics.map((t) => t.topic)]),
+      [
+        ['11th', 'Kinematics', ['Projectile Motion', 'Relative Velocity']],
+        ['12th', 'Optics', ['Lenses']],
+        ['11th', 'Optics', ['']],
+      ]
+    );
+  });
+  test('a chapter with no topics in the result keeps an empty list', () => {
+    assert.deepEqual(resultTree(chapters.slice(0, 1), []), [{ chapter: chapters[0], topics: [] }]);
   });
 });

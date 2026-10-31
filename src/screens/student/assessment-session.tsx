@@ -30,6 +30,7 @@ import {
   LEVEL_INFO,
   MIX_INFO,
   questionList,
+  resultTree,
   secondsLeft,
   splitLabel,
   topicName,
@@ -39,6 +40,7 @@ import {
   studentApi,
   type AssessmentDetail,
   type AssessmentQuestion,
+  type AssessmentReport,
   type AssessmentSummary,
   type StrengthTally,
   type TopicStrength,
@@ -726,7 +728,7 @@ function Result({
             </StatGrid>
 
             <SectionTitle title="Topic strength" />
-            <Muted>Strong % is how many of a topic&apos;s questions you got right. Weak % is the rest: wrong or skipped. Weakest topics are first.</Muted>
+            <Muted>Each topic&apos;s questions: how many you got right, wrong and skipped. Weakest topics are first.</Muted>
             {report.topics.map((t) => (
               <TopicCard
                 key={`${t.standard}|${t.chapter}|${t.topic}`}
@@ -737,23 +739,20 @@ function Result({
               />
             ))}
 
+            {/* One chapter with no named topics would only repeat its one topic card. */}
+            {report.chapters.length > 1 || report.topics.some((t) => t.topic) ? (
+              <>
+                <SectionTitle title="By chapter and topic" />
+                <ChapterTree report={report} />
+              </>
+            ) : null}
+
             <SectionTitle title="By difficulty" />
             <Card style={styles.listCard}>
               {report.difficulty.map((d, i) => (
                 <BreakdownRow key={d.difficulty} title={d.difficulty} tally={d} last={i === report.difficulty.length - 1} />
               ))}
             </Card>
-
-            {report.chapters.length > 1 ? (
-              <>
-                <SectionTitle title="By chapter" />
-                <Card style={styles.listCard}>
-                  {report.chapters.map((c, i) => (
-                    <BreakdownRow key={`${c.standard}|${c.chapter}`} title={c.chapter} tally={c} last={i === report.chapters.length - 1} />
-                  ))}
-                </Card>
-              </>
-            ) : null}
 
             <SectionTitle title="What to do next" />
             <Card style={styles.adviceCard}>
@@ -867,11 +866,16 @@ function ScoreCard({ assessment: a }: { assessment: AssessmentSummary }) {
   );
 }
 
-/** One topic's strength and weakness, with where its marks went and what to do. */
+/** One topic's questions (right, wrong, skipped), with where its marks went and what to do. */
 function TopicCard({ topic: t, several, onPractise, onSee }: { topic: TopicStrength; several: boolean; onPractise: () => void; onSee: () => void }) {
   const palette = usePalette();
   const info = LEVEL_INFO[t.level];
-  const [strongColor, weakColor] = [palette.successInk, palette.dangerInk];
+  const percents = [
+    `${t.strength}% strong`,
+    `${t.weakness}% weak`,
+    several && t.shareOfMistakes ? `${t.shareOfMistakes}% of marks lost` : null,
+    t.accuracy !== null && t.skipped ? `${t.accuracy}% of answered` : null,
+  ];
   return (
     <Card style={styles.topicCard}>
       <View style={styles.topicTop}>
@@ -882,26 +886,14 @@ function TopicCard({ topic: t, several, onPractise, onSee }: { topic: TopicStren
         <Badge label={info.label} tone={info.tone} />
       </View>
 
-      <View style={styles.percentRow} accessible accessibilityLabel={`Strong ${t.strength} percent, weak ${t.weakness} percent`}>
-        <View style={styles.percentCol}>
-          <Text style={[styles.percentBig, { color: strongColor }]}>{t.strength}%</Text>
-          <Text style={[styles.percentLabel, { color: palette.mutedForeground }]}>Strong</Text>
-        </View>
-        <View style={styles.percentCol}>
-          <Text style={[styles.percentBig, { color: weakColor }]}>{t.weakness}%</Text>
-          <Text style={[styles.percentLabel, { color: palette.mutedForeground }]}>Weak</Text>
-        </View>
-        {several && t.shareOfMistakes ? (
-          <View style={styles.percentCol}>
-            <Text style={[styles.percentBig, { color: palette.foreground }]}>{t.shareOfMistakes}%</Text>
-            <Text style={[styles.percentLabel, { color: palette.mutedForeground }]}>of marks lost</Text>
-          </View>
-        ) : null}
+      <View style={styles.countRow} accessible accessibilityLabel={countsLabel(t)}>
+        <CountFigure value={t.total} label={t.total === 1 ? 'Question' : 'Questions'} color={palette.foreground} />
+        <CountFigure value={t.correct} label="Correct" color={palette.successInk} />
+        <CountFigure value={t.wrong} label="Wrong" color={palette.dangerInk} />
+        {t.skipped ? <CountFigure value={t.skipped} label="Skipped" color={palette.mutedForeground} /> : null}
       </View>
       <StrengthBar tally={t} />
-      <Text style={[styles.meta, { color: palette.mutedForeground }]}>
-        {t.correct} of {t.total} right · {t.wrong} wrong · {t.skipped} skipped{t.accuracy !== null && t.skipped ? ` · ${t.accuracy}% of answered` : ''}
-      </Text>
+      <Text style={[styles.meta, { color: palette.mutedForeground }]}>{percents.filter(Boolean).join(' · ')}</Text>
       {t.wrongNumbers.length ? <Text style={[styles.detailText, { color: palette.dangerInk }]}>Went wrong: {questionList(t.wrongNumbers)}</Text> : null}
       {t.skippedNumbers.length ? <Text style={[styles.detailText, { color: palette.mutedForeground }]}>Skipped: {questionList(t.skippedNumbers)}</Text> : null}
       {t.fewQuestions ? <Muted>Only 1 question here, so this is a rough guide.</Muted> : null}
@@ -910,6 +902,103 @@ function TopicCard({ topic: t, several, onPractise, onSee }: { topic: TopicStren
         {t.level !== 'strong' ? <QuietButton label="Practise" icon={{ ios: 'book', android: 'menu_book' }} onPress={onPractise} /> : null}
       </View>
     </Card>
+  );
+}
+
+/** "5 questions: 3 correct, 1 wrong, 1 skipped", for screen readers. */
+const countsLabel = (t: StrengthTally) =>
+  `${t.total} question${t.total === 1 ? '' : 's'}: ${t.correct} correct, ${t.wrong} wrong${t.skipped ? `, ${t.skipped} skipped` : ''}`;
+
+function CountFigure({ value, label, color }: { value: number; label: string; color: string }) {
+  const palette = usePalette();
+  return (
+    <View style={styles.countCol}>
+      <Text style={[styles.countBig, { color }]}>{value}</Text>
+      <Text style={[styles.countLabel, { color: palette.mutedForeground }]}>{label}</Text>
+    </View>
+  );
+}
+
+/** "5 questions · 3 correct · 1 wrong · 1 skipped" on one line, the counts in their colours. */
+function CountLine({ tally: t }: { tally: StrengthTally }) {
+  const palette = usePalette();
+  return (
+    <Text accessibilityLabel={countsLabel(t)} style={[styles.countLine, { color: palette.mutedForeground }]}>
+      {t.total} question{t.total === 1 ? '' : 's'} · <Text style={[styles.countStrong, { color: palette.successInk }]}>{t.correct} correct</Text> ·{' '}
+      <Text style={[styles.countStrong, { color: palette.dangerInk }]}>{t.wrong} wrong</Text>
+      {t.skipped ? ` · ${t.skipped} skipped` : ''}
+    </Text>
+  );
+}
+
+/**
+ * The result as a tree: each chapter with its questions, and its topics
+ * branching under it with theirs. A chapter with no named topics has no branches.
+ */
+function ChapterTree({ report }: { report: AssessmentReport }) {
+  const palette = usePalette();
+  const tree = resultTree(report.chapters, report.topics);
+  return (
+    <Card style={styles.listCard}>
+      {tree.map(({ chapter: c, topics }, i) => {
+        const branches = topics.some((t) => t.topic) ? topics : [];
+        return (
+          <View
+            key={`${c.standard}|${c.chapter}`}
+            style={[styles.treeChapter, i < tree.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }]}
+          >
+            <View style={styles.topicTop}>
+              <View style={styles.treeIcon}>
+                <Icon name={{ ios: 'book.closed', android: 'menu_book' }} color={palette.primary} size={18} />
+              </View>
+              <View style={styles.flex}>
+                <Text accessibilityRole="header" style={[styles.rowTitle, { color: palette.foreground }]}>
+                  {c.chapter}
+                </Text>
+                <Text style={[styles.meta, { color: palette.mutedForeground }]}>
+                  {c.standard}
+                  {branches.length ? ` · ${branches.length} topic${branches.length === 1 ? '' : 's'}` : ''}
+                </Text>
+              </View>
+              <Badge label={`${c.strength}%`} tone={LEVEL_INFO[c.level].tone} />
+            </View>
+            <View style={styles.treeIndent}>
+              <CountLine tally={c} />
+            </View>
+            {branches.length ? (
+              <View>
+                {branches.map((t, j) => (
+                  <TreeBranch key={t.topic} last={j === branches.length - 1}>
+                    <View style={styles.topicTop}>
+                      <Text style={[styles.branchTitle, styles.flex, { color: t.topic ? palette.foreground : palette.mutedForeground }]}>
+                        {t.topic || 'Not tagged to a topic'}
+                      </Text>
+                      <Badge label={`${t.strength}%`} tone={LEVEL_INFO[t.level].tone} />
+                    </View>
+                    <CountLine tally={t} />
+                  </TreeBranch>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        );
+      })}
+    </Card>
+  );
+}
+
+/** A topic under its chapter: a line down from the chapter, and a tick across to the topic. */
+function TreeBranch({ last, children }: { last: boolean; children: React.ReactNode }) {
+  const palette = usePalette();
+  const line = { backgroundColor: palette.borderStrong };
+  return (
+    <View style={styles.branch}>
+      <View style={styles.branchGutter} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <View style={[styles.branchStem, last ? styles.branchStemLast : styles.branchStemFull, line]} />
+        <View style={[styles.branchTick, line]} />
+      </View>
+      <View style={[styles.flex, styles.branchBody]}>{children}</View>
+    </View>
   );
 }
 
@@ -1002,10 +1091,26 @@ const styles = StyleSheet.create({
 
   topicCard: { gap: 10, padding: 16 },
   topicTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  percentRow: { flexDirection: 'row', gap: 24 },
-  percentCol: { gap: 0 },
-  percentBig: { fontSize: 26, lineHeight: 32, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  percentLabel: { fontSize: 12, fontWeight: '600' },
+  countRow: { flexDirection: 'row', gap: 8 },
+  countCol: { flex: 1, minWidth: 0 },
+  countBig: { fontSize: 26, lineHeight: 32, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  countLabel: { fontSize: 12, fontWeight: '600' },
+  countLine: { fontSize: 13, lineHeight: 19, fontVariant: ['tabular-nums'] },
+  countStrong: { fontWeight: '700' },
+  treeChapter: { paddingVertical: 12, gap: 4 },
+  treeIcon: { width: 20, alignItems: 'center' },
+  // Lines the chapter's counts up with its name, past the icon.
+  treeIndent: { paddingLeft: 30 },
+  branch: { flexDirection: 'row' },
+  // The stem runs down from the middle of the chapter's icon.
+  branchGutter: { width: 30, marginLeft: 9 },
+  branchStem: { position: 'absolute', left: 0, top: 0, width: 1.5 },
+  branchStemFull: { bottom: 0 },
+  // The last branch's stem stops at its tick: the corner of an "L".
+  branchStemLast: { height: 21 },
+  branchTick: { position: 'absolute', left: 0, top: 20, width: 14, height: 1.5 },
+  branchBody: { paddingTop: 10, paddingBottom: 4, gap: 2, marginLeft: -9 },
+  branchTitle: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
   detailText: { fontSize: 13, lineHeight: 18, fontWeight: '600' },
   topicActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: -8, marginLeft: -12 },
   breakdown: { paddingVertical: 12, gap: 8 },

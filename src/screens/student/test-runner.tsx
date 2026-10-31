@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, type ScrollViewInstance, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { confirmAction } from '@/components/account-section';
 import {
   Badge,
@@ -41,6 +41,7 @@ type Phase =
 /** A test, full screen: the start page, answering with a timer, then the results. */
 export function TestRunner({ testId, onClose }: { testId: string; onClose: () => void }) {
   const palette = usePalette();
+  const insets = useSafeAreaInsets();
   const user = useSignedInUser();
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
   const [busy, setBusy] = useState(false);
@@ -97,7 +98,9 @@ export function TestRunner({ testId, onClose }: { testId: string; onClose: () =>
 
   return (
     <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={phase.kind === 'running' ? () => leaveRef.current?.() : close}>
-      <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
+      {/* A Modal is its own native window, where SafeAreaView reads no insets. It covers the whole
+          screen, so the app's own insets are the right ones. */}
+      <View style={[styles.root, { backgroundColor: palette.background, paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
         {phase.kind === 'loading' ? (
           <LoadingView label="Opening the test…" />
         ) : phase.kind === 'error' ? (
@@ -121,7 +124,7 @@ export function TestRunner({ testId, onClose }: { testId: string; onClose: () =>
         ) : (
           <Review test={phase.test} attempt={phase.attempt} questions={phase.questions} justSubmitted={phase.justSubmitted} onClose={close} />
         )}
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }

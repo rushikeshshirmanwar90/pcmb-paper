@@ -1,0 +1,82 @@
+{
+  "title": "Practice tab: choose the page structure",
+  "question": "All three keep the app's look (cream, terracotta, the tab bar) and lead with your latest result and weak topics. They differ in what carries the page. Lock one, steer it, or re-roll.",
+  "options": [
+    {
+      "id": "trend-scorecard",
+      "label": "Progress scorecard",
+      "kicker": "THE ROLL",
+      "lineage": "a school report card that also shows last term",
+      "thesis": "Your latest strength %, big, with a dot for every earlier test beside it, so you see at once if you're improving.",
+      "palette": ["#FAF9F5", "#FFFFFF", "#282622", "#C6613F", "#36745B", "#B84E45"],
+      "materials": ["one big number", "trend dots", "ranked topic bars"],
+      "viewport": "Top: 'Motion in a Plane' · 37% strength at display size, a row of dots for earlier tests and '+12 since last'. Then the 3 weakest topics as bars with their strength. Then 'Retake weak topics' (filled) beside 'New test'.",
+      "risk": "With only one test so far, the trend row is a single dot and needs a good 'take another to see your trend' state.",
+      "wireframe": {
+        "cols": 6,
+        "rows": 16,
+        "regions": [
+          { "label": "Practice header", "x": 0, "y": 0, "w": 6, "h": 1 },
+          { "label": "37% strength + trend dots", "x": 0, "y": 1, "w": 6, "h": 3, "accent": true },
+          { "label": "Weak topics, ranked bars", "x": 0, "y": 4, "w": 6, "h": 3 },
+          { "label": "Retake weak", "x": 0, "y": 7, "w": 3, "h": 1, "accent": true },
+          { "label": "New test", "x": 3, "y": 7, "w": 3, "h": 1 },
+          { "label": "To finish", "x": 0, "y": 8, "w": 6, "h": 2 },
+          { "label": "Earlier results", "x": 0, "y": 10, "w": 6, "h": 3 },
+          { "label": "Practise by topic (quiet chips)", "x": 0, "y": 13, "w": 6, "h": 2 },
+          { "label": "tab bar", "x": 0, "y": 15, "w": 6, "h": 1 }
+        ]
+      }
+    },
+    {
+      "id": "omr-sheet",
+      "label": "OMR answer sheet",
+      "lineage": "the JEE/NEET OMR bubble sheet every student has filled",
+      "thesis": "Your last test drawn as its answer sheet: one numbered bubble per question, ticked right, crossed wrong, hollow skipped.",
+      "palette": ["#FAF9F5", "#FFFFFF", "#282622", "#C6613F", "#36745B", "#B84E45"],
+      "materials": ["numbered bubbles", "✓ / ✗ marks", "score strip"],
+      "viewport": "Top: test name and 11/30 right · 37%. Under it the bubble grid (Q1–Q30), each bubble carrying ✓ or ✗ so it reads without colour. Then weak topics with 'Retake weak topics' and 'New test'.",
+      "risk": "Needs the full answer data for the latest test (one extra request), and a 90-question test makes a tall grid that has to wrap cleanly.",
+      "wireframe": {
+        "cols": 6,
+        "rows": 16,
+        "regions": [
+          { "label": "Practice header", "x": 0, "y": 0, "w": 6, "h": 1 },
+          { "label": "Test name · 11/30 · 37%", "x": 0, "y": 1, "w": 6, "h": 1 },
+          { "label": "OMR bubble grid Q1–Q30", "x": 0, "y": 2, "w": 6, "h": 4, "accent": true },
+          { "label": "Weak topics", "x": 0, "y": 6, "w": 6, "h": 2 },
+          { "label": "Retake weak", "x": 0, "y": 8, "w": 3, "h": 1, "accent": true },
+          { "label": "New test", "x": 3, "y": 8, "w": 3, "h": 1 },
+          { "label": "To finish + earlier results", "x": 0, "y": 9, "w": 6, "h": 4 },
+          { "label": "Practise by topic (quiet)", "x": 0, "y": 13, "w": 6, "h": 2 },
+          { "label": "tab bar", "x": 0, "y": 15, "w": 6, "h": 1 }
+        ]
+      }
+    },
+    {
+      "id": "subject-shelves",
+      "label": "Subject shelves",
+      "lineage": "a study planner with a page per subject",
+      "thesis": "Latest result on top, then one shelf per subject: its last strength, its weak topics as chips, and 'Test' / 'Practise' right there.",
+      "palette": ["#FAF9F5", "#FFFFFF", "#282622", "#C6613F", "#36745B", "#B84E45"],
+      "materials": ["result card", "subject shelves", "topic chips"],
+      "viewport": "Top: latest result card (37%, weakest 3 topics, 'Retake weak topics'). Below, a Physics shelf: 'Last test 37%', chips for 'Vectors' and 'Projectile motion', buttons 'Test Physics' and 'Practise chapters'. Then Chemistry, then Maths.",
+      "risk": "Topic practice moves inside each subject shelf instead of its own list, and subjects with no tests yet need an inviting empty shelf.",
+      "wireframe": {
+        "cols": 6,
+        "rows": 16,
+        "regions": [
+          { "label": "Practice header", "x": 0, "y": 0, "w": 6, "h": 1 },
+          { "label": "Latest result + weak topics", "x": 0, "y": 1, "w": 6, "h": 4, "accent": true },
+          { "label": "Physics shelf: strength, weak chips, Test / Practise", "x": 0, "y": 5, "w": 6, "h": 3 },
+          { "label": "Chemistry shelf", "x": 0, "y": 8, "w": 6, "h": 3 },
+          { "label": "Maths shelf", "x": 0, "y": 11, "w": 6, "h": 3 },
+          { "label": "All results", "x": 0, "y": 14, "w": 6, "h": 1 },
+          { "label": "tab bar", "x": 0, "y": 15, "w": 6, "h": 1 }
+        ]
+      }
+    }
+  ],
+  "reroll": true,
+  "steer": true
+}
