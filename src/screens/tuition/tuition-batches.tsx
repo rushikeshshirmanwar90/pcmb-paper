@@ -58,7 +58,7 @@ import {
 } from '@/screens/tuition/admin-filters';
 import { ActionRow, Avatar, ClearFilters, FilterRow, FlashNotice, InfoRow, OptionPicker, programTone, useFlash, type FilterOption, type PickerOption } from '@/screens/tuition/admin-ui';
 import { showStudents } from '@/screens/tuition/people-nav';
-import { WeekTimetable } from '@/screens/shared/timetable';
+import { BatchSchedule } from './batch-schedule';
 import { TimetableSheet } from '@/screens/tuition/timetable-sheet';
 import { schoolApi } from '@/services/school-api';
 import { formatMinutes, tuitionApi, type Batch, type BatchInput } from '@/services/tuition-api';
@@ -121,7 +121,7 @@ export function TuitionBatchesScreen() {
 
   return (
     <Screen title="Batches" subtitle="Programs, classes, teachers and students" onRefresh={refresh} refreshing={refreshing}>
-      <Button label="New batch" icon={{ ios: 'plus', android: 'add' }} onPress={() => setCreating(true)} />
+      <Button label="Create Batch" icon={{ ios: 'plus', android: 'add' }} onPress={() => setCreating(true)} />
       <FlashNotice flash={flash} onDismiss={clear} />
       {loading ? (
         <LoadingView label="Loading batches…" />
@@ -252,7 +252,7 @@ function BatchCard({ batch, onPress }: { batch: Batch; onPress: () => void }) {
             size={14}
           />
           <Text style={[styles.setupText, { color: missing.length ? palette.warningInk : palette.mutedForeground }]} numberOfLines={2}>
-            Setup {setup.done}/{setup.total} · {stillToDo(batch)}
+            {setup.missing.length} setup steps remaining
           </Text>
         </View>
       ) : null}
@@ -394,6 +394,12 @@ function BatchDetail({ id, notice, onClose, onDeleted }: { id: string; notice?: 
       ) : batch && data && setup ? (
         <>
           {error ? <Notice tone="danger" text={`Couldn't refresh: ${error}`} /> : null}
+          <SectionTitle title="Weekly Schedule" action={<TextLink label="Edit Schedule" onPress={() => setTimings(true)} />} />
+          {timetable.data ? (
+            <BatchSchedule entries={timetable.data.filter((entry) => entry.batch.id === batch.id)} />
+          ) : timetable.error ? (
+            <Muted>Couldn&apos;t load the schedule. {timetable.error}</Muted>
+          ) : <Muted>Loading the schedule…</Muted>}
           <Card style={styles.listCard}>
             <View style={[styles.detailBadges, { borderBottomColor: palette.border }]}>
               <Badge label={PROGRAM_LABELS[batch.program]} tone={programTone(batch.program)} />
@@ -453,17 +459,6 @@ function BatchDetail({ id, notice, onClose, onDeleted }: { id: string; notice?: 
             })}
           </Card>
 
-          <SectionTitle title="Weekly timetable" action={<TextLink label={batch.classes.classes ? 'Change' : 'Add'} onPress={() => setTimings(true)} />} />
-          {timetable.data ? (
-            <WeekTimetable
-              entries={timetable.data.filter((e) => e.batch.id === batch.id)}
-              emptyText="No classes yet. Tap Add to put each subject on its days and times."
-            />
-          ) : timetable.error ? (
-            <Muted>Couldn&apos;t load the timetable. {timetable.error}</Muted>
-          ) : (
-            <Muted>Loading the timetable…</Muted>
-          )}
           {batch.schedule.length ? (
             <Muted>
               {plural(batch.schedule.length, 'older class time', 'older class times')} without a subject {batch.schedule.length === 1 ? 'is' : 'are'} kept from before. Open the
@@ -640,11 +635,18 @@ function NewBatchSheet({ visible, batches, onClose, onCreated, onOpen }: {
     setError(null);
   };
 
+  const closeDraft = () => {
+    if (saving) return;
+    if (!showingMade && (program || standard || typedName !== null || academicYear !== currentYear)) {
+      confirmAction('Discard batch draft?', 'Your unsaved batch details will be lost.', 'Discard', onClose);
+    } else onClose();
+  };
+
   return (
     <FormSheet
       visible={visible}
-      title={showingMade ? 'Batch created' : 'New batch'}
-      onClose={onClose}
+      title={showingMade ? 'Batch created' : 'Create Batch'}
+      onClose={closeDraft}
       submitLabel={showingMade ? 'Create another batch' : 'Create Batch'}
       onSubmit={showingMade ? another : () => void create()}
       submitting={saving}
@@ -691,12 +693,13 @@ function NewBatchSheet({ visible, batches, onClose, onCreated, onOpen }: {
         </>
       ) : (
         <View style={styles.group}>
-          <Chips label="Program" choices={OFFERED_PROGRAMS} selected={program} onChange={pickProgram} labels={PROGRAM_LABELS} />
+          <Muted>Fields marked * are required.</Muted>
+          <Chips label="Program *" choices={OFFERED_PROGRAMS} selected={program} onChange={pickProgram} labels={PROGRAM_LABELS} />
           {program ? <Muted>{bankNote(program)}</Muted> : null}
-          <Chips label="Class" choices={SCHOOL_STANDARDS} selected={standard} onChange={setStandard} />
+          <Chips label="Class *" choices={SCHOOL_STANDARDS} selected={standard} onChange={setStandard} />
           <Chips label="Academic year" choices={years} selected={academicYear} onChange={setAcademicYear} labels={yearLabels(years)} />
           <Field
-            label="Batch name"
+            label="Batch name *"
             value={name}
             onChangeText={setTypedName}
             placeholder={program && standard ? suggestion : 'e.g. NEET 11th A'}
@@ -706,13 +709,13 @@ function NewBatchSheet({ visible, batches, onClose, onCreated, onOpen }: {
           {typedName !== null && suggestion && typedName !== suggestion ? <TextLink label={`Use “${suggestion}”`} onPress={() => setTypedName(null)} /> : null}
           {program ? (
             <>
-              <MultiChips label="Subjects" choices={PROGRAM_INFO[program].allowed} selected={subjects} onChange={setSubjects} />
+              <MultiChips label={`Select Subjects * · ${subjects.length} selected`} choices={PROGRAM_INFO[program].allowed} selected={subjects} onChange={setSubjects} />
               <SubjectHint program={program} problem={problem} />
             </>
           ) : (
             <Muted>Pick a program to see its subjects.</Muted>
           )}
-          <Muted>Teachers, the classroom and class timings are optional. You can add them right after creating the batch.</Muted>
+          <Muted>Add teachers, a classroom and sessions after creating the batch.</Muted>
         </View>
       )}
     </FormSheet>
@@ -837,7 +840,7 @@ function BatchForm({ visible, onClose, batch, first, onSaved }: { visible: boole
     timings: (
       <FormGroup key="timings" title="Classroom (optional)">
         <Field label="Classroom" value={venue} onChangeText={setVenue} placeholder="e.g. Room 2, Main branch" maxLength={200} />
-        <Muted>The timetable has its own page: on the batch, tap Weekly timetable › {batch.classes.classes ? 'Change' : 'Add'}.</Muted>
+        <Muted>To change session times, open the batch and tap Edit Schedule.</Muted>
       </FormGroup>
     ),
     teachers: (
@@ -875,9 +878,17 @@ function BatchForm({ visible, onClose, batch, first, onSaved }: { visible: boole
     ),
   };
   const order: (keyof typeof groups)[] = first === 'teachers' ? ['teachers', 'basics', 'subjects', 'timings'] : ['basics', 'subjects', 'teachers', 'timings'];
+  const closeDraft = () => {
+    if (saving) return;
+    const changed = name !== batch.name || program !== batch.program || standard !== batch.standard || academicYear !== batch.academicYear || venue !== batch.venue
+      || subjects.join() !== batch.subjects.join()
+      || [...new Set([...batch.subjects, ...subjects])].some((subject) => (assigned[subject] || null) !== (batch.teachers.find((teacher) => teacher.subject === subject)?.teacherId || null));
+    if (changed) confirmAction('Discard batch changes?', 'Your unsaved changes will be lost.', 'Discard', onClose);
+    else onClose();
+  };
 
   return (
-    <FormSheet visible={visible} title={`Edit ${batch.name}`} onClose={onClose} submitLabel="Save changes" onSubmit={() => void save()} submitting={saving} error={error}>
+    <FormSheet visible={visible} title={`Edit ${batch.name}`} onClose={closeDraft} submitLabel="Save Changes" onSubmit={() => void save()} submitting={saving} error={error}>
       {order.map((key) => groups[key])}
     </FormSheet>
   );

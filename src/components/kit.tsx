@@ -625,6 +625,7 @@ export function DetailSheet({
   footer,
   onRefresh,
   refreshing = false,
+  scrollRef,
 }: PropsWithChildren<{
   visible: boolean;
   title: string;
@@ -632,6 +633,7 @@ export function DetailSheet({
   footer?: ReactNode;
   onRefresh?: () => void;
   refreshing?: boolean;
+  scrollRef?: React.Ref<React.ComponentRef<typeof ScrollView>>;
 }>) {
   const palette = usePalette();
   const insets = useSafeAreaInsets();
@@ -647,6 +649,7 @@ export function DetailSheet({
           </Pressable>
         </View>
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={[styles.sheetBody, { paddingBottom: footer ? 16 : Math.max(insets.bottom, 16) + 8 }]}
           refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.primary} /> : undefined}
         >

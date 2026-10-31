@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { confirmAction } from '@/components/account-section';
 import { Badge, Button, Card, Chips, DetailSheet, ErrorText, ErrorView, Field, LoadingView, Muted, MultiChips, SectionTitle, useLoad, usePalette } from '@/components/kit';
 import type { SchoolSubject } from '@/constants/school';
@@ -38,6 +38,8 @@ const NO_TEACHER = 'none';
  */
 export function TimetableSheet({ visible, batch, onClose }: { visible: boolean; batch: Batch; onClose: () => void }) {
   const palette = usePalette();
+  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const showForm = () => requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: 0, animated: true }));
   const version = useDataVersion();
   const timetable = useLoad(() => schoolApi.timetable(batch.id), [batch.id, version, visible], { enabled: visible });
   const teachers = useLoad(() => tuitionApi.teachers(), [visible], { enabled: visible });
@@ -45,6 +47,7 @@ export function TimetableSheet({ visible, batch, onClose }: { visible: boolean; 
   const [days, setDays] = useState<string[]>([]);
   const [start, setStart] = useState(DEFAULT_START);
   const [end, setEnd] = useState(DEFAULT_END);
+  const [retainedTimes, setRetainedTimes] = useState([DEFAULT_START, DEFAULT_END]);
   const [teacher, setTeacher] = useState<string>(NO_TEACHER);
   const [note, setNote] = useState('');
   /** The class being changed, or null when adding. */
@@ -61,6 +64,7 @@ export function TimetableSheet({ visible, batch, onClose }: { visible: boolean; 
       setDays([]);
       setStart(DEFAULT_START);
       setEnd(DEFAULT_END);
+      setRetainedTimes([DEFAULT_START, DEFAULT_END]);
       setTeacher(NO_TEACHER);
       setNote('');
       setEditing(null);
@@ -81,6 +85,7 @@ export function TimetableSheet({ visible, batch, onClose }: { visible: boolean; 
     setFormError(null);
   };
   const reset = () => {
+    setRetainedTimes([start, end]);
     setEditing(null);
     setSubject(null);
     setDays([]);
@@ -89,6 +94,12 @@ export function TimetableSheet({ visible, batch, onClose }: { visible: boolean; 
     setFormError(null);
   };
   const edit = (entry: TimetableEntry) => {
+    if (busy) return;
+    // Returning to the selected session must keep its draft intact.
+    if (editing?.id === entry.id) return void showForm();
+    leaveDraft(() => loadEntry(entry));
+  };
+  const loadEntry = (entry: TimetableEntry) => {
     setEditing(entry);
     setSubject(entry.subject);
     setDays([String(entry.day)]);
@@ -97,6 +108,7 @@ export function TimetableSheet({ visible, batch, onClose }: { visible: boolean; 
     setTeacher(entry.teacher.id || NO_TEACHER);
     setNote(entry.note);
     setFormError(null);
+    showForm();
   };
 
   const run = async (action: () => Promise<unknown>, done: string) => {
@@ -155,13 +167,23 @@ export function TimetableSheet({ visible, batch, onClose }: { visible: boolean; 
   ];
   const byDay = WEEK.map((day) => ({ day, list: classes.filter((c) => c.day === day) })).filter((d) => d.list.length);
   const noTeacher = classes.filter((c) => !c.teacher.id).length;
+  const timeProblem = endProblem(start, end);
+  const leaveDraft = (next: () => void) => {
+    if (busy) return;
+    const changed = editing
+      ? subject !== editing.subject || days.join() !== String(editing.day) || start !== editing.start || end !== editing.end || teacher !== (editing.teacher.id || NO_TEACHER) || note !== editing.note
+      : subject !== null || days.length > 0 || start !== retainedTimes[0] || end !== retainedTimes[1] || note !== '';
+    if (changed) confirmAction('Discard session changes?', 'Your unsaved session changes will be lost.', 'Discard', next);
+    else next();
+  };
+  const closeDraft = () => leaveDraft(onClose);
 
   return (
-    <DetailSheet visible={visible} title={`Timetable · ${batch.name}`} onClose={onClose} footer={<Button label="Done" variant="secondary" onPress={onClose} />}>
+    <DetailSheet visible={visible} title={`Edit Schedule · ${batch.name}`} onClose={closeDraft} scrollRef={scrollRef} footer={<Button label="Done" variant="secondary" onPress={closeDraft} />}>
       <FlashNotice flash={flash} onDismiss={clear} />
 
       <Card style={styles.form}>
-        <SectionTitle title={editing ? `Change ${editing.subject}, ${DAY_NAMES[editing.day]} ${label12(editing.start)}` : 'Add a class'} />
+        <SectionTitle title={editing ? `Edit ${editing.subject} · ${DAY_NAMES[editing.day]}` : 'Add Session'} />
         <Chips label="Subject" choices={batch.subjects} selected={subject} onChange={pickSubject} />
         <MultiChips
           label={editing ? 'Day' : 'Days'}
@@ -184,7 +206,7 @@ export function TimetableSheet({ visible, batch, onClose }: { visible: boolean; 
         ) : null}
         <View style={styles.times}>
           <TimeField
-            label="Starts"
+            label="Start Time"
             value={start}
             onChange={(t) => {
               setStart(t);
@@ -193,7 +215,7 @@ export function TimetableSheet({ visible, batch, onClose }: { visible: boolean; 
             }}
           />
           <TimeField
-            label="Ends"
+            label="End Time"
             value={end}
             onChange={(t) => {
               const bad = endProblem(start, t);
@@ -203,6 +225,11 @@ export function TimetableSheet({ visible, batch, onClose }: { visible: boolean; 
             }}
           />
         </View>
+        <Text style={[styles.preview, { color: timeProblem ? palette.dangerInk : palette.foreground }]}>
+          {timeProblem ?? `${label12(start)} – ${label12(end)} · ${duration(start, end)}`}
+        </Text>
+        <ErrorText message={formError} />
+        <Muted>Sessions must last 1–6 hours. Select multiple days to repeat a session.</Muted>
         {subject ? (
           teachers.error && !teachers.data ? (
             <Muted>Couldn&apos;t load the teachers. The class can be added without one.</Muted>
@@ -215,17 +242,16 @@ export function TimetableSheet({ visible, batch, onClose }: { visible: boolean; 
           {problem ??
             `${subject} · ${daysLabel(picked)} · ${label12(start)} – ${label12(end)} (${duration(start, end)})${teacherName ? ` · ${teacherName}` : ' · no teacher yet'}${note.trim() ? ` · ${note.trim()}` : ''}`}
         </Text>
-        <ErrorText message={formError} />
         <View style={styles.row}>
           <Button
-            label={editing ? 'Save class' : picked.length > 1 && subject ? `Add ${picked.length} ${subject} classes` : 'Add class'}
+            label={editing ? 'Save Changes' : picked.length > 1 ? `Add ${picked.length} Sessions` : 'Add Session'}
             icon={editing ? { ios: 'checkmark', android: 'check' } : { ios: 'plus', android: 'add' }}
             onPress={confirm}
             loading={busy}
             disabled={!!problem}
             style={styles.flex}
           />
-          {editing ? <Button label="Cancel" variant="secondary" onPress={reset} disabled={busy} /> : null}
+          {editing ? <Button label="Cancel" variant="secondary" onPress={() => leaveDraft(() => { reset(); showForm(); })} disabled={busy} /> : null}
         </View>
         {editing ? <Button label="Remove this class" variant="danger" icon={{ ios: 'trash', android: 'delete' }} onPress={() => remove(editing)} disabled={busy} /> : null}
       </Card>

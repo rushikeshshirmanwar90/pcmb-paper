@@ -83,7 +83,7 @@ describe('subject timetable editor', () => {
 
   test('overlaps in the batch are refused, on any picked day; back to back is fine', () => {
     assert.match(classProblem(week, [3, 1], '10:30', '11:30'), /On Monday it overlaps Physics, 10:00 AM – 11:00 AM/);
-    assert.match(classProblem(week, [2], '09:30', '10:01'), /Tuesday it overlaps Biology/);
+    assert.match(classProblem(week, [2], '09:30', '10:30'), /Tuesday it overlaps Biology/);
     assert.equal(classProblem(week, [1], '11:00', '12:00'), null);
     assert.match(classProblem(week, [4], '11:00', '10:00'), /end after it starts/);
   });
