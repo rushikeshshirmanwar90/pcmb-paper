@@ -4,13 +4,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { confirmAction } from '@/components/account-section';
 import { Button, ErrorText, Field, Icon, LoadingView, usePalette, useLoad } from '@/components/kit';
 import { useAuth, useSignedInUser } from '@/context/auth-context';
-import { myJoinApi, timeAgo, type MyJoinRequest } from '@/services/tuition-api';
+import { PROGRAM_LABELS } from '@/constants/school';
+import { myJoinApi, timeAgo, type JoinPreview, type MyJoinRequest } from '@/services/tuition-api';
 
 const CHECK_EVERY_MS = 20000;
 
 /**
- * Someone with an account but no tuition yet: they ask a tuition to let them
- * in with its join code, then wait while it decides. Once it accepts them,
+ * Someone with an account but no tuition yet, and nothing else of the app:
+ * they enter a joining code, confirm the institute and batch it leads to, then
+ * wait for the tuition to approve them. Once it accepts them,
  * their account gets a role and the app switches to those screens.
  */
 export function JoinTuitionScreen() {
@@ -23,6 +25,8 @@ export function JoinTuitionScreen() {
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [askAgain, setAskAgain] = useState(false);
+  /** What the entered code leads to, while the student confirms it. */
+  const [preview, setPreview] = useState<JoinPreview | null>(null);
 
   const pending = request?.status === 'pending';
 
@@ -49,17 +53,32 @@ export function JoinTuitionScreen() {
     setError(null);
   };
 
-  const send = async () => {
-    if (code.replace('-', '').length !== 8) return setError('The join code has 8 letters and numbers, like K7Q2-M9TA.');
+  /** Checks the code and shows where it leads. */
+  const check = async () => {
+    if (code.replace('-', '').length !== 8) return setError('The joining code has 8 letters and numbers.');
+    setBusy(true);
+    setError(null);
+    try {
+      setPreview(await myJoinApi.validate(code));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't check the code. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Asks to join what the code led to. */
+  const confirm = async () => {
     setBusy(true);
     setError(null);
     try {
       const sent = await myJoinApi.send(code);
       setData(() => sent);
       setAskAgain(false);
+      setPreview(null);
       setCode('');
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't send the request.");
+      setError(e instanceof Error ? e.message : "Couldn't send the request. Check your connection and try again.");
     } finally {
       setBusy(false);
     }
@@ -85,7 +104,7 @@ export function JoinTuitionScreen() {
             <View style={styles.flex}>
               <Text style={[styles.hello, { color: palette.mutedForeground }]}>Hi, {user.name.split(' ')[0]}</Text>
               <Text accessibilityRole="header" style={[styles.title, { color: palette.foreground }]}>
-                {pending && !askAgain ? 'Waiting for your tuition' : 'Join your tuition'}
+                {pending && !askAgain ? 'Waiting for approval' : 'Join tuition'}
               </Text>
             </View>
             <Pressable
@@ -108,36 +127,47 @@ export function JoinTuitionScreen() {
               {request?.status === 'rejected' && !askAgain ? (
                 <View style={[styles.notice, { backgroundColor: palette.dangerSoft, borderColor: palette.dangerBorder }]}>
                   <Text style={[styles.noticeText, { color: palette.dangerInk }]}>
-                    {request.tuition.name} didn&apos;t accept your request. Check with them, or join another tuition.
+                    {request.tuition.name} didn&apos;t approve your request. Check with them, or enter another joining code.
                   </Text>
                 </View>
               ) : null}
-              <View style={[styles.card, { backgroundColor: palette.card, borderColor: palette.border }]}>
-                <Text style={[styles.body, { color: palette.foreground }]}>
-                  Ask your tuition for its join code. They find it on the Home tab of their app.
-                </Text>
-                <Field
-                  label="Join code"
-                  value={code}
-                  onChangeText={typeCode}
-                  placeholder="K7Q2-M9TA"
-                  autoCapitalize="characters"
-                  autoCorrect={false}
-                  maxLength={9}
-                  returnKeyType="send"
-                  onSubmitEditing={send}
-                  style={styles.codeInput}
+              {preview ? (
+                <Confirm
+                  preview={preview}
+                  busy={busy}
+                  error={error}
+                  onConfirm={confirm}
+                  onBack={() => {
+                    setPreview(null);
+                    setError(null);
+                  }}
                 />
-                <ErrorText message={error} />
-                <Button label="Send request" onPress={send} loading={busy} />
-                {askAgain ? <Button label="Keep my current request" variant="secondary" onPress={() => setAskAgain(false)} /> : null}
-              </View>
+              ) : (
+                <View style={[styles.card, { backgroundColor: palette.card, borderColor: palette.border }]}>
+                  <Text style={[styles.body, { color: palette.foreground }]}>Enter the joining code provided by your tuition institute.</Text>
+                  <Field
+                    label="Joining code"
+                    value={code}
+                    onChangeText={typeCode}
+                    placeholder="8-character joining code"
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    maxLength={9}
+                    returnKeyType="go"
+                    onSubmitEditing={check}
+                    style={styles.codeInput}
+                  />
+                  <ErrorText message={error} />
+                  <Button label="Continue" onPress={check} loading={busy} />
+                  {askAgain ? <Button label="Keep my current request" variant="secondary" onPress={() => setAskAgain(false)} /> : null}
+                </View>
+              )}
               <Steps step={1} />
             </>
           ) : null}
           {pending && !askAgain ? (
             <Pressable accessibilityRole="button" onPress={() => setAskAgain(true)} style={styles.center}>
-              <Text style={[styles.link, { color: palette.primary }]}>Wrong tuition? Use another code</Text>
+              <Text style={[styles.link, { color: palette.primary }]}>Wrong code? Use another one</Text>
             </Pressable>
           ) : null}
           <ErrorText message={pending && !askAgain ? error : null} />
@@ -158,14 +188,17 @@ function Waiting({ request, checking, onCheck, onCancel }: { request: MyJoinRequ
           </View>
           <View style={styles.flex}>
             <Text style={[styles.tuitionName, { color: palette.foreground }]}>{request.tuition.name}</Text>
-            {request.tuition.address ? <Text style={[styles.meta, { color: palette.mutedForeground }]}>{request.tuition.address}</Text> : null}
+            {request.batch ? <Text style={[styles.meta, { color: palette.foreground }]}>{request.batch.name}</Text> : null}
+            <Text style={[styles.meta, { color: palette.warningInk }]}>Status: Pending approval</Text>
             <Text style={[styles.meta, { color: palette.mutedForeground }]}>Request sent {request.createdAt ? timeAgo(request.createdAt) : 'just now'}</Text>
           </View>
         </View>
         <Text style={[styles.body, { color: palette.foreground }]}>
-          They&apos;ll add you as a student or a teacher. This screen changes by itself when they do.
+          {request.batch
+            ? 'Your tuition needs to approve you before you can use the app. This screen changes by itself when they do.'
+            : "They'll add you as a student or a teacher. This screen changes by itself when they do."}
         </Text>
-        <Button label="Check now" onPress={onCheck} loading={checking} />
+        <Button label="Refresh Status" onPress={onCheck} loading={checking} />
         <Button label="Cancel request" variant="secondary" onPress={onCancel} />
       </View>
       <Steps step={2} />
@@ -173,10 +206,37 @@ function Waiting({ request, checking, onCheck, onCancel }: { request: MyJoinRequ
   );
 }
 
+/** The institute and batch a code leads to, to confirm before asking to join. */
+function Confirm({ preview, busy, error, onConfirm, onBack }: { preview: JoinPreview; busy: boolean; error: string | null; onConfirm: () => void; onBack: () => void }) {
+  const palette = usePalette();
+  const batch = preview.batch;
+  const rows: [string, string][] = [['Institute', preview.institute]];
+  if (batch) {
+    rows.push(['Batch', batch.name]);
+    if (batch.standard) rows.push(['Class', batch.standard]);
+    if (batch.program) rows.push(['Program', PROGRAM_LABELS[batch.program]]);
+  }
+  return (
+    <View style={[styles.card, { backgroundColor: palette.card, borderColor: palette.border }]}>
+      <Text style={[styles.body, { color: palette.foreground }]}>Is this your tuition?</Text>
+      {rows.map(([label, value]) => (
+        <View key={label} style={styles.confirmRow}>
+          <Text style={[styles.meta, { color: palette.mutedForeground }]}>{label}</Text>
+          <Text style={[styles.confirmValue, { color: palette.foreground }]}>{value}</Text>
+        </View>
+      ))}
+      {!batch ? <Text style={[styles.meta, { color: palette.mutedForeground }]}>Your tuition will add you as a student or a teacher.</Text> : null}
+      <ErrorText message={error} />
+      <Button label="Confirm Join" onPress={onConfirm} loading={busy} />
+      <Button label="Use a different code" variant="secondary" onPress={onBack} disabled={busy} />
+    </View>
+  );
+}
+
 /** Where they are in getting in. */
 function Steps({ step }: { step: 1 | 2 }) {
   const palette = usePalette();
-  const items = ["Enter your tuition's join code", 'Your tuition accepts you as a student or teacher', 'Your classes, tests and syllabus open up'];
+  const items = ['Enter your joining code and confirm your batch', 'Your tuition approves you', 'Your classes, tests and syllabus open up'];
   return (
     <View style={styles.steps}>
       {items.map((text, i) => {
@@ -227,4 +287,6 @@ const styles = StyleSheet.create({
   stepDot: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   stepNum: { fontSize: 13, fontWeight: '800' },
   stepText: { fontSize: 14, flex: 1 },
+  confirmRow: { gap: 2 },
+  confirmValue: { fontSize: 17, fontWeight: '700' },
 });

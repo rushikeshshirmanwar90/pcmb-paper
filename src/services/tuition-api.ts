@@ -218,13 +218,61 @@ export interface MyJoinRequest {
   acceptedAs?: 'student' | 'teacher' | null;
   createdAt?: string;
   tuition: { name: string; address: string };
+  /** Set when the request came with a batch's joining code. */
+  batch?: { name: string; program: Program | null; standard: SchoolStandard | null } | null;
+}
+
+/** What a joining code leads to, shown before the student confirms. */
+export interface JoinPreview {
+  kind: 'batch' | 'tuition';
+  institute: string;
+  batch: { name: string; program: Program | null; standard: SchoolStandard | null } | null;
 }
 
 export const myJoinApi = {
   /** The signed-in person's latest request (before they're in a tuition). */
   latest: () => api<{ request: MyJoinRequest | null }>('/join-requests/mine').then((r) => r.request),
+  /** Checks a joining code without asking to join. */
+  validate: (code: string) => api<{ preview: JoinPreview }>('/join-requests/validate', { method: 'POST', body: { code } }).then((r) => r.preview),
   send: (code: string) => api<{ request: MyJoinRequest }>('/join-requests', { method: 'POST', body: { code } }).then((r) => r.request),
   cancel: () => api('/join-requests/mine', { method: 'DELETE' }),
+};
+
+/** A batch's joining code, as the tuition manages it. */
+export interface BatchInvite {
+  status: 'active' | 'expired' | 'revoked';
+  /** null once turned off. */
+  code: string | null;
+  /** null: never expires. */
+  expiresAt: string | null;
+  institute: string;
+  batch: { id: string; name: string; program: Program | null; standard: SchoolStandard | null };
+}
+
+export type InviteChange = { action: 'regenerate'; expiresInDays: number | null } | { action: 'extend'; expiresInDays: number | null } | { action: 'revoke' };
+
+export const batchInviteApi = {
+  get: (batchId: string) => api<{ invite: BatchInvite }>(`/tuition/batches/${batchId}/invite`).then((r) => r.invite),
+  change: (batchId: string, input: InviteChange) => api<{ invite: BatchInvite }>(`/tuition/batches/${batchId}/invite`, { method: 'POST', body: input }).then((r) => r.invite),
+};
+
+/** A student waiting to be let into a batch. */
+export interface Enrollment {
+  id: string;
+  createdAt: string;
+  name: string;
+  batch: { id: string; name: string; program: Program | null; standard: SchoolStandard | null };
+}
+
+export interface EnrollmentResult {
+  approved: number;
+  rejected: number;
+  failed: { id: string; name: string; reason: string }[];
+}
+
+export const enrollmentsApi = {
+  pending: () => api<{ enrollments: Enrollment[] }>('/tuition/enrollments').then((r) => r.enrollments),
+  decide: (ids: string[], action: 'approve' | 'reject') => api<EnrollmentResult>('/tuition/enrollments/decide', { method: 'POST', body: { ids, action } }),
 };
 
 export const announcementsApi = {

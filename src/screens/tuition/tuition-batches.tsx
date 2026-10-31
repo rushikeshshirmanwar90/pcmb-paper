@@ -56,6 +56,7 @@ import {
   type BatchFilter,
   type SetupStep,
 } from '@/screens/tuition/admin-filters';
+import { InviteStudentsSheet } from '@/screens/tuition/invite-students';
 import { ActionRow, Avatar, ClearFilters, FilterRow, FlashNotice, InfoRow, OptionPicker, programTone, useFlash, type FilterOption, type PickerOption } from '@/screens/tuition/admin-ui';
 import { showStudents } from '@/screens/tuition/people-nav';
 import { BatchSchedule } from './batch-schedule';
@@ -336,6 +337,7 @@ function BatchDetail({ id, notice, onClose, onDeleted }: { id: string; notice?: 
   const [timings, setTimings] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [allStudents, setAllStudents] = useState(false);
+  const [inviting, setInviting] = useState(false);
   const { flash, show, clear } = useFlash(notice);
 
   const batch = data?.batch;
@@ -467,6 +469,7 @@ function BatchDetail({ id, notice, onClose, onDeleted }: { id: string; notice?: 
           ) : null}
 
           <SectionTitle title={`Students (${students.length})`} action={<TextLink label="Manage" onPress={manageStudents} />} />
+          <Button label="Invite Students" variant="tonal" icon={{ ios: 'qrcode', android: 'group_add' }} onPress={() => setInviting(true)} />
           {students.length ? (
             <Card style={styles.listCard}>
               {(allStudents ? students : students.slice(0, STUDENTS_SHOWN)).map((s, i, shown) => (
@@ -530,6 +533,7 @@ function BatchDetail({ id, notice, onClose, onDeleted }: { id: string; notice?: 
             onSaved={() => show('Batch saved.')}
           />
           <TimetableSheet visible={timings} batch={batch} onClose={() => setTimings(false)} />
+          {inviting ? <InviteStudentsSheet batchId={batch.id} onClose={() => setInviting(false)} /> : null}
         </>
       ) : null}
     </DetailSheet>

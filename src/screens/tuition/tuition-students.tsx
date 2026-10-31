@@ -42,6 +42,8 @@ import {
   useFlash,
   type PickerOption,
 } from '@/screens/tuition/admin-ui';
+import { InviteStudentsPicker } from '@/screens/tuition/invite-students';
+import { PendingEnrollments } from '@/screens/tuition/pending-enrollments';
 import { usePeopleNav } from '@/screens/tuition/people-nav';
 import { ResetPasswordSheet } from '@/screens/tuition/reset-password-sheet';
 import { timeAgo, tuitionApi, type Batch, type Student } from '@/services/tuition-api';
@@ -65,6 +67,7 @@ export function StudentsPanel() {
   }
   const [query, setQuery] = useState('');
   const [enrolling, setEnrolling] = useState(false);
+  const [inviting, setInviting] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   // The open student as last seen, so their page stays open if a change
   // (e.g. a new batch) moves them out of the filtered list.
@@ -111,8 +114,10 @@ export function StudentsPanel() {
       }}
       refreshing={refreshing}
     >
-      <Button label="Add student" icon={{ ios: 'person.badge.plus', android: 'person_add' }} onPress={() => setEnrolling(true)} />
+      <Button label="Invite Students" icon={{ ios: 'qrcode', android: 'group_add' }} onPress={() => setInviting(true)} />
+      <Button label="Add student" variant="secondary" icon={{ ios: 'person.badge.plus', android: 'person_add' }} onPress={() => setEnrolling(true)} />
       <FlashNotice flash={flash} onDismiss={clear} />
+      <PendingEnrollments onDone={(message, tone) => show(message, tone)} />
       <SearchBox value={filter.search} onChangeText={(search) => set({ search })} placeholder="Search by name or email" label="Search students" />
       <View style={styles.filters}>
         <FilterRow label="Program" options={PROGRAM_FILTERS} value={filter.program} onChange={(program) => set({ program })} />
@@ -151,6 +156,7 @@ export function StudentsPanel() {
         </>
       )}
 
+      {inviting ? <InviteStudentsPicker batches={batchList} onClose={() => setInviting(false)} /> : null}
       <StudentForm
         visible={enrolling}
         onClose={() => setEnrolling(false)}
