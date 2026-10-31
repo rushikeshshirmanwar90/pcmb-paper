@@ -4,6 +4,7 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Device from 'expo-device';
 import type * as NotificationsModule from 'expo-notifications';
 import { api } from '@/services/api-client';
+import { routeForNotification, type NotificationRoute } from '@/services/notification-route';
 import { loadPreference, savePreference } from '@/services/preferences';
 import type { TimetableEntry } from '@/services/school-api';
 import { formatTime } from '@/services/tuition-api';
@@ -209,13 +210,13 @@ export async function syncClassReminders(entries: TimetableEntry[]) {
   }
 }
 
-/** Calls back with the tab a tapped notification points to (e.g. "tests"). */
-export function onNotificationTap(handler: (tab: string) => void) {
+/** Calls back with where a tapped notification points to (e.g. the "tests" tab). */
+export function onNotificationTap(handler: (route: NotificationRoute) => void) {
   const Notifications = notifications();
   if (!Notifications) return () => {};
   const open = (response: NotificationsModule.NotificationResponse | null) => {
-    const tab = response?.notification.request.content.data?.tab;
-    if (typeof tab === 'string') handler(tab);
+    const route = routeForNotification(response?.notification.request.content.data);
+    if (route) handler(route);
   };
   // Opened the app from a notification.
   Notifications.getLastNotificationResponseAsync().then(open).catch(() => {});

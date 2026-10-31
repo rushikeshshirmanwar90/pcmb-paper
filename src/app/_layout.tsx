@@ -13,6 +13,7 @@ import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
 import { tabsFor } from '@/navigation/role-tabs';
 import { onNotificationTap } from '@/services/notifications';
+import { showStudents } from '@/screens/tuition/people-nav';
 import { JoinTuitionScreen } from '@/screens/join-tuition-screen';
 import { VerifyEmailScreen } from '@/screens/verify-email-screen';
 import { LoginScreen, UnreachableScreen } from '@/screens/login-screen';
@@ -22,7 +23,14 @@ SplashScreen.preventAutoHideAsync();
 /** Opens the tab a tapped notification is about (e.g. Tests for a new test). */
 function NotificationTaps() {
   const { goToTab } = useTabNavigation();
-  useEffect(() => onNotificationTap((tab) => goToTab(tab)), [goToTab]);
+  useEffect(
+    () =>
+      onNotificationTap(({ tab, showStudents: students }) => {
+        if (students) showStudents();
+        goToTab(tab);
+      }),
+    [goToTab],
+  );
   return null;
 }
 
