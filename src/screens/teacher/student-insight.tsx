@@ -1,9 +1,13 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Badge, Card, DetailSheet, EmptyView, ErrorView, ListRow, LoadingView, Muted, ProgressBar, SectionTitle, StatGrid, StatTile, useLoad, usePalette } from '@/components/kit';
-import { TRACK_LABELS, type Track } from '@/constants/school';
+import { PROGRAM_LABELS, programOf, TRACKS, type Program, type Track } from '@/constants/school';
 import { analysisApi, dayLabel } from '@/services/school-api';
 import type { TopicStat } from '@/services/student-api';
+
+/** The student's program; older servers send only their track. */
+const studentProgram = (s: { program?: Program | null; track: string | null }) =>
+  programOf({ program: s.program, track: TRACKS.includes(s.track as Track) ? (s.track as Track) : null });
 
 /**
  * A student's profile analysis for their teachers and the tuition: test
@@ -20,7 +24,7 @@ export function StudentInsightSheet({ studentId, onClose }: { studentId: string;
       ) : data ? (
         <>
           <View style={styles.badges}>
-            {data.student.track ? <Badge label={TRACK_LABELS[data.student.track as Track] ?? data.student.track} tone="primary" /> : null}
+            {studentProgram(data.student) ? <Badge label={PROGRAM_LABELS[studentProgram(data.student)!]} tone="primary" /> : null}
             {data.student.standard ? <Badge label={data.student.standard} /> : null}
             {data.student.batch ? <Badge label={data.student.batch} /> : null}
           </View>

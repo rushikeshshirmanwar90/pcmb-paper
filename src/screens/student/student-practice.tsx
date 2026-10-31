@@ -17,7 +17,7 @@ import {
   type IconName,
   type Palette,
 } from '@/components/kit';
-import { SUBJECTS_BY_TRACK, type SchoolSubject } from '@/constants/school';
+import { PROGRAM_LABELS, programOf, programSubjects, questionBankOf, type Program, type SchoolSubject } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
 import { clearPracticeTarget, usePracticeTarget, type PracticeTarget } from '@/context/practice-target';
@@ -66,13 +66,18 @@ const subjectLabel = (s: SchoolSubject) => (s === 'Mathematics' ? 'Maths' : s);
  * practice: past-year questions by the student's syllabus, subject → chapter
  * → topic (chapters without named topics skip the topic step), then
  * continue, review or retry. Progress is saved on the server.
+ *
+ * Only JEE and NEET have a question bank. Students of other programs see
+ * that practice isn't available yet; nothing is loaded for them.
  */
 export function StudentPracticeScreen() {
   const user = useSignedInUser();
   const palette = usePalette();
   const version = useDataVersion();
   const { activeKey } = useTabNavigation();
-  const subjects = SUBJECTS_BY_TRACK[user.track ?? 'General'];
+  const program = programOf(user);
+  const subjects = programSubjects(program);
+  const hasBank = questionBankOf(program) !== null;
   /** The subject open in topic practice, or null on the tab's front page. */
   const [subject, setSubject] = useState<SchoolSubject | null>(null);
   const [chapterKey, setChapterKey] = useState<string | null>(null);
@@ -84,8 +89,9 @@ export function StudentPracticeScreen() {
   /** The result whose "Retake weak topics" is making and starting its test, and which one couldn't and why. */
   const [retake, setRetake] = useState<{ busyId: string | null; error: { id: string; message: string } | null }>({ busyId: null, error: null });
 
-  const assessments = useLoad(() => studentApi.assessments(), [version]);
-  const trees = useLoad(() => (subject ? studentApi.practiceTree(subject) : Promise.resolve(null)), [subject, version], { enabled: !!subject });
+  // Self-assessments are made from the question bank too, so they load only with one.
+  const assessments = useLoad(() => studentApi.assessments(), [version], { enabled: hasBank });
+  const trees = useLoad(() => (subject ? studentApi.practiceTree(subject) : Promise.resolve(null)), [subject, version], { enabled: hasBank && !!subject });
 
   // Only the open subject's data is shown: a chapter picked in another subject is forgotten.
   const tree = subject && trees.data?.subject === subject ? trees.data : null;
@@ -185,8 +191,18 @@ export function StudentPracticeScreen() {
   // New tests start on the subject the student tested last (newest first).
   const newSubject = assessments.data?.find((a) => a.state === 'submitted')?.subject ?? assessments.data?.[0]?.subject ?? subjects[0];
 
+  // The server has the last word: it may know of no bank for this student either.
+  const unavailable = !hasBank || tree?.available === false;
+
   let body: React.ReactNode;
-  if (!subject) {
+  if (unavailable) {
+    body = (
+      <>
+        {subject ? <BackRow label="Practice" onPress={back} /> : null}
+        <PracticeUnavailable program={program} />
+      </>
+    );
+  } else if (!subject) {
     const list = assessments.data ?? [];
     const going = list.filter((a) => a.state !== 'submitted');
     const done = list.filter((a) => a.state === 'submitted');
@@ -285,7 +301,8 @@ export function StudentPracticeScreen() {
     <Screen
       title="Practice"
       subtitle="Self-assessment and past-year questions"
-      onRefresh={() => (subject ? trees.refresh() : assessments.refresh())}
+      // Nothing loads without a question bank, so there's nothing to refresh.
+      onRefresh={unavailable ? undefined : () => (subject ? trees.refresh() : assessments.refresh())}
       refreshing={subject ? trees.refreshing : assessments.refreshing}
     >
       {trees.error && tree ? <Muted>{trees.error}</Muted> : null}
@@ -307,6 +324,23 @@ export function StudentPracticeScreen() {
       ) : null}
       {assessing ? <SelfAssessmentFlow start={assessing} subject={subject ?? newSubject} onClose={() => setAssessing(null)} /> : null}
     </Screen>
+  );
+}
+
+/** For programs without a question bank: say so plainly, never show another program's questions. */
+function PracticeUnavailable({ program }: { program: Program | null }) {
+  return (
+    <Card>
+      <EmptyView
+        icon={{ ios: 'book', android: 'menu_book' }}
+        title={program ? `${PROGRAM_LABELS[program]} practice isn't available yet` : "Practice isn't available yet"}
+        text={
+          program
+            ? 'Past-year questions are ready for JEE and NEET only. Your tests, roadmap, timetable and announcements work as usual.'
+            : 'Your tuition hasn\'t set your program yet. Your tests, timetable and announcements work as usual.'
+        }
+      />
+    </Card>
   );
 }
 

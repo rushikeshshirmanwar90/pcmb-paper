@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { api, ApiError, setApiToken, setOnLoginExpired } from '@/services/api-client';
 import { registerForPush, setNotificationsUser, unregisterPush } from '@/services/notifications';
 import { clearToken, loadToken, saveToken } from '@/services/session-store';
-import type { Role, SchoolStandard, SchoolSubject, Track } from '@/constants/school';
+import type { Program, Role, SchoolStandard, SchoolSubject, Track } from '@/constants/school';
 
 /** The signed-in user, as the server describes them. */
 export interface AuthUser {
@@ -16,6 +16,8 @@ export interface AuthUser {
   phone: string;
   tuition: { id: string; name: string };
   subjects: SchoolSubject[];
+  /** A student's program. Older servers don't send it: use programOf(user), which falls back to the track. */
+  program?: Program | null;
   track: Track | null;
   standard: SchoolStandard | null;
   batchId: string | null;

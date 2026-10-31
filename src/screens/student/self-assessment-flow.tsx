@@ -19,7 +19,7 @@ import {
   usePalette,
   type IconName,
 } from '@/components/kit';
-import { SUBJECTS_BY_TRACK, type SchoolSubject } from '@/constants/school';
+import { programOf, programSubjects, type SchoolSubject } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
 import { bumpDataVersion } from '@/context/data-version';
 import { openPracticeAt } from '@/context/practice-target';
@@ -249,7 +249,7 @@ function Builder({
 }) {
   const palette = usePalette();
   const user = useSignedInUser();
-  const subjects = SUBJECTS_BY_TRACK[user.track ?? 'General'];
+  const subjects = programSubjects(programOf(user));
   const [subject, setSubject] = useState<SchoolSubject>(subjects.includes(initialSubject) ? initialSubject : subjects[0]);
   const [selection, setSelection] = useState<Selection>({});
   const [presetLeft, setPresetLeft] = useState(preset);

@@ -1,5 +1,5 @@
 import { api, ApiError } from '@/services/api-client';
-import type { SchoolStandard, SchoolSubject, Track } from '@/constants/school';
+import type { Program, SchoolStandard, SchoolSubject, Track } from '@/constants/school';
 import type { TestSummary, TimetableEntry } from '@/services/school-api';
 import type { Batch, Coverage } from '@/services/tuition-api';
 import { practiceQuery, type PracticeNode, type PracticeStatus } from '@/screens/student/topic-practice';
@@ -116,6 +116,9 @@ export interface PracticeChapter extends PracticeStats {
 export interface PracticeTree {
   subject: SchoolSubject;
   track: Track;
+  /** From Step 2 servers: the student's program, and false when it has no question bank (no chapters then). */
+  program?: Program | null;
+  available?: boolean;
   standard: SchoolStandard | null;
   hasBatch: boolean;
   summary: PracticeStats & { coveredTopics: number; totalTopics: number };

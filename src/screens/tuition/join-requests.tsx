@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Share, StyleSheet, Text, View } from 'react-native';
 import { confirmAction } from '@/components/account-section';
 import { Button, Card, Chips, ErrorText, FormSheet, Icon, Muted, MultiChips, SectionTitle, useLoad, usePalette } from '@/components/kit';
-import { SCHOOL_STANDARDS, SCHOOL_SUBJECTS, SUBJECTS_BY_TRACK, TRACK_LABELS, TRACKS, type SchoolSubject, type Track } from '@/constants/school';
+import { fitProblem, OFFERED_PROGRAMS, PROGRAM_INFO, PROGRAM_LABELS, SCHOOL_STANDARDS, SCHOOL_SUBJECTS, type Program, type SchoolStandard, type SchoolSubject } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
 import { joinRequestsApi, timeAgo, tuitionApi, type JoinRequest } from '@/services/tuition-api';
@@ -72,13 +72,13 @@ export function RequestCard({ request, onAccept, onDone }: { request: JoinReques
   );
 }
 
-/** Accepting someone: as a student (track, class, batch) or a teacher (subjects). */
+/** Accepting someone: as a student (program, class, batch of that program and class) or a teacher (subjects). */
 export function AcceptSheet({ accepting, onClose }: { accepting: { request: JoinRequest; as: 'student' | 'teacher' } | null; onClose: () => void }) {
   const version = useDataVersion();
   const visible = !!accepting;
   const { data: batches } = useLoad(() => tuitionApi.batches(), [version, visible], { enabled: visible });
   const [as, setAs] = useState<'student' | 'teacher'>('student');
-  const [track, setTrack] = useState<Track>('NEET');
+  const [program, setProgram] = useState<Program>('NEET');
   const [standard, setStandard] = useState<string>('none');
   const [batchId, setBatchId] = useState<string>('none');
   const [subjects, setSubjects] = useState<SchoolSubject[]>([]);
@@ -91,7 +91,7 @@ export function AcceptSheet({ accepting, onClose }: { accepting: { request: Join
     setOpenedFor(key);
     if (accepting) {
       setAs(accepting.as);
-      setTrack('NEET');
+      setProgram('NEET');
       setStandard('none');
       setBatchId('none');
       setSubjects([]);
@@ -101,18 +101,23 @@ export function AcceptSheet({ accepting, onClose }: { accepting: { request: Join
   if (!accepting) return null;
   const person = accepting.request.person;
 
-  // The student's track's batches first.
-  const sorted = [...(batches ?? [])].sort((a, b) => Number(b.track === track) - Number(a.track === track) || a.name.localeCompare(b.name));
+  // Only batches of the student's program and class can take them; a batch
+  // picked before the program or class changed no longer counts.
+  const chosenClass = standard === 'none' ? null : (standard as SchoolStandard);
+  const fits = (batches ?? []).filter((b) => !fitProblem({ program, standard: chosenClass }, b)).sort((a, b) => a.name.localeCompare(b.name));
+  const batch = fits.some((b) => b.id === batchId) ? batchId : 'none';
+  const otherBatches = (batches?.length ?? 0) - fits.length;
 
   const save = async () => {
     if (as === 'teacher' && !subjects.length) return setError('Pick the subjects they teach.');
+    if (as === 'student' && !chosenClass) return setError("Choose the student's class: 11th or 12th.");
     setSaving(true);
     setError(null);
     try {
       await joinRequestsApi.accept(
         accepting.request.id,
         as === 'student'
-          ? { as, track, standard: standard === 'none' ? null : (standard as (typeof SCHOOL_STANDARDS)[number]), batchId: batchId === 'none' ? null : batchId }
+          ? { as, program, standard: chosenClass, batchId: batch === 'none' ? null : batch }
           : { as, subjects }
       );
       bumpDataVersion();
@@ -137,16 +142,17 @@ export function AcceptSheet({ accepting, onClose }: { accepting: { request: Join
       <Chips label="Joins as" choices={['student', 'teacher'] as const} selected={as} onChange={setAs} labels={{ student: 'Student', teacher: 'Teacher' }} />
       {as === 'student' ? (
         <>
-          <Chips label="Preparing for" choices={TRACKS} selected={track} onChange={setTrack} labels={TRACK_LABELS} />
-          <Muted>Subjects: {SUBJECTS_BY_TRACK[track].join(', ')}</Muted>
-          <Chips label="Class" choices={['none', ...SCHOOL_STANDARDS]} selected={standard} onChange={setStandard} labels={{ none: 'Not set' }} />
+          <Chips label="Program" choices={OFFERED_PROGRAMS} selected={program} onChange={setProgram} labels={PROGRAM_LABELS} />
+          <Muted>Subjects: {PROGRAM_INFO[program].subjects.join(', ')}</Muted>
+          <Chips label="Class" choices={SCHOOL_STANDARDS} selected={chosenClass} onChange={setStandard} />
           <Chips
             label="Batch"
-            choices={['none', ...sorted.map((b) => b.id)]}
-            selected={batchId}
+            choices={['none', ...fits.map((b) => b.id)]}
+            selected={batch}
             onChange={setBatchId}
-            labels={Object.fromEntries([['none', 'Later'], ...sorted.map((b) => [b.id, b.track === track ? b.name : `${b.name} (${b.track})`])])}
+            labels={Object.fromEntries([['none', 'Later'], ...fits.map((b) => [b.id, b.name])])}
           />
+          {otherBatches ? <Muted>Only {PROGRAM_LABELS[program]} batches{chosenClass ? ` for ${chosenClass}` : ''} are listed.</Muted> : null}
         </>
       ) : (
         <>

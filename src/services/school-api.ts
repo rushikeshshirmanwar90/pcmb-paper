@@ -1,5 +1,5 @@
 import { api } from '@/services/api-client';
-import type { SchoolStandard, SchoolSubject } from '@/constants/school';
+import type { Program, SchoolStandard, SchoolSubject } from '@/constants/school';
 import type { Batch, Coverage, Student } from '@/services/tuition-api';
 import type { TopicStat } from '@/services/student-api';
 import type { Question } from '@/types/pcmb';
@@ -32,9 +32,11 @@ export interface SyllabusProgress {
   } | null;
 }
 
+/** A class of a batch's subject timetable. */
 export interface TimetableEntry {
   id: string;
   batch: { id: string; name: string; venue: string };
+  /** Empty id and name when the class has no teacher yet. */
   teacher: { id: string; name: string };
   subject: SchoolSubject;
   day: number;
@@ -125,7 +127,13 @@ export const schoolApi = {
     api<{ entries: TimetableEntry[] }>(`/timetable${batchId ? `?batchId=${batchId}` : ''}`).then((r) => r.entries),
   addClass: (input: { batchId: string; subject: SchoolSubject; day: number; start: string; end: string; note?: string }) =>
     api<{ entry: TimetableEntry }>('/timetable', { method: 'POST', body: input }).then((r) => r.entry),
-  updateClass: (id: string, input: Partial<{ batchId: string; subject: SchoolSubject; day: number; start: string; end: string; note: string }>) =>
+  /**
+   * The same class on several days at once (all or none). The tuition picks
+   * the teacher, or none (null); left out, it's the batch's teacher for the subject.
+   */
+  addClasses: (input: { batchId: string; subject: SchoolSubject; days: number[]; start: string; end: string; note?: string; teacherId?: string | null }) =>
+    api<{ entry: TimetableEntry; entries?: TimetableEntry[] }>('/timetable', { method: 'POST', body: input }).then((r) => r.entries ?? [r.entry]),
+  updateClass: (id: string, input: Partial<{ batchId: string; subject: SchoolSubject; day: number; start: string; end: string; note: string; teacherId: string | null }>) =>
     api<{ entry: TimetableEntry }>(`/timetable/${id}`, { method: 'PATCH', body: input }).then((r) => r.entry),
   deleteClass: (id: string) => api(`/timetable/${id}`, { method: 'DELETE' }),
 
@@ -162,7 +170,8 @@ export function todayISODate() {
 
 
 export interface StudentAnalysis {
-  student: { id: string; name: string; track: string | null; standard: string | null; batch: string | null };
+  /** `program` comes from Step 2 servers; older ones send only `track`. */
+  student: { id: string; name: string; program?: Program | null; track: string | null; standard: string | null; batch: string | null };
   summary: { testsTaken: number; averagePercent: number | null; answered: number; accuracy: number | null };
   strong: TopicStat[];
   weak: TopicStat[];

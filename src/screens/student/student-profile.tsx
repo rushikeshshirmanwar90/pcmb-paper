@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Linking, StyleSheet, Switch, Text, View } from 'react-native';
 import { AccountSettings, ProfileHeader } from '@/components/account-section';
 import { Badge, Button, Card, Icon, ListRow, Muted, Notice, SectionTitle, Screen, Segmented, useLoad, usePalette, type IconName } from '@/components/kit';
-import { TRACK_LABELS } from '@/constants/school';
+import { PROGRAM_LABELS, programOf } from '@/constants/school';
 import { useAppearance, type AppearancePreference } from '@/context/appearance-context';
 import { useSignedInUser } from '@/context/auth-context';
 import { useDataVersion } from '@/context/data-version';
@@ -16,6 +16,7 @@ import { tuitionApi } from '@/services/tuition-api';
  */
 export function StudentProfileScreen() {
   const user = useSignedInUser();
+  const program = programOf(user);
   const palette = usePalette();
   const version = useDataVersion();
   const overview = useLoad(() => studentApi.overview(), [version]);
@@ -37,7 +38,7 @@ export function StudentProfileScreen() {
       <ProfileHeader
         badges={
           <>
-            {user.track ? <Badge label={TRACK_LABELS[user.track]} tone="primary" /> : null}
+            {program ? <Badge label={PROGRAM_LABELS[program]} tone="primary" /> : null}
             {user.standard ? <Badge label={user.standard} /> : null}
             {batch ? <Badge label={batch.name} tone="violet" /> : null}
           </>
@@ -46,7 +47,7 @@ export function StudentProfileScreen() {
 
       <SectionTitle title="Academic details" />
       <Card style={styles.listCard}>
-        <InfoRow icon={{ ios: 'target', android: 'flag' }} label="Preparing for" value={user.track ? TRACK_LABELS[user.track] : 'Not set'} />
+        <InfoRow icon={{ ios: 'target', android: 'flag' }} label="Preparing for" value={program ? PROGRAM_LABELS[program] : 'Not set'} />
         <InfoRow icon={{ ios: 'graduationcap', android: 'school' }} label="Class" value={user.standard ?? 'Not set'} />
         <InfoRow
           icon={{ ios: 'square.grid.2x2', android: 'grid_view' }}

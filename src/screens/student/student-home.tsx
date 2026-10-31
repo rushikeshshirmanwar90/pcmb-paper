@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Badge, Button, Card, DetailSheet, EmptyView, ErrorView, Icon, ListRow, LoadingView, Muted, Notice, ProgressBar, Screen, SectionTitle, useLoad, usePalette } from '@/components/kit';
-import { SCHOOL_SUBJECTS, WEEKDAY_NAMES, type SchoolSubject } from '@/constants/school';
+import { programOf, questionBankOf, SCHOOL_SUBJECTS, WEEKDAY_NAMES, type SchoolSubject } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
 import { useDataVersion } from '@/context/data-version';
 import { openPracticeAt } from '@/context/practice-target';
@@ -48,11 +48,14 @@ export function StudentHomeScreen() {
   const [openTest, setOpenTest] = useState<string | null>(null);
   const [showWeek, setShowWeek] = useState(false);
   const [showRecent, setShowRecent] = useState(false);
-  // A weak topic's Practise opens it in the Practice tab (topic practice).
-  const practise = (subject: SchoolSubject, chapter: string, topic: string) => {
-    openPracticeAt({ subject, chapter, topic: topic || null });
-    goToTab(PRACTICE_TAB);
-  };
+  // A weak topic's Practise opens it in the Practice tab (topic practice),
+  // for programs with a question bank only.
+  const practise = questionBankOf(programOf(user))
+    ? (subject: SchoolSubject, chapter: string, topic: string) => {
+        openPracticeAt({ subject, chapter, topic: topic || null });
+        goToTab(PRACTICE_TAB);
+      }
+    : null;
 
   // "Now" is when the data loaded, so Next up matches what was fetched.
   const now = loaded?.at ?? 0;
@@ -178,7 +181,9 @@ function NextClassCard({ next }: { next: NextClass }) {
   );
 }
 
-function ResultCard({ insight, onPractise }: { insight: StudentOverview['insight']; onPractise: (subject: SchoolSubject, chapter: string, topic: string) => void }) {
+type Practise = ((subject: SchoolSubject, chapter: string, topic: string) => void) | null;
+
+function ResultCard({ insight, onPractise }: { insight: StudentOverview['insight']; onPractise: Practise }) {
   const palette = usePalette();
   const last = insight.lastResult;
   const percent = last ? percentOf(last.score, last.maxScore) : null;
@@ -223,7 +228,7 @@ function ResultCard({ insight, onPractise }: { insight: StudentOverview['insight
   );
 }
 
-function WeakTopicRow({ stat, onPractise }: { stat: TopicStat; onPractise: (subject: SchoolSubject, chapter: string, topic: string) => void }) {
+function WeakTopicRow({ stat, onPractise }: { stat: TopicStat; onPractise: Practise }) {
   const palette = usePalette();
   const subject = asSubject(stat.subject);
   const name = stat.topic || stat.chapter;
@@ -238,7 +243,7 @@ function WeakTopicRow({ stat, onPractise }: { stat: TopicStat; onPractise: (subj
           {stat.topic ? ` · ${stat.chapter}` : ''} · <Text style={{ color: palette.dangerInk, fontWeight: '700' }}>{stat.accuracy}% right</Text>
         </Text>
       </View>
-      {subject ? (
+      {subject && onPractise ? (
         <Button
           label="Practise"
           variant="tonal"
