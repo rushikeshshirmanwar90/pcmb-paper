@@ -4,16 +4,35 @@ import { confirmAction } from '@/components/account-section';
 import { Badge, Button, Card, Chips, DetailSheet, EmptyView, ErrorView, LoadingView, Muted, Notice, SectionTitle, useLoad, usePalette } from '@/components/kit';
 import { OFFERED_PROGRAMS, PROGRAM_LABELS } from '@/constants/school';
 import { ActionRow, copyText, FlashNotice, InfoRow, programTone, useFlash } from '@/screens/tuition/admin-ui';
-import { batchInviteApi, type Batch, type BatchInvite, type InviteChange } from '@/services/tuition-api';
+import { batchInviteApi, teacherInviteApi, type Batch, type BatchInvite, type InviteChange, type JoinInvite, type TeacherInvite } from '@/services/tuition-api';
+
+/** What differs between inviting a batch's students and inviting the institute's teachers. */
+interface InviteKind<T extends JoinInvite> {
+  title: string;
+  /** "students" / "teachers", for the sentences around the code. */
+  who: string;
+  load: () => Promise<T>;
+  change: (input: InviteChange) => Promise<T>;
+  /** Rows under the institute: the batch for students, nothing for teachers. */
+  details?: (invite: T) => React.ReactNode;
+  shareMessage: (invite: T, code: string) => string;
+  help: string;
+  /** Whom a new code is shared with, e.g. "your batch". */
+  audience: string;
+  /** What joining is switched off for, e.g. "this batch". */
+  where: string;
+}
+
+const cap = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 /**
- * Invite Students: one batch's joining code to copy or share, with Manage
- * Code under it. Opened from a batch's details (the batch is known) and from
- * People › Students (the admin picks the batch first): both use this sheet.
+ * One joining code to copy or share, with Manage Code under it. Student
+ * invitations (one batch's code) and teacher invitations (the institute's
+ * code) both use this sheet; only what they say differs.
  */
-export function InviteStudentsSheet({ batchId, onClose }: { batchId: string; onClose: () => void }) {
+function InviteCodeSheet<T extends JoinInvite>({ kind, scope, onClose }: { kind: InviteKind<T>; scope: string; onClose: () => void }) {
   const palette = usePalette();
-  const { data: invite, error, loading, reload, setData } = useLoad(() => batchInviteApi.get(batchId), [batchId]);
+  const { data: invite, error, loading, reload, setData } = useLoad(kind.load, [scope]);
   const [managing, setManaging] = useState(false);
   const { flash, show, clear } = useFlash();
 
@@ -22,16 +41,12 @@ export function InviteStudentsSheet({ batchId, onClose }: { batchId: string; onC
     clear();
     show((await copyText(invite.code)) ? 'Code copied.' : "Couldn't copy. Press and hold the code to copy it.", 'danger');
   };
-  const share = () =>
-    invite?.code &&
-    Share.share({
-      message: `Join ${invite.batch.name} at ${invite.institute} on the PCMB app: create an account, then enter the joining code ${invite.code}.`,
-    }).catch(() => {});
+  const share = () => invite?.code && Share.share({ message: kind.shareMessage(invite, invite.code) }).catch(() => {});
 
   const live = invite?.status === 'active' && !!invite.code;
 
   return (
-    <DetailSheet visible title="Invite Students" onClose={onClose}>
+    <DetailSheet visible title={kind.title} onClose={onClose}>
       <FlashNotice flash={flash} onDismiss={clear} />
       {loading ? (
         <LoadingView label="Getting the joining code…" />
@@ -40,17 +55,13 @@ export function InviteStudentsSheet({ batchId, onClose }: { batchId: string; onC
       ) : invite ? (
         <>
           <Card>
-            <InfoRow icon={{ ios: 'building.2', android: 'apartment' }} label="Institute" value={invite.institute} />
-            <InfoRow icon={{ ios: 'person.3', android: 'groups' }} label="Batch" value={invite.batch.name} />
-            <View style={styles.badges}>
-              {invite.batch.standard ? <Badge label={invite.batch.standard} /> : null}
-              {invite.batch.program ? <Badge label={PROGRAM_LABELS[invite.batch.program]} tone={programTone(invite.batch.program)} /> : null}
-            </View>
+            <InfoRow icon={{ ios: 'building.2', android: 'apartment' }} label="Institute" value={invite.institute} last={!kind.details} />
+            {kind.details?.(invite)}
           </Card>
 
           {live ? (
             <Card>
-              <Text style={[styles.label, { color: palette.mutedForeground }]}>Joining Code</Text>
+              <Text style={[styles.label, { color: palette.mutedForeground }]}>{kind.who === 'teachers' ? 'Teacher Joining Code' : 'Joining Code'}</Text>
               <View style={[styles.codeBox, { backgroundColor: palette.background, borderColor: palette.border }]}>
                 <Text selectable accessibilityLabel={`Joining code ${invite.code!.replace('-', ' ')}`} style={[styles.code, { color: palette.foreground }]}>
                   {invite.code}
@@ -69,21 +80,21 @@ export function InviteStudentsSheet({ batchId, onClose }: { batchId: string; onC
                 title={invite.status === 'expired' ? 'This code has expired' : invite.status === 'active' ? "This code can't be shown" : 'Joining is turned off'}
                 text={
                   invite.status === 'expired'
-                    ? 'Students can no longer join with it. Extend it, or make a new code, under Manage Code.'
+                    ? `${cap(kind.who)} can no longer join with it. Extend it, or make a new code, under Manage Code.`
                     : invite.status === 'active'
                       ? 'Make a new code under Manage Code. The old one no longer works.'
-                      : 'The old code no longer works. Make a new code to let students join again.'
+                      : `The old code no longer works. Make a new code to let ${kind.who} join again.`
                 }
               />
             </Card>
           )}
 
           <Button label="Manage Code" variant="tonal" icon={{ ios: 'slider.horizontal.3', android: 'tune' }} onPress={() => setManaging(true)} />
-          <Muted>Students create their own account, enter this code and wait for you to approve them under People › Students. Anyone with the code can ask, so share it only with your batch.</Muted>
+          <Muted>{kind.help}</Muted>
 
           {managing ? (
             <ManageCodeSheet
-              batchId={batchId}
+              kind={kind}
               invite={invite}
               onClose={() => setManaging(false)}
               onChanged={(next, message) => {
@@ -98,11 +109,51 @@ export function InviteStudentsSheet({ batchId, onClose }: { batchId: string; onC
   );
 }
 
+/** Invite Students: one batch's code. Opened from a batch's details and from People › Students (after picking the batch). */
+export function InviteStudentsSheet({ batchId, onClose }: { batchId: string; onClose: () => void }) {
+  const kind: InviteKind<BatchInvite> = {
+    title: 'Invite Students',
+    who: 'students',
+    load: () => batchInviteApi.get(batchId),
+    change: (input) => batchInviteApi.change(batchId, input),
+    details: (invite) => (
+      <>
+        <InfoRow icon={{ ios: 'person.3', android: 'groups' }} label="Batch" value={invite.batch.name} />
+        <View style={styles.badges}>
+          {invite.batch.standard ? <Badge label={invite.batch.standard} /> : null}
+          {invite.batch.program ? <Badge label={PROGRAM_LABELS[invite.batch.program]} tone={programTone(invite.batch.program)} /> : null}
+        </View>
+      </>
+    ),
+    shareMessage: (invite, code) => `Join ${invite.batch.name} at ${invite.institute} on the PCMB app: create an account, then enter the joining code ${code}.`,
+    help: 'Students create their own account, enter this code and wait for you to approve them under People › Students. Anyone with the code can ask, so share it only with your batch.',
+    audience: 'your batch',
+    where: 'this batch',
+  };
+  return <InviteCodeSheet kind={kind} scope={batchId} onClose={onClose} />;
+}
+
+const TEACHER_KIND: InviteKind<TeacherInvite> = {
+  title: 'Invite Teachers',
+  who: 'teachers',
+  load: () => teacherInviteApi.get(),
+  change: (input) => teacherInviteApi.change(input),
+  shareMessage: (invite, code) => `Join ${invite.institute} as a teacher on the PCMB app: create an account, then enter the teacher joining code ${code}.`,
+  help: 'Teachers create their own account, enter this code, choose the subjects they teach and wait for you to approve them under People › Teachers. Anyone with the code can ask, so share it only with your teachers.',
+  audience: 'your teachers',
+  where: 'your institute',
+};
+
+/** Invite Teachers: the institute's code, not tied to any batch. Opened from People › Teachers. */
+export function InviteTeachersSheet({ onClose }: { onClose: () => void }) {
+  return <InviteCodeSheet kind={TEACHER_KIND} scope="teachers" onClose={onClose} />;
+}
+
 const EXPIRY_CHOICES = ['30', '90', '180', 'never'] as const;
 type Expiry = (typeof EXPIRY_CHOICES)[number];
 const EXPIRY_LABELS: Record<Expiry, string> = { '30': '30 days', '90': '90 days', '180': '6 months', never: 'No expiry' };
 
-function expiryText(invite: BatchInvite) {
+function expiryText(invite: JoinInvite) {
   if (!invite.expiresAt) return 'Never expires.';
   const date = new Date(invite.expiresAt);
   const days = Math.ceil((date.getTime() - Date.now()) / 86_400_000);
@@ -112,8 +163,8 @@ function expiryText(invite: BatchInvite) {
 
 const statusLabel = { active: 'Active', expired: 'Expired', revoked: 'Turned off' } as const;
 
-/** Regenerate, turn off or change the expiry of a batch's code. */
-function ManageCodeSheet({ batchId, invite, onClose, onChanged }: { batchId: string; invite: BatchInvite; onClose: () => void; onChanged: (invite: BatchInvite, message: string) => void }) {
+/** Regenerate, turn off or change the expiry of a code. */
+function ManageCodeSheet<T extends JoinInvite>({ kind, invite, onClose, onChanged }: { kind: InviteKind<T>; invite: T; onClose: () => void; onChanged: (invite: T, message: string) => void }) {
   const [expiry, setExpiry] = useState<Expiry>('180');
   const [busy, setBusy] = useState(false);
   const { flash, show, clear } = useFlash();
@@ -124,7 +175,7 @@ function ManageCodeSheet({ batchId, invite, onClose, onChanged }: { batchId: str
     setBusy(true);
     clear();
     try {
-      onChanged(await batchInviteApi.change(batchId, change), message);
+      onChanged(await kind.change(change), message);
       onClose();
     } catch (e) {
       show(e instanceof Error ? e.message : "Couldn't change the code.", 'danger');
@@ -155,8 +206,8 @@ function ManageCodeSheet({ batchId, invite, onClose, onChanged }: { batchId: str
           onPress={() =>
             off
               ? void run({ action: 'regenerate', expiresInDays: days }, 'New code ready.')
-              : confirmAction('Make a new code?', "The current code stops working. Students who already joined aren't affected.", 'Regenerate', () =>
-                  run({ action: 'regenerate', expiresInDays: days }, 'New code ready. Share it with your batch.')
+              : confirmAction('Make a new code?', `The current code stops working. ${cap(kind.who)} who already joined aren't affected.`, 'Regenerate', () =>
+                  run({ action: 'regenerate', expiresInDays: days }, `New code ready. Share it with ${kind.audience}.`)
                 )
           }
         />
@@ -171,7 +222,7 @@ function ManageCodeSheet({ batchId, invite, onClose, onChanged }: { batchId: str
               disabled={busy}
               last
               onPress={() =>
-                confirmAction('Turn off joining?', "Students can't join this batch with its code until you make a new one. Students already in the batch aren't affected.", 'Disable', () =>
+                confirmAction('Turn off joining?', `${cap(kind.who)} can't join ${kind.where} with its code until you make a new one. ${cap(kind.who)} already in aren't affected.`, 'Disable', () =>
                   run({ action: 'revoke' }, 'Joining turned off.')
                 )
               }
@@ -179,7 +230,7 @@ function ManageCodeSheet({ batchId, invite, onClose, onChanged }: { batchId: str
           </>
         ) : null}
       </Card>
-      {off ? <Notice tone="warning" text="Joining is off for this batch." /> : null}
+      {off ? <Notice tone="warning" text={`Joining is off for ${kind.where}.`} /> : null}
     </DetailSheet>
   );
 }

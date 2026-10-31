@@ -6,7 +6,7 @@ import { useAuth } from '@/context/auth-context';
 
 const STEPS: { icon: IconName; text: string }[] = [
   { icon: { ios: 'person.badge.plus', android: 'person_add' }, text: 'Create your account' },
-  { icon: { ios: 'number', android: 'pin' }, text: "Enter your tuition's join code" },
+  { icon: { ios: 'number', android: 'pin' }, text: "Enter the joining code from your tuition" },
   { icon: { ios: 'checkmark.seal', android: 'verified' }, text: 'Your tuition adds you as a student or teacher' },
 ];
 

@@ -2,17 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { confirmAction } from '@/components/account-section';
-import { Button, ErrorText, Field, Icon, LoadingView, usePalette, useLoad } from '@/components/kit';
+import { Button, ErrorText, Field, Icon, LoadingView, MultiChips, usePalette, useLoad } from '@/components/kit';
 import { useAuth, useSignedInUser } from '@/context/auth-context';
-import { PROGRAM_LABELS } from '@/constants/school';
+import { PROGRAM_LABELS, SCHOOL_SUBJECTS, type SchoolSubject } from '@/constants/school';
 import { myJoinApi, timeAgo, type JoinPreview, type MyJoinRequest } from '@/services/tuition-api';
 
 const CHECK_EVERY_MS = 20000;
 
 /**
  * Someone with an account but no tuition yet, and nothing else of the app:
- * they enter a joining code, confirm the institute and batch it leads to, then
- * wait for the tuition to approve them. Once it accepts them,
+ * they enter a joining code, confirm the institute (and batch) it leads to,
+ * pick the subjects they teach when it is a teacher code, then wait for the
+ * tuition to approve them. The code decides whether they join as a student or
+ * a teacher. Once it accepts them,
  * their account gets a role and the app switches to those screens.
  */
 export function JoinTuitionScreen() {
@@ -27,6 +29,8 @@ export function JoinTuitionScreen() {
   const [askAgain, setAskAgain] = useState(false);
   /** What the entered code leads to, while the student confirms it. */
   const [preview, setPreview] = useState<JoinPreview | null>(null);
+  /** A teacher code asks which PCMB subjects they teach. */
+  const [subjects, setSubjects] = useState<SchoolSubject[]>([]);
 
   const pending = request?.status === 'pending';
 
@@ -59,6 +63,7 @@ export function JoinTuitionScreen() {
     setBusy(true);
     setError(null);
     try {
+      setSubjects([]);
       setPreview(await myJoinApi.validate(code));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't check the code. Check your connection and try again.");
@@ -69,10 +74,11 @@ export function JoinTuitionScreen() {
 
   /** Asks to join what the code led to. */
   const confirm = async () => {
+    if (preview?.kind === 'teacher' && !subjects.length) return setError('Pick at least one subject you teach.');
     setBusy(true);
     setError(null);
     try {
-      const sent = await myJoinApi.send(code);
+      const sent = await myJoinApi.send(code, preview?.kind === 'teacher' ? subjects : undefined);
       setData(() => sent);
       setAskAgain(false);
       setPreview(null);
@@ -134,6 +140,11 @@ export function JoinTuitionScreen() {
               {preview ? (
                 <Confirm
                   preview={preview}
+                  subjects={subjects}
+                  onSubjects={(next) => {
+                    setSubjects(next);
+                    setError(null);
+                  }}
                   busy={busy}
                   error={error}
                   onConfirm={confirm}
@@ -189,14 +200,13 @@ function Waiting({ request, checking, onCheck, onCancel }: { request: MyJoinRequ
           <View style={styles.flex}>
             <Text style={[styles.tuitionName, { color: palette.foreground }]}>{request.tuition.name}</Text>
             {request.batch ? <Text style={[styles.meta, { color: palette.foreground }]}>{request.batch.name}</Text> : null}
+            {request.role === 'teacher' ? <Text style={[styles.meta, { color: palette.foreground }]}>Teacher{request.subjects?.length ? ` · ${request.subjects.join(', ')}` : ''}</Text> : null}
             <Text style={[styles.meta, { color: palette.warningInk }]}>Status: Pending approval</Text>
             <Text style={[styles.meta, { color: palette.mutedForeground }]}>Request sent {request.createdAt ? timeAgo(request.createdAt) : 'just now'}</Text>
           </View>
         </View>
         <Text style={[styles.body, { color: palette.foreground }]}>
-          {request.batch
-            ? 'Your tuition needs to approve you before you can use the app. This screen changes by itself when they do.'
-            : "They'll add you as a student or a teacher. This screen changes by itself when they do."}
+          Your tuition needs to approve you before you can use the app. This screen changes by itself when they do.
         </Text>
         <Button label="Refresh Status" onPress={onCheck} loading={checking} />
         <Button label="Cancel request" variant="secondary" onPress={onCancel} />
@@ -206,8 +216,8 @@ function Waiting({ request, checking, onCheck, onCancel }: { request: MyJoinRequ
   );
 }
 
-/** The institute and batch a code leads to, to confirm before asking to join. */
-function Confirm({ preview, busy, error, onConfirm, onBack }: { preview: JoinPreview; busy: boolean; error: string | null; onConfirm: () => void; onBack: () => void }) {
+/** The institute (and batch) a code leads to, to confirm before asking to join; a teacher code also asks for the subjects. */
+function Confirm({ preview, subjects, onSubjects, busy, error, onConfirm, onBack }: { preview: JoinPreview; subjects: SchoolSubject[]; onSubjects: (next: SchoolSubject[]) => void; busy: boolean; error: string | null; onConfirm: () => void; onBack: () => void }) {
   const palette = usePalette();
   const batch = preview.batch;
   const rows: [string, string][] = [['Institute', preview.institute]];
@@ -225,7 +235,12 @@ function Confirm({ preview, busy, error, onConfirm, onBack }: { preview: JoinPre
           <Text style={[styles.confirmValue, { color: palette.foreground }]}>{value}</Text>
         </View>
       ))}
-      {!batch ? <Text style={[styles.meta, { color: palette.mutedForeground }]}>Your tuition will add you as a student or a teacher.</Text> : null}
+      {preview.kind === 'teacher' ? (
+        <>
+          <MultiChips label="Teaching subjects" choices={SCHOOL_SUBJECTS} selected={subjects} onChange={onSubjects} />
+          <Text style={[styles.meta, { color: palette.mutedForeground }]}>Pick every subject you can teach. Your tuition decides which batches you take.</Text>
+        </>
+      ) : null}
       <ErrorText message={error} />
       <Button label="Confirm Join" onPress={onConfirm} loading={busy} />
       <Button label="Use a different code" variant="secondary" onPress={onBack} disabled={busy} />
@@ -236,7 +251,7 @@ function Confirm({ preview, busy, error, onConfirm, onBack }: { preview: JoinPre
 /** Where they are in getting in. */
 function Steps({ step }: { step: 1 | 2 }) {
   const palette = usePalette();
-  const items = ['Enter your joining code and confirm your batch', 'Your tuition approves you', 'Your classes, tests and syllabus open up'];
+  const items = ['Enter your joining code and confirm your institute', 'Your tuition approves you', 'Your classes, tests and syllabus open up'];
   return (
     <View style={styles.steps}>
       {items.map((text, i) => {

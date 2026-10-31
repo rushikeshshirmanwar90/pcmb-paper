@@ -106,7 +106,7 @@ function LoginForm({
           <View style={[styles.join, { borderColor: palette.border }]}>
             <Text style={[styles.joinTitle, { color: palette.foreground }]}>New here?</Text>
             <Text style={[styles.joinText, { color: palette.mutedForeground }]}>
-              Create an account, then ask your tuition to let you in with its join code.
+              Create an account, then enter the joining code your tuition gave you.
             </Text>
             <Button label="Create an account" variant="secondary" onPress={onSignUp} />
           </View>

@@ -23,6 +23,8 @@ import { SCHOOL_SUBJECTS, type SchoolSubject } from '@/constants/school';
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
 import { ALL, batchesLost, filterTeachers, groupTeacherBatches, NO_SUBJECTS, plural, type TeacherFilter } from '@/screens/tuition/admin-filters';
 import { ActionRow, Avatar, ClearFilters, FilterRow, FlashNotice, InfoRow, LoginStatus, PanelScroll, PersonHeader, SearchBox, useFlash } from '@/screens/tuition/admin-ui';
+import { InviteTeachersSheet } from '@/screens/tuition/invite-students';
+import { PendingTeachers } from '@/screens/tuition/join-requests';
 import { ResetPasswordSheet } from '@/screens/tuition/reset-password-sheet';
 import { timeAgo, tuitionApi, type Teacher } from '@/services/tuition-api';
 
@@ -37,6 +39,7 @@ export function TeachersPanel() {
   const { data, error, loading, refreshing, refresh, reload } = useLoad(() => tuitionApi.teachers(), [version]);
   const [filter, setFilter] = useState<TeacherFilter>(EMPTY_FILTER);
   const [adding, setAdding] = useState(false);
+  const [inviting, setInviting] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const { flash, show, clear } = useFlash();
   const all = data ?? [];
@@ -53,8 +56,10 @@ export function TeachersPanel() {
 
   return (
     <PanelScroll onRefresh={refresh} refreshing={refreshing}>
-      <Button label="Add teacher" icon={{ ios: 'person.badge.plus', android: 'person_add' }} onPress={() => setAdding(true)} />
+      <Button label="Invite Teachers" icon={{ ios: 'qrcode', android: 'group_add' }} onPress={() => setInviting(true)} />
+      <Button label="Add teacher" variant="secondary" icon={{ ios: 'person.badge.plus', android: 'person_add' }} onPress={() => setAdding(true)} />
       <FlashNotice flash={flash} onDismiss={clear} />
+      <PendingTeachers onDone={(message, tone) => show(message, tone)} />
       {loading ? (
         <LoadingView label="Loading teachers…" />
       ) : error && !data ? (
@@ -64,7 +69,7 @@ export function TeachersPanel() {
           <EmptyView
             icon={{ ios: 'person.crop.rectangle.stack', android: 'co_present' }}
             title="No teachers yet"
-            text="People who join with your code show up here once you accept them as a teacher. You can also add one with their email and a starting password."
+            text="Invite teachers with your teacher code and approve them here, or add one with their email and a starting password."
           />
         </Card>
       ) : (
@@ -95,6 +100,7 @@ export function TeachersPanel() {
         </>
       )}
 
+      {inviting ? <InviteTeachersSheet onClose={() => setInviting(false)} /> : null}
       <TeacherForm visible={adding} onClose={() => setAdding(false)} onSaved={(t) => show(`${t.name} added. Share their email and starting password with them.`)} />
       {open ? <TeacherDetail teacher={open} onClose={() => setOpenId(null)} onRemoved={(name) => show(`${name} removed.`)} /> : null}
     </PanelScroll>

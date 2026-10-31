@@ -177,8 +177,6 @@ export const tuitionApi = {
   updateTeacher: (id: string, input: TeacherInput) =>
     api<{ teacher: Teacher }>(`/tuition/teachers/${id}`, { method: 'PATCH', body: input }).then((r) => r.teacher),
   deleteTeacher: (id: string) => api(`/tuition/teachers/${id}`, { method: 'DELETE' }),
-  joinCode: () => api<{ code: string }>('/tuition/join-code').then((r) => r.code),
-  renewJoinCode: () => api<{ code: string }>('/tuition/join-code', { method: 'POST' }).then((r) => r.code),
   resetTeacherPassword: (id: string, password: string) => api(`/tuition/teachers/${id}/password`, { method: 'POST', body: { password } }),
 
   students: (filter: { batchId?: string | null; q?: string } = {}) =>
@@ -195,26 +193,28 @@ export const tuitionApi = {
     api<Weightage>('/tuition/weightage', { method: 'PUT', body: { track, subject, chapters } }),
 };
 
+/** A teacher waiting to be approved: who they are and the subjects they said they teach. */
 export interface JoinRequest {
   id: string;
   createdAt: string;
-  person: { name: string; email: string; phone: string };
+  subjects: SchoolSubject[];
+  person: { name: string; email: string; emailVerified: boolean };
 }
 
-export type AcceptAs =
-  | { as: 'student'; program: Program; standard: SchoolStandard | null; batchId: string | null }
-  | { as: 'teacher'; subjects: SchoolSubject[] };
-
 export const joinRequestsApi = {
-  /** People waiting to join (tuition). */
+  /** Teachers waiting to join with the institute's teacher code (tuition). */
   pending: () => api<{ requests: JoinRequest[] }>('/tuition/join-requests').then((r) => r.requests),
-  accept: (id: string, input: AcceptAs) => api(`/tuition/join-requests/${id}/accept`, { method: 'POST', body: input.as === 'student' ? withTrack(input) : input }),
+  approve: (id: string) => api(`/tuition/join-requests/${id}/accept`, { method: 'POST' }),
   reject: (id: string) => api(`/tuition/join-requests/${id}/reject`, { method: 'POST' }),
 };
 
 export interface MyJoinRequest {
   id?: string;
   status: 'pending' | 'accepted' | 'rejected';
+  /** What the code they used makes them. */
+  role?: 'student' | 'teacher';
+  /** Teacher requests: the subjects they asked with. */
+  subjects?: SchoolSubject[];
   acceptedAs?: 'student' | 'teacher' | null;
   createdAt?: string;
   tuition: { name: string; address: string };
@@ -224,7 +224,7 @@ export interface MyJoinRequest {
 
 /** What a joining code leads to, shown before the student confirms. */
 export interface JoinPreview {
-  kind: 'batch' | 'tuition';
+  kind: 'batch' | 'teacher';
   institute: string;
   batch: { name: string; program: Program | null; standard: SchoolStandard | null } | null;
 }
@@ -234,26 +234,40 @@ export const myJoinApi = {
   latest: () => api<{ request: MyJoinRequest | null }>('/join-requests/mine').then((r) => r.request),
   /** Checks a joining code without asking to join. */
   validate: (code: string) => api<{ preview: JoinPreview }>('/join-requests/validate', { method: 'POST', body: { code } }).then((r) => r.preview),
-  send: (code: string) => api<{ request: MyJoinRequest }>('/join-requests', { method: 'POST', body: { code } }).then((r) => r.request),
+  /** `subjects` are the PCMB subjects a teacher says they teach; students send none. */
+  send: (code: string, subjects?: SchoolSubject[]) =>
+    api<{ request: MyJoinRequest }>('/join-requests', { method: 'POST', body: subjects ? { code, subjects } : { code } }).then((r) => r.request),
   cancel: () => api('/join-requests/mine', { method: 'DELETE' }),
 };
 
-/** A batch's joining code, as the tuition manages it. */
-export interface BatchInvite {
+/** A joining code, as the tuition manages it. */
+export interface JoinInvite {
   status: 'active' | 'expired' | 'revoked';
   /** null once turned off. */
   code: string | null;
   /** null: never expires. */
   expiresAt: string | null;
   institute: string;
+}
+
+/** A batch's code (students). */
+export interface BatchInvite extends JoinInvite {
   batch: { id: string; name: string; program: Program | null; standard: SchoolStandard | null };
 }
+
+/** The institute's code (teachers): no batch. */
+export type TeacherInvite = JoinInvite;
 
 export type InviteChange = { action: 'regenerate'; expiresInDays: number | null } | { action: 'extend'; expiresInDays: number | null } | { action: 'revoke' };
 
 export const batchInviteApi = {
   get: (batchId: string) => api<{ invite: BatchInvite }>(`/tuition/batches/${batchId}/invite`).then((r) => r.invite),
   change: (batchId: string, input: InviteChange) => api<{ invite: BatchInvite }>(`/tuition/batches/${batchId}/invite`, { method: 'POST', body: input }).then((r) => r.invite),
+};
+
+export const teacherInviteApi = {
+  get: () => api<{ invite: TeacherInvite }>('/tuition/teacher-invite').then((r) => r.invite),
+  change: (input: InviteChange) => api<{ invite: TeacherInvite }>('/tuition/teacher-invite', { method: 'POST', body: input }).then((r) => r.invite),
 };
 
 /** A student waiting to be let into a batch. */
