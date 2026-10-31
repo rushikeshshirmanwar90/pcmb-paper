@@ -1,12 +1,13 @@
 // Which server the app talks to. Kept free of React Native imports so it can
 // be tested on its own (tests/api-origin.test.mjs).
 //
-// Release builds always use the live server. Development defaults to local,
-// unless EXPO_PUBLIC_API_URL specifies an address:
+// Release builds always use the live server (Vercel). Development uses it too,
+// unless EXPO_PUBLIC_API_URL names another server:
 //   EXPO_PUBLIC_API_URL=http://192.168.1.20:3000   a server at that address
 //   EXPO_PUBLIC_API_URL=local                       this computer, as the phone sees it:
 //                                                   the address Metro was opened on, port 3000
 //   EXPO_PUBLIC_API_URL=local:4000                  the same, another port
+//   unset, `production` or anything else            the live server
 // For `local`, a phone on the same Wi-Fi uses the computer's network address;
 // the Android emulator, which can't reach "localhost", uses 10.0.2.2; the iOS
 // simulator uses localhost.
@@ -30,7 +31,7 @@ const LOOPBACK = /^(localhost|127\.0\.0\.1)$/;
 /** The server origin (no trailing /api), and why it was chosen. */
 export function resolveApiOrigin({ dev, configured, hostUri, platform }: OriginInput): { origin: string; source: 'production' | 'configured' | 'local' } {
   if (!dev) return { origin: PRODUCTION_API_ORIGIN, source: 'production' };
-  const value = configured?.trim() || 'local';
+  const value = configured?.trim() ?? '';
 
   const local = /^local(?::(\d{2,5}))?$/i.exec(value);
   if (local) {
@@ -41,5 +42,5 @@ export function resolveApiOrigin({ dev, configured, hostUri, platform }: OriginI
     return { origin: `http://${host}:${port}`, source: 'local' };
   }
   if (/^https?:\/\/[^\s/]+/i.test(value)) return { origin: clean(value), source: 'configured' };
-  return resolveApiOrigin({ dev, configured: 'local', hostUri, platform });
+  return { origin: PRODUCTION_API_ORIGIN, source: 'production' };
 }

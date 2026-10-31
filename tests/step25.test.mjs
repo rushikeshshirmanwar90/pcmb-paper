@@ -28,10 +28,11 @@ describe('API address', () => {
     assert.equal(resolveApiOrigin({ dev: false, configured: 'local', hostUri: 'localhost:8081', platform: 'ios' }).origin, 'https://papers-jet.vercel.app');
   });
 
-  test('development defaults to local, including empty or invalid configuration', () => {
-    assert.equal(at({}).origin, 'http://192.168.1.20:3000');
-    assert.equal(at({ configured: '  ' }).origin, 'http://192.168.1.20:3000');
-    assert.equal(at({ configured: 'nonsense' }).origin, 'http://192.168.1.20:3000');
+  test('development defaults to the live server, including empty or invalid configuration', () => {
+    assert.deepEqual(at({}), { origin: PRODUCTION_API_ORIGIN, source: 'production' });
+    assert.equal(at({ configured: '  ' }).origin, PRODUCTION_API_ORIGIN);
+    assert.equal(at({ configured: 'production' }).origin, PRODUCTION_API_ORIGIN);
+    assert.equal(at({ configured: 'nonsense' }).origin, PRODUCTION_API_ORIGIN);
   });
 
   test('"local": the computer Metro runs on, port 3000', () => {
