@@ -13,6 +13,7 @@ import {
   daysLabel,
   DEFAULT_END,
   DEFAULT_START,
+  endProblem,
   duration,
   label12,
   sortClasses,
@@ -182,8 +183,25 @@ export function TimetableSheet({ visible, batch, onClose }: { visible: boolean; 
           </View>
         ) : null}
         <View style={styles.times}>
-          <TimeField label="Starts" value={start} onChange={(t) => (setStart(t), setFormError(null))} />
-          <TimeField label="Ends" value={end} onChange={(t) => (setEnd(t), setFormError(null))} />
+          <TimeField
+            label="Starts"
+            value={start}
+            onChange={(t) => {
+              setStart(t);
+              // The end picked before may no longer fit; say so and let them choose again.
+              setFormError(endProblem(t, end) && 'Start changed: pick a new end time (1 to 6 hours later).');
+            }}
+          />
+          <TimeField
+            label="Ends"
+            value={end}
+            onChange={(t) => {
+              const bad = endProblem(start, t);
+              if (bad) return setFormError(bad);
+              setEnd(t);
+              setFormError(null);
+            }}
+          />
         </View>
         {subject ? (
           teachers.error && !teachers.data ? (

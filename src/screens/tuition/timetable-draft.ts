@@ -74,6 +74,20 @@ export interface ClassTime {
 /** The batch's classes in timetable order: Monday first, then by start time. */
 export const sortClasses = <T extends ClassTime>(classes: T[]) => [...classes].sort((a, b) => WEEK.indexOf(a.day) - WEEK.indexOf(b.day) || toMinutes(a.start) - toMinutes(b.start));
 
+/** A class runs 1 to 6 hours, and ends the same day it starts. */
+export const MIN_CLASS_MINUTES = 60;
+export const MAX_CLASS_MINUTES = 360;
+
+/** Why this end time doesn't work for this start, or null when it does. */
+export function endProblem(start: string, end: string): string | null {
+  const m = toMinutes(end) - toMinutes(start);
+  if (m <= 0) return 'The class must end after it starts, on the same day.';
+  if (m < MIN_CLASS_MINUTES) return `A class runs at least 1 hour, so it can't end before ${label12(from24(toMinutes(start) + MIN_CLASS_MINUTES))}.`;
+  if (m > MAX_CLASS_MINUTES) return `A class runs at most 6 hours, so it can't end after ${label12(from24(toMinutes(start) + MAX_CLASS_MINUTES))}.`;
+  return null;
+}
+const from24 = (minutes: number) => `${pad(Math.floor(minutes / 60) % 24)}:${pad(minutes % 60)}`;
+
 /**
  * Why a class of this subject on these days can't be added (or `exceptId`
  * moved there), or null when it can: no day, an end not after the start, or
@@ -82,7 +96,8 @@ export const sortClasses = <T extends ClassTime>(classes: T[]) => [...classes].s
  */
 export function classProblem(classes: ClassTime[], days: readonly number[], start: string, end: string, exceptId?: string | null): string | null {
   if (!days.length) return 'Pick at least one day.';
-  if (toMinutes(end) <= toMinutes(start)) return 'The class must end after it starts.';
+  const length = endProblem(start, end);
+  if (length) return length;
   for (const day of WEEK.filter((d) => days.includes(d))) {
     const hit = classes.find((c) => c.id !== exceptId && c.day === day && toMinutes(c.start) < toMinutes(end) && toMinutes(start) < toMinutes(c.end));
     if (hit) return `On ${DAY_NAMES[day]} it overlaps ${hit.subject}, ${label12(hit.start)} – ${label12(hit.end)}.`;
