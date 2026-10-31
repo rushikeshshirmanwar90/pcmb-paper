@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Badge,
   Button,
@@ -59,7 +59,7 @@ import {
   type PracticeChapter,
 } from '@/services/student-api';
 
-type FlowView =
+export type FlowView =
   | { kind: 'home' }
   | { kind: 'build'; subject: SchoolSubject; preset: TopicPick[] | null }
   | { kind: 'session'; id: string; initial?: AssessmentDetail };
@@ -69,9 +69,19 @@ type FlowView =
  * self-assessments, making a new one (chapters, topics, size, difficulty mix,
  * time), taking it and the topic-by-topic result.
  */
-export function SelfAssessmentFlow({ subject, onClose }: { subject: SchoolSubject; onClose: () => void }) {
+export function SelfAssessmentFlow({
+  subject,
+  start = { kind: 'home' },
+  onClose,
+}: {
+  subject: SchoolSubject;
+  /** Where it opens. Opened straight at a new or existing one, its back steps return to the Practice tab, not the list. */
+  start?: FlowView;
+  onClose: () => void;
+}) {
   const palette = usePalette();
-  const [view, setView] = useState<FlowView>({ kind: 'home' });
+  const insets = useSafeAreaInsets();
+  const [view, setView] = useState<FlowView>(start);
   const [listRound, setListRound] = useState(0);
   // What Android's back button does inside a session (the session sets it).
   const backRef = useRef<(() => void) | null>(null);
@@ -81,10 +91,12 @@ export function SelfAssessmentFlow({ subject, onClose }: { subject: SchoolSubjec
     bumpDataVersion();
     onClose();
   }, [onClose]);
+  const fromList = start.kind === 'home';
   const home = useCallback(() => {
+    if (!fromList) return close();
     setListRound((n) => n + 1);
     setView({ kind: 'home' });
-  }, []);
+  }, [fromList, close]);
 
   const onBack = () => {
     if (view.kind === 'session') (backRef.current ?? home)();
@@ -94,7 +106,9 @@ export function SelfAssessmentFlow({ subject, onClose }: { subject: SchoolSubjec
 
   return (
     <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={onBack}>
-      <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
+      {/* A Modal is its own native window, where SafeAreaView reads no insets. It covers the whole
+          screen, so the app's own insets are the right ones. */}
+      <View style={[styles.root, { backgroundColor: palette.background, paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
         {view.kind === 'home' ? (
           <Home round={listRound} onClose={close} onNew={() => setView({ kind: 'build', subject, preset: null })} onOpen={(id) => setView({ kind: 'session', id })} />
         ) : view.kind === 'build' ? (
@@ -118,7 +132,7 @@ export function SelfAssessmentFlow({ subject, onClose }: { subject: SchoolSubjec
             onRetake={(s, topics) => setView({ kind: 'build', subject: s, preset: topics })}
           />
         )}
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }

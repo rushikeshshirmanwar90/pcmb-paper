@@ -1,5 +1,5 @@
 import React, { useEffect, useState, type PropsWithChildren } from 'react';
-import { BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   Badge,
   Button,
@@ -12,7 +12,6 @@ import {
   Notice,
   Screen,
   SectionTitle,
-  Segmented,
   useLoad,
   usePalette,
   type IconName,
@@ -24,7 +23,9 @@ import { bumpDataVersion, useDataVersion } from '@/context/data-version';
 import { clearPracticeTarget, usePracticeTarget, type PracticeTarget } from '@/context/practice-target';
 import { useTabNavigation } from '@/context/tab-context';
 import { toneOf } from '@/screens/student/practice-session';
-import { SelfAssessmentFlow } from '@/screens/student/self-assessment-flow';
+import { retakeSetup, summaryLine } from '@/screens/student/self-assessment';
+import { SelfAssessmentFlow, type FlowView } from '@/screens/student/self-assessment-flow';
+import { subjectIcon } from '@/screens/student/test-format';
 import { TopicPracticeSheet } from '@/screens/student/topic-practice-sheet';
 import {
   actionsFor,
@@ -41,37 +42,56 @@ import {
   type PracticeNode,
 } from '@/screens/student/topic-practice';
 import { dayLabel } from '@/services/school-api';
-import { studentApi, type PracticeChapter, type PracticeStats, type PracticeTopic, type PracticeTree } from '@/services/student-api';
+import {
+  studentApi,
+  type AssessmentSummary,
+  type PracticeChapter,
+  type PracticeStats,
+  type PracticeTopic,
+  type PracticeTree,
+} from '@/services/student-api';
 
 /** The tab's key in role-tabs. */
 export const PRACTICE_TAB = 'practice';
 
 const ALL = '__all__';
 const chapterId = (c: { standard: string; chapter: string }) => `${c.standard}|${c.chapter}`;
+/** Earlier results listed on the tab; the rest are a tap away in the full list. */
+const EARLIER_RESULTS = 5;
+const subjectLabel = (s: SchoolSubject) => (s === 'Mathematics' ? 'Maths' : s);
 
 /**
- * Topic practice: past-year questions by the student's syllabus. Subject →
- * chapter → topic (chapters without named topics skip the topic step), then
+ * The Practice tab: a new self-assessment, the ones to finish, earlier
+ * results (each with its weak topics a tap away from a retake), then topic
+ * practice: past-year questions by the student's syllabus, subject → chapter
+ * → topic (chapters without named topics skip the topic step), then
  * continue, review or retry. Progress is saved on the server.
  */
 export function StudentPracticeScreen() {
   const user = useSignedInUser();
+  const palette = usePalette();
   const version = useDataVersion();
   const { activeKey } = useTabNavigation();
   const subjects = SUBJECTS_BY_TRACK[user.track ?? 'General'];
-  const [subject, setSubject] = useState<SchoolSubject>(subjects[0]);
+  /** The subject open in topic practice, or null on the tab's front page. */
+  const [subject, setSubject] = useState<SchoolSubject | null>(null);
   const [chapterKey, setChapterKey] = useState<string | null>(null);
   /** A topic name, ALL for the whole chapter, or null while choosing. */
   const [topic, setTopic] = useState<string | null>(null);
   const [session, setSession] = useState<{ node: PracticeNode; mode: PracticeMode } | null>(null);
-  const [assessing, setAssessing] = useState(false);
-  const { data, setData, error, loading, refreshing, refresh, reload } = useLoad(() => studentApi.practiceTree(subject), [subject, version]);
+  /** Where self-assessment is open at, or null when it's closed. */
+  const [assessing, setAssessing] = useState<FlowView | null>(null);
+  /** The result whose "Retake weak topics" is making and starting its test, and which one couldn't and why. */
+  const [retake, setRetake] = useState<{ busyId: string | null; error: { id: string; message: string } | null }>({ busyId: null, error: null });
 
-  // Only this subject's data is shown: a chapter picked in another subject is forgotten.
-  const tree = data?.subject === subject ? data : null;
+  const assessments = useLoad(() => studentApi.assessments(), [version]);
+  const trees = useLoad(() => (subject ? studentApi.practiceTree(subject) : Promise.resolve(null)), [subject, version], { enabled: !!subject });
 
-  // Opened from Home for a weak topic: switch subject, then open its chapter
-  // (the student's own class first) and topic once that subject has loaded.
+  // Only the open subject's data is shown: a chapter picked in another subject is forgotten.
+  const tree = subject && trees.data?.subject === subject ? trees.data : null;
+
+  // Opened from Home or a result for a weak topic: open the subject, then its
+  // chapter (the student's own class first) and topic once it has loaded.
   // Names that aren't in the syllabus leave the chapter list showing.
   const target = usePracticeTarget();
   // `taken`: the last target handled, so it's taken over once even before the effect clears it.
@@ -104,19 +124,19 @@ export function StudentPracticeScreen() {
 
   const back = () => {
     if (hasTopics && topic !== null) setTopic(null);
-    else {
+    else if (chapterKey !== null) {
       setChapterKey(null);
       setTopic(null);
-    }
+    } else setSubject(null);
   };
-  const pickSubject = (s: SchoolSubject) => {
+  const openSubject = (s: SchoolSubject) => {
     setSubject(s);
     setChapterKey(null);
     setTopic(null);
   };
 
   // Android's back button steps up a level while this tab is on screen.
-  const deep = !!chapter;
+  const deep = subject !== null;
   useEffect(() => {
     if (!deep || activeKey !== PRACTICE_TAB) return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -135,12 +155,110 @@ export function StudentPracticeScreen() {
   // The open session's counts as saved so far, and where to go once it's complete.
   const sessionStats = session && tree ? statsAt(tree.chapters, session.node) : null;
   const sessionNext = session && tree ? nextPlace(tree.chapters, session.node) : null;
+  // Retaking weak topics skips the builder: the test is made from every topic
+  // of that result that wasn't strong, in the Retake mix (30% easy, 30%
+  // medium, 40% hard), started, and opened on its first question.
+  const retakeWeak = async (from: AssessmentSummary) => {
+    setRetake({ busyId: from.id, error: null });
+    try {
+      const detail = await studentApi.assessment(from.id);
+      // The same topics the full result's "Retake" takes: weak, getting there, or too few questions to tell.
+      const weak = detail.report?.topics.filter((t) => t.level !== 'strong') ?? [];
+      if (!weak.length) throw new Error("Every topic in this test was strong, so there's nothing to retake. Try a harder mix next.");
+      const made = await studentApi.createAssessment(retakeSetup(from, weak));
+      const started = await studentApi.startAssessment(made.assessment.id);
+      setAssessing({ kind: 'session', id: started.assessment.id, initial: started });
+      setRetake({ busyId: null, error: null });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : '';
+      // A server older than the app doesn't know the Retake mix yet and lists the ones it does.
+      const tooOld = message.startsWith('Choose a difficulty mix');
+      setRetake({
+        busyId: null,
+        error: {
+          id: from.id,
+          message: tooOld ? "Retake isn't on the server yet. It needs the latest server update; try again after that." : message || "Couldn't start the retake. Try again.",
+        },
+      });
+    }
+  };
+  // New tests start on the subject the student tested last (newest first).
+  const newSubject = assessments.data?.find((a) => a.state === 'submitted')?.subject ?? assessments.data?.[0]?.subject ?? subjects[0];
 
   let body: React.ReactNode;
-  if (loading || (!tree && !error)) body = <LoadingView label={`Loading ${subject}…`} />;
-  else if (!tree) body = <ErrorView message={error ?? "Couldn't load practice."} onRetry={reload} />;
-  else if (!chapter) {
-    body = <ChapterList tree={tree} onOpen={(c) => { setChapterKey(chapterId(c)); setTopic(null); }} />;
+  if (!subject) {
+    const list = assessments.data ?? [];
+    const going = list.filter((a) => a.state !== 'submitted');
+    const done = list.filter((a) => a.state === 'submitted');
+    const earlier = done.slice(0, EARLIER_RESULTS);
+    const newTest = () => setAssessing({ kind: 'build', subject: newSubject, preset: null });
+    body = (
+      <>
+        {assessments.loading ? (
+          <Card>
+            <InlineLoading label="Loading your results…" />
+          </Card>
+        ) : done.length ? (
+          <Button label="New self-assessment" icon={{ ios: 'plus', android: 'add' }} onPress={newTest} />
+        ) : (
+          <StartCard error={assessments.error} onNew={newTest} />
+        )}
+
+        {going.length ? (
+          <View style={styles.group}>
+            <SectionTitle title="To finish" />
+            <Card style={styles.listCard}>
+              {going.map((a, i) => (
+                <TestRow
+                  key={a.id}
+                  title={a.title}
+                  meta={summaryLine(a)}
+                  trailing={<Text style={[styles.trailingAction, { color: palette.primaryInk }]}>{a.state === 'in-progress' ? 'Continue' : 'Start'}</Text>}
+                  last={i === going.length - 1}
+                  onPress={() => setAssessing({ kind: 'session', id: a.id })}
+                />
+              ))}
+            </Card>
+          </View>
+        ) : null}
+
+        {earlier.length ? (
+          <View style={styles.group}>
+            <SectionTitle title="Earlier results" action={done.length > earlier.length ? <SeeAll count={done.length} onPress={() => setAssessing({ kind: 'home' })} /> : null} />
+            <Card style={styles.listCard}>
+              {earlier.map((a, i) => (
+                <ResultRow
+                  key={a.id}
+                  a={a}
+                  last={i === earlier.length - 1}
+                  onOpen={() => setAssessing({ kind: 'session', id: a.id })}
+                  retakeBusy={retake.busyId === a.id}
+                  // One retake at a time: the others wait while one is being made.
+                  retakeDisabled={retake.busyId !== null}
+                  retakeError={retake.error?.id === a.id ? retake.error.message : null}
+                  onRetake={() => retakeWeak(a)}
+                />
+              ))}
+            </Card>
+          </View>
+        ) : null}
+
+        <View style={styles.group}>
+          <SectionTitle title="Practise by topic" />
+          <SubjectChips subjects={subjects} onOpen={openSubject} />
+        </View>
+      </>
+    );
+  } else if (trees.loading || (!tree && !trees.error)) body = <LoadingView label={`Loading ${subject}…`} />;
+  else if (!tree) {
+    body = (
+      <>
+        <BackRow label="Practice" onPress={back} />
+        <ErrorView message={trees.error ?? "Couldn't load practice."} onRetry={trees.reload} />
+      </>
+    );
+  } else if (!chapter) {
+    body = <ChapterList tree={tree} onBack={back} onOpen={(c) => { setChapterKey(chapterId(c)); setTopic(null); }} />;
   } else if (!atNode) {
     body = <ChapterView subject={subject} chapter={chapter} hasBatch={tree.hasBatch} onBack={back} onOpen={(t) => setTopic(t ?? ALL)} />;
   } else {
@@ -164,17 +282,13 @@ export function StudentPracticeScreen() {
   }
 
   return (
-    <Screen title="Practice" subtitle="Past-year questions, topic by topic" onRefresh={refresh} refreshing={refreshing}>
-      {!chapter ? (
-        <Segmented
-          label="Subject"
-          options={subjects.map((s) => ({ value: s, label: s === 'Mathematics' ? 'Maths' : s }))}
-          value={subject}
-          onChange={pickSubject}
-        />
-      ) : null}
-      {!chapter ? <SelfAssessmentCard onPress={() => setAssessing(true)} /> : null}
-      {error && tree ? <Muted>{error}</Muted> : null}
+    <Screen
+      title="Practice"
+      subtitle="Self-assessment and past-year questions"
+      onRefresh={() => (subject ? trees.refresh() : assessments.refresh())}
+      refreshing={subject ? trees.refreshing : assessments.refreshing}
+    >
+      {trees.error && tree ? <Muted>{trees.error}</Muted> : null}
       {body}
       {session ? (
         <TopicPracticeSheet
@@ -183,7 +297,7 @@ export function StudentPracticeScreen() {
           complete={!!sessionStats && sessionStats.questions > 0 && sessionStats.remaining === 0}
           next={sessionNext ? { label: sessionNext.label, onGo: () => goTo(sessionNext) } : null}
           // Counts move as each answer is saved, so they're already right on the way back.
-          onAnswered={(at, delta) => setData((prev) => (prev && prev.subject === session.node.subject ? applyAnswer(prev, at, delta) : prev))}
+          onAnswered={(at, delta) => trees.setData((prev) => (prev && prev.subject === session.node.subject ? applyAnswer(prev, at, delta) : prev))}
           onClose={(changed) => {
             setSession(null);
             // Then the server's own numbers, in the background (the screen keeps showing the counts meanwhile).
@@ -191,48 +305,184 @@ export function StudentPracticeScreen() {
           }}
         />
       ) : null}
-      {assessing ? <SelfAssessmentFlow subject={subject} onClose={() => setAssessing(false)} /> : null}
+      {assessing ? <SelfAssessmentFlow start={assessing} subject={subject ?? newSubject} onClose={() => setAssessing(null)} /> : null}
     </Screen>
   );
 }
 
-/** The way into self-assessment: a test the student makes from chosen chapters and topics. */
-function SelfAssessmentCard({ onPress }: { onPress: () => void }) {
+// ─── Self-assessment ───────────────────────────────────────────────────────
+
+/** Before the first result: what a self-assessment gives, and the way to make one. */
+function StartCard({ error, onNew }: { error: string | null; onNew: () => void }) {
+  const palette = usePalette();
+  return (
+    <Card style={styles.startCard}>
+      <Text accessibilityRole="header" style={[styles.startTitle, { color: palette.foreground }]}>
+        Find your weak topics
+      </Text>
+      <Text style={[styles.startText, { color: palette.mutedForeground }]}>
+        Make a test from the chapters you choose. Your result shows your strength in every topic, and what to retake.
+      </Text>
+      {error ? <Muted>{error}</Muted> : null}
+      <Button label="Create a self-assessment" icon={{ ios: 'plus', android: 'add' }} onPress={onNew} />
+    </Card>
+  );
+}
+
+// ─── Lists ─────────────────────────────────────────────────────────────────
+
+function TestRow({ title, meta, trailing, last, onPress }: { title: string; meta: string; trailing: React.ReactNode; last: boolean; onPress: () => void }) {
   const palette = usePalette();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Self-assessment. Make a test from chapters and topics you choose and see your strong and weak topics"
+      accessibilityLabel={`${title}, ${meta}`}
       onPress={onPress}
-      style={({ pressed }) => [styles.assessCard, { backgroundColor: palette.card, borderColor: palette.border }, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.row, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }, pressed && styles.pressed]}
     >
-      <View style={[styles.tile, { backgroundColor: palette.primarySoft }]}>
-        <Icon name={{ ios: 'checklist', android: 'fact_check' }} color={palette.primary} size={20} />
-      </View>
       <View style={styles.flex}>
-        <Text style={[styles.rowTitle, { color: palette.foreground }]}>Self-assessment</Text>
-        <Text style={[styles.meta, { color: palette.mutedForeground }]}>Make a test from topics you choose and find where you&apos;re strong or weak</Text>
+        <Text style={[styles.rowTitle, { color: palette.foreground }]} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={[styles.meta, { color: palette.mutedForeground }]} numberOfLines={1}>
+          {meta}
+        </Text>
       </View>
+      {trailing}
       <Icon name={{ ios: 'chevron.right', android: 'chevron_right' }} color={palette.mutedForeground} size={16} />
     </Pressable>
   );
 }
 
+/**
+ * One earlier result: opens the full result. With weak topics, it also
+ * retakes them, straight into a new test.
+ */
+function ResultRow({
+  a,
+  last,
+  onOpen,
+  retakeBusy,
+  retakeDisabled,
+  retakeError,
+  onRetake,
+}: {
+  a: AssessmentSummary;
+  last: boolean;
+  onOpen: () => void;
+  retakeBusy: boolean;
+  retakeDisabled: boolean;
+  retakeError: string | null;
+  onRetake: () => void;
+}) {
+  const palette = usePalette();
+  const strength = a.result?.strength ?? 0;
+  const weak = a.result?.weakTopics ?? 0;
+  return (
+    <View style={!last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }}>
+      <TestRow
+        title={a.title}
+        meta={`${a.subject} · ${dayLabel(a.submittedAt ?? a.createdAt)}${weak ? ` · ${weak} weak topic${weak === 1 ? '' : 's'}` : ''}`}
+        trailing={
+          <Text accessibilityLabel={`${strength}% strength`} style={[styles.rowStrength, { color: accuracyInk(palette, strength) }]}>
+            {strength}%
+          </Text>
+        }
+        last
+        onPress={onOpen}
+      />
+      {weak ? (
+        <View style={styles.retake}>
+          {/* Right above the button that was tapped, so it can't go unseen. */}
+          {retakeError ? <Notice tone="danger" title="Couldn't start the retake" text={retakeError} live /> : null}
+          <Button
+            label={retakeBusy ? 'Starting your retake…' : 'Retake weak topics'}
+            accessibilityLabel={`Retake the weak topics of ${a.title}: a new test, starting now`}
+            variant="tonal"
+            icon={{ ios: 'arrow.counterclockwise', android: 'replay' }}
+            loading={retakeBusy}
+            disabled={retakeDisabled && !retakeBusy}
+            onPress={onRetake}
+          />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function SeeAll({ count, onPress }: { count: number; onPress: () => void }) {
+  const palette = usePalette();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`See all ${count} results`}
+      onPress={onPress}
+      hitSlop={12}
+      style={({ pressed }) => [styles.seeAll, pressed && styles.pressed]}
+    >
+      <Text style={[styles.seeAllText, { color: palette.primaryInk }]}>See all</Text>
+    </Pressable>
+  );
+}
+
+/** Topic practice, kept quiet: one pill per subject, opening its chapters. */
+function SubjectChips({ subjects, onOpen }: { subjects: SchoolSubject[]; onOpen: (s: SchoolSubject) => void }) {
+  const palette = usePalette();
+  return (
+    <View style={styles.chips}>
+      {subjects.map((s) => (
+        <Pressable
+          key={s}
+          accessibilityRole="button"
+          accessibilityLabel={`${s}: practise past-year questions by chapter`}
+          onPress={() => onOpen(s)}
+          style={({ pressed }) => [styles.chip, { backgroundColor: palette.card, borderColor: palette.border }, pressed && styles.pressed]}
+        >
+          <Icon name={subjectIcon(s)} color={palette.inkSoft} size={16} />
+          <Text style={[styles.chipText, { color: palette.foreground }]}>{subjectLabel(s)}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+function InlineLoading({ label }: { label: string }) {
+  const palette = usePalette();
+  return (
+    <View style={styles.inlineLoading}>
+      <ActivityIndicator color={palette.primary} />
+      <Text style={[styles.meta, { color: palette.mutedForeground }]}>{label}</Text>
+    </View>
+  );
+}
+
 // ─── Chapters ──────────────────────────────────────────────────────────────
 
-function ChapterList({ tree, onOpen }: { tree: PracticeTree; onOpen: (c: PracticeChapter) => void }) {
+function ChapterList({ tree, onBack, onOpen }: { tree: PracticeTree; onBack: () => void; onOpen: (c: PracticeChapter) => void }) {
   const palette = usePalette();
   const { summary } = tree;
+  const heading = (
+    <>
+      <BackRow label="Practice" onPress={onBack} />
+      <Text accessibilityRole="header" style={[styles.headingTitle, { color: palette.foreground }]}>
+        {tree.subject}
+      </Text>
+    </>
+  );
   if (!tree.chapters.length) {
     return (
-      <Card>
-        <EmptyView icon={{ ios: 'book', android: 'menu_book' }} title="Nothing to practise yet" text={`There are no ${tree.subject} chapters in the question bank yet.`} />
-      </Card>
+      <>
+        {heading}
+        <Card>
+          <EmptyView icon={{ ios: 'book', android: 'menu_book' }} title="Nothing to practise yet" text={`There are no ${tree.subject} chapters in the question bank yet.`} />
+        </Card>
+      </>
     );
   }
   const standards = [...new Set(tree.chapters.map((c) => c.standard))];
   return (
     <>
+      {heading}
       <ResultSummary stats={summary}>
         {tree.hasBatch ? (
           <Muted>
@@ -635,5 +885,16 @@ const styles = StyleSheet.create({
   headingTitle: { fontSize: 22, fontWeight: '800', lineHeight: 28 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   actions: { gap: 10, marginTop: 4 },
-  assessCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, borderWidth: 1, minHeight: 72 },
+  startCard: { gap: 16, padding: 18, borderRadius: 18 },
+  retake: { gap: 10, paddingBottom: 12 },
+  startTitle: { fontSize: 22, lineHeight: 28, fontWeight: '800' },
+  startText: { fontSize: 15, lineHeight: 21, marginTop: -6 },
+  trailingAction: { fontSize: 15, fontWeight: '700' },
+  rowStrength: { fontSize: 17, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 16, borderRadius: 999, borderWidth: 1 },
+  chipText: { fontSize: 15, fontWeight: '600' },
+  seeAll: { minHeight: 32, justifyContent: 'center' },
+  seeAllText: { fontSize: 13, fontWeight: '700' },
+  inlineLoading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 20 },
 });

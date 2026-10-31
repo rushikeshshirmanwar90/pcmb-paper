@@ -165,7 +165,7 @@ export type PyqAnswerResult = {
 // ─── Self-assessment ───────────────────────────────────────────────────────
 // A test the student makes from past-year questions (papers/src/lib/self-assessment.ts).
 
-export type AssessmentMix = 'smart' | 'balanced' | 'challenge';
+export type AssessmentMix = 'smart' | 'balanced' | 'challenge' | 'retake';
 export type Difficulty = 'Easy' | 'Medium' | 'Hard';
 export type DifficultySplit = Record<Difficulty, number>;
 export type StrengthLevel = 'strong' | 'average' | 'weak';

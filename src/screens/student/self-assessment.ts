@@ -7,6 +7,7 @@ import type {
   AssessmentBasis,
   AssessmentMix,
   AssessmentScope,
+  AssessmentSetup,
   AssessmentSummary,
   DifficultySplit,
   StrengthLevel,
@@ -24,6 +25,8 @@ export const MIX_INFO: Record<AssessmentMix, { label: string; text: string }> = 
   },
   balanced: { label: 'Balanced', text: 'Like a real exam: about 30% easy, 50% medium and 20% hard.' },
   challenge: { label: 'Challenge', text: 'Mostly medium and hard questions, to push yourself.' },
+  // Made only by "Retake weak topics" on the Practice tab, never offered in the builder.
+  retake: { label: 'Retake', text: 'Your weak topics again: about 30% easy, 30% medium and 40% hard.' },
 };
 
 // ─── Picking chapters and topics ───────────────────────────────────────────
@@ -128,6 +131,41 @@ export const timeLabel = (value: string, suggested: number) =>
 
 export const durationLabel = (minutes: number | null) => (minutes ? `${minutes} min` : 'No time limit');
 
+// ─── Retaking weak topics ──────────────────────────────────────────────────
+
+/**
+ * "Retake weak topics" as a ready setup: every topic given, grouped by chapter
+ * (a chapter without named topics is taken whole), as many questions as the
+ * test retaken, timed at exam pace when that test was timed, its negative
+ * marking kept, in the Retake mix (30% easy, 30% medium, 40% hard).
+ */
+export function retakeSetup(
+  from: Pick<AssessmentSummary, 'subject' | 'questionCount' | 'durationMinutes' | 'negativeMarks'>,
+  topics: { standard: string; chapter: string; topic: string }[]
+): AssessmentSetup {
+  const scope: AssessmentScope[] = [];
+  const whole = new Set<AssessmentScope>();
+  for (const t of topics) {
+    let c = scope.find((s) => s.standard === t.standard && s.chapter === t.chapter);
+    if (!c) {
+      c = { standard: t.standard as SchoolStandard, chapter: t.chapter, topics: [] };
+      scope.push(c);
+    }
+    if (!t.topic) whole.add(c);
+    else if (!c.topics.includes(t.topic)) c.topics.push(t.topic);
+  }
+  for (const c of whole) c.topics = [];
+  const count = Math.max(MIN_QUESTIONS, from.questionCount);
+  return {
+    subject: from.subject,
+    scope,
+    count,
+    mix: 'retake',
+    durationMinutes: from.durationMinutes === null ? null : suggestedMinutes(count, from.subject),
+    negativeMarking: from.negativeMarks > 0,
+  };
+}
+
 // ─── Labels ────────────────────────────────────────────────────────────────
 
 /** "6 easy · 10 medium · 4 hard". */
@@ -158,6 +196,22 @@ export const LEVEL_INFO: Record<StrengthLevel, { label: string; tone: 'success' 
 
 /** A topic's name, or its chapter's when it has no named topics. */
 export const topicName = (t: { chapter: string; topic: string }) => t.topic || t.chapter;
+
+type ChapterKeyed = { standard: string; chapter: string };
+
+/**
+ * A result's topics grouped under their chapters, for its chapter → topic
+ * tree: chapters in the report's order and each chapter's topics in theirs
+ * (both weakest first). Chapter names match ignoring case and spaces at the
+ * ends, the way the server groups them.
+ */
+export function resultTree<C extends ChapterKeyed, T extends ChapterKeyed>(chapters: C[], topics: T[]): { chapter: C; topics: T[] }[] {
+  const key = (x: ChapterKeyed) => `${x.standard}|${x.chapter.trim().toLowerCase()}`;
+  const tree = chapters.map((chapter) => ({ chapter, topics: [] as T[] }));
+  const byKey = new Map(tree.map((node) => [key(node.chapter), node]));
+  for (const t of topics) byKey.get(key(t))?.topics.push(t);
+  return tree;
+}
 
 /** "Q2, Q5 and Q7". */
 export function questionList(numbers: number[]): string {
