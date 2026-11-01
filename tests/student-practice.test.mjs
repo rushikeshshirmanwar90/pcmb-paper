@@ -2,7 +2,7 @@
 //   node --experimental-strip-types --test tests/student-practice.test.mjs
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { accuracyOf, canResume, resumePosition, sessionStats, toneOf } from '../src/screens/student/practice-session.ts';
+import { accuracyOf, canResume, countsLine, resumePosition, sessionRows, sessionStats, sessionVerdict, toneOf } from '../src/screens/student/practice-session.ts';
 
 const qs = ['a', 'b', 'c', 'd', 'e'].map((_id) => ({ _id }));
 
@@ -51,5 +51,39 @@ describe('practice session summary', () => {
     assert.equal(canResume(4, 10, false), true);
     assert.equal(canResume(9, 10, true), true);
     assert.equal(canResume(9, 10, false), false, 'the bank is finished');
+  });
+});
+
+describe('session result', () => {
+  test('rows: questions met, in order, with what was chosen; skipped then answered counts as answered', () => {
+    const results = { a: { correct: true, selected: 'A' }, c: { correct: false, selected: 'D' } };
+    const rows = sessionRows(qs, results, new Set(['b', 'c']));
+    assert.deepEqual(rows.map((r) => [r.index, r.question._id, r.outcome, r.selected]), [
+      [0, 'a', 'correct', 'A'],
+      [1, 'b', 'skipped', null],
+      [2, 'c', 'wrong', 'D'],
+    ]);
+  });
+
+  test('verdict: by band, naming what to do with the wrong ones', () => {
+    assert.equal(sessionVerdict(100, 0, 0).title, 'Strong round');
+    assert.match(sessionVerdict(100, 0, 0).text, /Every answer right/);
+    assert.match(sessionVerdict(80, 1, 0).text, /the one you got wrong/);
+    assert.equal(sessionVerdict(50, 3, 0).title, 'Getting there');
+    assert.match(sessionVerdict(50, 3, 0).text, /the 3 you got wrong.*try them again/);
+    assert.equal(sessionVerdict(20, 4, 1).title, 'Needs more work');
+  });
+
+  test('counts as one spoken phrase', () => {
+    assert.equal(countsLine({ attempted: 8, correct: 5, skipped: 2 }), '5 of 8 answered right, 2 skipped');
+    assert.equal(countsLine({ attempted: 3, correct: 3, skipped: 0 }), '3 of 3 answered right');
+    assert.equal(countsLine({ attempted: 0, correct: 0, skipped: 4 }), '4 skipped');
+    assert.equal(countsLine({ attempted: 0, correct: 0, skipped: 0 }), 'No questions answered');
+  });
+
+  test('verdict: nothing answered', () => {
+    assert.equal(sessionVerdict(null, 0, 0).title, 'Nothing answered yet');
+    assert.match(sessionVerdict(null, 0, 3).text, /skipped all 3/);
+    assert.match(sessionVerdict(null, 0, 1).text, /skipped the question\. It's still here/);
   });
 });

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState, type PropsWithChildren, type ReactNode } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
@@ -542,6 +543,11 @@ export function Notice({
   live?: boolean;
 }) {
   const palette = usePalette();
+  const message = [title, text].filter(Boolean).join('. ');
+  // accessibilityLiveRegion below is Android-only; VoiceOver needs telling.
+  useEffect(() => {
+    if (live && Platform.OS === 'ios' && message) AccessibilityInfo.announceForAccessibility(message);
+  }, [live, message]);
   const [bg, fg, border] = {
     info: [palette.secondary, palette.foreground, palette.border],
     success: [palette.successSoft, palette.successInk, palette.successBorder],

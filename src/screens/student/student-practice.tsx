@@ -84,6 +84,8 @@ export function StudentPracticeScreen() {
   /** A topic name, ALL for the whole chapter, or null while choosing. */
   const [topic, setTopic] = useState<string | null>(null);
   const [session, setSession] = useState<{ node: PracticeNode; mode: PracticeMode } | null>(null);
+  /** The subject last opened in topic practice: a new self-assessment starts there. */
+  const [lastPractised, setLastPractised] = useState<SchoolSubject | null>(null);
   /** Where self-assessment is open at, or null when it's closed. */
   const [assessing, setAssessing] = useState<FlowView | null>(null);
   /** The result whose "Retake weak topics" is making and starting its test, and which one couldn't and why. */
@@ -107,6 +109,7 @@ export function StudentPracticeScreen() {
   if (target && target !== taken && subjects.includes(target.subject)) {
     setTaken(target);
     setPending(target);
+    setLastPractised(target.subject);
     setSubject(target.subject);
     setChapterKey(null);
     setTopic(null);
@@ -136,6 +139,7 @@ export function StudentPracticeScreen() {
     } else setSubject(null);
   };
   const openSubject = (s: SchoolSubject) => {
+    setLastPractised(s);
     setSubject(s);
     setChapterKey(null);
     setTopic(null);
@@ -188,8 +192,17 @@ export function StudentPracticeScreen() {
       });
     }
   };
-  // New tests start on the subject the student tested last (newest first).
-  const newSubject = assessments.data?.find((a) => a.state === 'submitted')?.subject ?? assessments.data?.[0]?.subject ?? subjects[0];
+  // New tests start where the student was just working: the subject they practised, else the one they tested last.
+  const newSubject = lastPractised ?? assessments.data?.find((a) => a.state === 'submitted')?.subject ?? assessments.data?.[0]?.subject ?? subjects[0];
+
+  // A timed test left part-way keeps counting down, so its "min left" is kept current.
+  const timing = (assessments.data ?? []).some((a) => a.state === 'in-progress' && a.deadline);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!timing) return;
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, [timing]);
 
   // The server has the last word: it may know of no bank for this student either.
   const unavailable = !hasBank || tree?.available === false;
@@ -228,7 +241,7 @@ export function StudentPracticeScreen() {
                 <TestRow
                   key={a.id}
                   title={a.title}
-                  meta={summaryLine(a)}
+                  meta={summaryLine(a, now)}
                   trailing={<Text style={[styles.trailingAction, { color: palette.primaryInk }]}>{a.state === 'in-progress' ? 'Continue' : 'Start'}</Text>}
                   last={i === going.length - 1}
                   onPress={() => setAssessing({ kind: 'session', id: a.id })}
@@ -375,10 +388,10 @@ function TestRow({ title, meta, trailing, last, onPress }: { title: string; meta
       style={({ pressed }) => [styles.row, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }, pressed && styles.pressed]}
     >
       <View style={styles.flex}>
-        <Text style={[styles.rowTitle, { color: palette.foreground }]} numberOfLines={1}>
+        <Text style={[styles.rowTitle, { color: palette.foreground }]} numberOfLines={2}>
           {title}
         </Text>
-        <Text style={[styles.meta, { color: palette.mutedForeground }]} numberOfLines={1}>
+        <Text style={[styles.meta, { color: palette.mutedForeground }]} numberOfLines={2}>
           {meta}
         </Text>
       </View>
@@ -412,15 +425,19 @@ function ResultRow({
   const palette = usePalette();
   const strength = a.result?.strength ?? 0;
   const weak = a.result?.weakTopics ?? 0;
+  // What tapping Retake makes (the topics don't change its size or time).
+  const plan = retakeSetup(a, []);
+  const planLine = `${plan.count} questions · ${plan.durationMinutes ? `${plan.durationMinutes} min` : 'no time limit'} · starts right away`;
   return (
     <View style={!last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }}>
       <TestRow
         title={a.title}
         meta={`${a.subject} · ${dayLabel(a.submittedAt ?? a.createdAt)}${weak ? ` · ${weak} weak topic${weak === 1 ? '' : 's'}` : ''}`}
         trailing={
-          <Text accessibilityLabel={`${strength}% strength`} style={[styles.rowStrength, { color: accuracyInk(palette, strength) }]}>
-            {strength}%
-          </Text>
+          <View accessible accessibilityLabel={`${strength}% strength`} style={styles.rowFigure}>
+            <Text style={[styles.rowStrength, { color: accuracyInk(palette, strength) }]}>{strength}%</Text>
+            <Text style={[styles.rowFigureLabel, { color: palette.mutedForeground }]}>strength</Text>
+          </View>
         }
         last
         onPress={onOpen}
@@ -431,13 +448,14 @@ function ResultRow({
           {retakeError ? <Notice tone="danger" title="Couldn't start the retake" text={retakeError} live /> : null}
           <Button
             label={retakeBusy ? 'Starting your retake…' : 'Retake weak topics'}
-            accessibilityLabel={`Retake the weak topics of ${a.title}: a new test, starting now`}
+            accessibilityLabel={`Retake the weak topics of ${a.title}: ${planLine}`}
             variant="tonal"
             icon={{ ios: 'arrow.counterclockwise', android: 'replay' }}
             loading={retakeBusy}
             disabled={retakeDisabled && !retakeBusy}
             onPress={onRetake}
           />
+          <Text style={[styles.retakeHint, { color: palette.mutedForeground }]}>{planLine}</Text>
         </View>
       ) : null}
     </View>
@@ -920,7 +938,10 @@ const styles = StyleSheet.create({
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   actions: { gap: 10, marginTop: 4 },
   startCard: { gap: 16, padding: 18, borderRadius: 18 },
-  retake: { gap: 10, paddingBottom: 12 },
+  retake: { gap: 8, paddingBottom: 12 },
+  retakeHint: { fontSize: 13, lineHeight: 18, textAlign: 'center', fontVariant: ['tabular-nums'] },
+  rowFigure: { alignItems: 'flex-end' },
+  rowFigureLabel: { fontSize: 11, lineHeight: 14, fontWeight: '600' },
   startTitle: { fontSize: 22, lineHeight: 28, fontWeight: '800' },
   startText: { fontSize: 15, lineHeight: 21, marginTop: -6 },
   trailingAction: { fontSize: 15, fontWeight: '700' },

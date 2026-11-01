@@ -743,7 +743,7 @@ function Result({
             {report.chapters.length > 1 || report.topics.some((t) => t.topic) ? (
               <>
                 <SectionTitle title="By chapter and topic" />
-                <ChapterTree report={report} />
+                <ChapterTree report={report} onSee={seeQuestions} />
               </>
             ) : null}
 
@@ -805,7 +805,8 @@ function Result({
             return (
               <Card key={`${filter}-${q.index}`} style={styles.answerCard}>
                 <View style={styles.answerTop}>
-                  <Text style={[styles.qMetaText, { color: palette.primary }]} numberOfLines={1}>
+                  {/* Two lines, so a long topic isn't cut short by the badges beside it. */}
+                  <Text style={[styles.qMetaText, { color: palette.primary }]} numberOfLines={2}>
                     Q{q.index + 1} · {q.topic || q.chapter}
                   </Text>
                   {q.difficulty ? <Badge label={q.difficulty} tone="neutral" /> : null}
@@ -874,7 +875,7 @@ function TopicCard({ topic: t, several, onPractise, onSee }: { topic: TopicStren
     `${t.strength}% strong`,
     `${t.weakness}% weak`,
     several && t.shareOfMistakes ? `${t.shareOfMistakes}% of marks lost` : null,
-    t.accuracy !== null && t.skipped ? `${t.accuracy}% of answered` : null,
+    t.accuracy !== null && t.skipped ? `${t.accuracy}% right when answered` : null,
   ];
   return (
     <Card style={styles.topicCard}>
@@ -935,7 +936,7 @@ function CountLine({ tally: t }: { tally: StrengthTally }) {
  * The result as a tree: each chapter with its questions, and its topics
  * branching under it with theirs. A chapter with no named topics has no branches.
  */
-function ChapterTree({ report }: { report: AssessmentReport }) {
+function ChapterTree({ report, onSee }: { report: AssessmentReport; onSee: (t: TopicStrength) => void }) {
   const palette = usePalette();
   const tree = resultTree(report.chapters, report.topics);
   return (
@@ -968,7 +969,12 @@ function ChapterTree({ report }: { report: AssessmentReport }) {
             {branches.length ? (
               <View>
                 {branches.map((t, j) => (
-                  <TreeBranch key={t.topic} last={j === branches.length - 1}>
+                  <TreeBranch
+                    key={t.topic}
+                    last={j === branches.length - 1}
+                    accessibilityLabel={`${t.topic || 'Not tagged to a topic'}: ${countsLabel(t)}, ${t.strength}% strength. See its questions`}
+                    onPress={() => onSee(t)}
+                  >
                     <View style={styles.topicTop}>
                       <Text style={[styles.branchTitle, styles.flex, { color: t.topic ? palette.foreground : palette.mutedForeground }]}>
                         {t.topic || 'Not tagged to a topic'}
@@ -988,17 +994,21 @@ function ChapterTree({ report }: { report: AssessmentReport }) {
 }
 
 /** A topic under its chapter: a line down from the chapter, and a tick across to the topic. */
-function TreeBranch({ last, children }: { last: boolean; children: React.ReactNode }) {
+function TreeBranch({ last, children, accessibilityLabel, onPress }: { last: boolean; children: React.ReactNode; accessibilityLabel: string; onPress: () => void }) {
   const palette = usePalette();
   const line = { backgroundColor: palette.borderStrong };
+  // A topic opens its questions in the answers below, like "See its questions" on its card.
   return (
-    <View style={styles.branch}>
+    <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} onPress={onPress} style={({ pressed }) => [styles.branch, pressed && styles.pressed]}>
       <View style={styles.branchGutter} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         <View style={[styles.branchStem, last ? styles.branchStemLast : styles.branchStemFull, line]} />
         <View style={[styles.branchTick, line]} />
       </View>
       <View style={[styles.flex, styles.branchBody]}>{children}</View>
-    </View>
+      <View style={styles.branchChevron}>
+        <Icon name={{ ios: 'chevron.right', android: 'chevron_right' }} color={palette.mutedForeground} size={14} />
+      </View>
+    </Pressable>
   );
 }
 
@@ -1111,6 +1121,8 @@ const styles = StyleSheet.create({
   branchTick: { position: 'absolute', left: 0, top: 20, width: 14, height: 1.5 },
   branchBody: { paddingTop: 10, paddingBottom: 4, gap: 2, marginLeft: -9 },
   branchTitle: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  // In line with the topic's name.
+  branchChevron: { paddingTop: 13, paddingLeft: 6 },
   detailText: { fontSize: 13, lineHeight: 18, fontWeight: '600' },
   topicActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: -8, marginLeft: -12 },
   breakdown: { paddingVertical: 12, gap: 8 },

@@ -460,7 +460,8 @@ function Step({ n, title, detail }: { n: number; title: string; detail?: string 
         {title}
       </Text>
       {detail ? (
-        <Text style={[styles.stepDetail, { color: palette.mutedForeground }]} numberOfLines={1}>
+        // Two lines before cutting off: "2 chapters · 50 questions" must read in full.
+        <Text style={[styles.stepDetail, { color: palette.mutedForeground }]} numberOfLines={2}>
           {detail}
         </Text>
       ) : null}
@@ -634,7 +635,7 @@ const styles = StyleSheet.create({
   stepNumber: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   stepNumberText: { fontSize: 13, fontWeight: '800' },
   stepTitle: { fontSize: 16, fontWeight: '800' },
-  stepDetail: { flex: 1, fontSize: 13, textAlign: 'right' },
+  stepDetail: { flex: 1, fontSize: 13, lineHeight: 17, textAlign: 'right' },
 
   search: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, minHeight: 44 },
   searchInput: { flex: 1, fontSize: 15, paddingVertical: 10 },
