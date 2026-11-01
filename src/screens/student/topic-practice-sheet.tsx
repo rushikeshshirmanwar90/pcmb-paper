@@ -1,5 +1,6 @@
-import React, { useCallback, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Pressable, type ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 import {
   Badge,
   Button,
@@ -14,12 +15,13 @@ import {
   Notice,
   ProgressBar,
   SectionTitle,
-  StatGrid,
-  StatTile,
+  Segmented,
   useLoad,
   usePalette,
+  type IconName,
 } from '@/components/kit';
 import { Explanation } from '@/components/explanation';
+import { countsLine, sessionRows, sessionStats, sessionVerdict, toneOf, type Outcome } from '@/screens/student/practice-session';
 import { QuestionView } from '@/screens/student/question-view';
 import {
   answerDelta,
@@ -37,6 +39,9 @@ import { studentApi, type PracticeQuestion } from '@/services/student-api';
 
 /** A checked answer, as the server marked and saved it. */
 type Result = { selected: string; correct: boolean; correctAnswer: string; explanation: string; explanationDiagramUrls: string[] };
+
+/** After checking an answer, how much of the question stays in view above the verdict. */
+const FEEDBACK_PEEK = 140;
 
 const TITLES: Record<PracticeMode, string> = { continue: 'Practice', review: 'Review answers', retry: 'Retry incorrect', again: 'Practice again' };
 
@@ -79,6 +84,17 @@ export function TopicPracticeSheet({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState(false);
+  /** The summary was opened with End, before the last question: offer the way back. */
+  const [endedEarly, setEndedEarly] = useState(false);
+  /** A question opened from the summary's list: the way back is one tap. */
+  const [fromSummary, setFromSummary] = useState(false);
+  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const reduceMotion = useReducedMotion();
+  /** Where the question view starts in the scroll content, and the question just checked. */
+  const practiceY = useRef(0);
+  const justChecked = useRef<string | null>(null);
+  /** Questions skipped this session; answering one later takes it off. */
+  const [skipped, setSkipped] = useState<Set<string>>(() => new Set());
 
   const q: PracticeQuestion | undefined = list[pos];
   // Reviewing shows the saved answer; otherwise only what was checked in this session.
@@ -123,6 +139,7 @@ export function TopicPracticeSheet({
       if (r.saved === false) throw new Error("The server didn't keep this answer.");
       // Compared with what was saved before: earlier this session, else when the questions loaded.
       onAnswered?.({ standard: q.standard, chapter: q.chapter, topic: q.topic }, answerDelta(results[q._id] ?? q.mine, r));
+      justChecked.current = q._id;
       setResults((prev) => ({
         ...prev,
         [q._id]: { selected: r.selected, correct: r.correct, correctAnswer: r.correctAnswer, explanation: r.explanation, explanationDiagramUrls: r.explanationDiagramUrls ?? [] },
@@ -142,23 +159,77 @@ export function TopicPracticeSheet({
       if ((await loadMore()) > 0) setPos((p) => p + 1);
       return;
     }
+    setEndedEarly(false);
     setSummary(true);
   };
 
+  const skip = () => {
+    if (q && !results[q._id]) setSkipped((prev) => new Set(prev).add(q._id));
+    void goNext();
+  };
+  /** From the summary, back to one of this session's questions. */
+  const openQuestion = (index: number) => {
+    setError(null);
+    setPos(index);
+    setSummary(false);
+    setFromSummary(true);
+  };
+  const backToSummary = () => {
+    setError(null);
+    setFromSummary(false);
+    setSummary(true);
+  };
+
+  // Each question, and the summary, starts at the top, not where the last one was scrolled to.
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [pos, summary]);
+
   const close = () => onClose(tally.answered > 0);
+  const showNext = summary && complete && nextStep !== null;
   const firstLoad = !first.data;
   const title = summary ? 'Session summary' : TITLES[mode];
 
   return (
     <DetailSheet
       visible
+      scrollRef={scrollRef}
       title={title}
       onClose={close}
       footer={
-        summary || !q ? undefined : (
+        summary ? (
+          // The way on is at the bottom, where Submit and Next were.
+          <View style={styles.footerStack}>
+            {showNext ? (
+              <Button
+                label={nextStep.label}
+                icon={{ ios: 'arrow.right', android: 'arrow_forward' }}
+                onPress={() => {
+                  close();
+                  nextStep.onGo();
+                }}
+              />
+            ) : null}
+            <Button label="Done" variant={showNext ? 'secondary' : 'primary'} onPress={close} />
+            {endedEarly && !showNext && q ? (
+              <Button
+                label={mode === 'review' ? 'Back to answers' : 'Continue practice'}
+                variant="secondary"
+                icon={{ ios: 'arrow.uturn.backward', android: 'undo' }}
+                onPress={() => setSummary(false)}
+              />
+            ) : null}
+          </View>
+        ) : !q ? undefined : (
           <>
             <ErrorText message={error} />
-            {done ? (
+            {done && fromSummary ? (
+              // Came from the summary's list: going back is the main way on.
+              <View style={styles.footerRow}>
+                {!atEnd ? <Button label="Next" variant="secondary" onPress={() => void goNext()} loading={loadingMore} style={styles.flex} /> : null}
+                <Button label="Back to summary" icon={{ ios: 'list.bullet', android: 'list' }} onPress={backToSummary} style={styles.flex2} />
+              </View>
+            ) : done ? (
               <Button
                 label={atEnd ? 'Finish' : mode === 'review' ? 'Next answer' : 'Next question'}
                 icon={atEnd ? { ios: 'flag.checkered', android: 'flag' } : undefined}
@@ -167,7 +238,11 @@ export function TopicPracticeSheet({
               />
             ) : (
               <View style={styles.footerRow}>
-                <Button label={atEnd ? 'Skip & finish' : 'Skip'} variant="secondary" onPress={() => void goNext()} disabled={loadingMore || saving} style={styles.flex} />
+                {fromSummary ? (
+                  <Button label="Summary" variant="secondary" onPress={backToSummary} disabled={saving} style={styles.flex} />
+                ) : (
+                  <Button label={atEnd ? 'Skip & finish' : 'Skip'} variant="secondary" onPress={skip} disabled={loadingMore || saving} style={styles.flex} />
+                )}
                 <Button label="Submit answer" onPress={() => void submit()} loading={saving} disabled={!selected} style={styles.flex2} />
               </View>
             )}
@@ -178,14 +253,12 @@ export function TopicPracticeSheet({
       {summary ? (
         <Summary
           mode={mode}
-          tally={tally}
+          stats={sessionStats(list, results, skipped)}
+          rows={sessionRows(list, results, skipped)}
+          showTopic={node.topic === null}
+          numberOf={(index) => positionOf(mode, index, first.data?.total ?? 0, before).current}
           remaining={Math.max(0, before.questions - before.answered - (mode === 'continue' ? tally.answered : 0))}
-          next={complete ? nextStep : null}
-          onNext={() => {
-            close();
-            nextStep?.onGo();
-          }}
-          onDone={close}
+          onOpen={openQuestion}
         />
       ) : firstLoad && first.error ? (
         <ErrorView message={first.error} onRetry={first.reload} />
@@ -194,7 +267,7 @@ export function TopicPracticeSheet({
       ) : !q ? (
         <Empty mode={mode} total={before.questions} />
       ) : (
-        <View style={styles.practice}>
+        <View style={styles.practice} onLayout={(e) => (practiceY.current = e.nativeEvent.layout.y)}>
           <Text style={[styles.path, { color: palette.mutedForeground }]} numberOfLines={2}>
             {breadcrumb(node)}
           </Text>
@@ -218,7 +291,10 @@ export function TopicPracticeSheet({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="End and see summary"
-              onPress={() => setSummary(true)}
+              onPress={() => {
+                setEndedEarly(true);
+                setSummary(true);
+              }}
               style={({ pressed }) => [styles.navButton, styles.navEnd, pressed && styles.pressed]}
             >
               <Text style={[styles.navText, { color: palette.primary }]}>End</Text>
@@ -244,7 +320,17 @@ export function TopicPracticeSheet({
           </Card>
 
           {done ? (
-            <>
+            <View
+              style={styles.feedback}
+              onLayout={(e) => {
+                // Just checked: bring the verdict and the solution into view (they land below the
+                // fold on most questions), keeping the end of the marked options in sight above.
+                if (justChecked.current !== q._id) return;
+                justChecked.current = null;
+                const y = practiceY.current + e.nativeEvent.layout.y - FEEDBACK_PEEK;
+                scrollRef.current?.scrollTo({ y: Math.max(0, y), animated: !reduceMotion });
+              }}
+            >
               <Notice
                 tone={done.correct ? 'success' : 'danger'}
                 title={done.correct ? 'Correct!' : 'Incorrect'}
@@ -264,7 +350,7 @@ export function TopicPracticeSheet({
                   <Muted>{NO_EXPLANATION}</Muted>
                 )}
               </View>
-            </>
+            </View>
           ) : null}
         </View>
       )}
@@ -293,55 +379,168 @@ function Empty({ mode, total }: { mode: PracticeMode; total: number }) {
   );
 }
 
+const OUTCOME: Record<Outcome, { label: string; icon: IconName }> = {
+  correct: { label: 'Correct', icon: { ios: 'checkmark.circle.fill', android: 'check_circle' } },
+  wrong: { label: 'Wrong', icon: { ios: 'xmark.circle.fill', android: 'cancel' } },
+  skipped: { label: 'Skipped', icon: { ios: 'minus.circle', android: 'remove_circle_outline' } },
+};
+
+/**
+ * The round's result: what it means in words first, then the counts as one
+ * bar with a key (each count has an icon, not only a colour), then every
+ * question met, in order. A question opens again from the list, so a
+ * mistake is one tap from its solution.
+ */
 function Summary({
   mode,
-  tally,
+  stats,
+  rows,
+  showTopic,
+  numberOf,
   remaining,
-  next,
-  onNext,
-  onDone,
+  onOpen,
 }: {
   mode: PracticeMode;
-  tally: ReturnType<typeof sessionTally>;
+  stats: ReturnType<typeof sessionStats>;
+  rows: ReturnType<typeof sessionRows<PracticeQuestion>>;
+  /** A whole chapter: say which topic each question was from. */
+  showTopic: boolean;
+  /** A question's number as the session showed it ("Question 21 of 40"). */
+  numberOf: (index: number) => number;
   remaining: number;
-  next: { label: string } | null;
-  onNext: () => void;
-  onDone: () => void;
+  onOpen: (index: number) => void;
 }) {
   const palette = usePalette();
-  const accuracy = tally.answered ? Math.round((tally.correct / tally.answered) * 100) : null;
+  const ink = { correct: palette.successInk, wrong: palette.dangerInk, skipped: palette.mutedForeground };
+  const [show, setShow] = useState<'all' | 'wrong' | 'skipped'>('all');
+  const verdict = sessionVerdict(stats.accuracy, stats.wrong, stats.skipped);
+
+  // The screen changes under VoiceOver's focus (the tapped button is gone), so say what it shows.
+  const announcement = mode === 'review' ? 'Review finished' : `${verdict.title}. ${countsLine(stats)}`;
+  useEffect(() => {
+    AccessibilityInfo.announceForAccessibility(announcement);
+  }, [announcement]);
+
+  if (mode === 'review') {
+    return (
+      <EmptyView
+        icon={{ ios: 'checkmark.seal', android: 'verified' }}
+        title="Review finished"
+        text={rows.length ? 'Your saved answers are unchanged.' : 'Your saved answers are unchanged. Open Review again any time.'}
+      />
+    );
+  }
+
+  const tone = stats.accuracy === null ? null : toneOf(stats.accuracy);
+  const verdictInk = tone ? { success: palette.successInk, warning: palette.warningInk, danger: palette.dangerInk }[tone] : palette.foreground;
+  const met = stats.attempted + stats.skipped;
+  // A long round can be narrowed to its mistakes, the same control as the self-assessment result.
+  const filterable = rows.length > 5 && stats.wrong + stats.skipped > 0;
+  const shown = filterable && show !== 'all' ? rows.filter((r) => r.outcome === show) : rows;
+
   return (
     <View style={styles.practice}>
-      <Card style={styles.summaryCard}>
-        <Text style={[styles.summaryLabel, { color: palette.mutedForeground }]}>{mode === 'review' ? 'Review finished' : 'This session'}</Text>
-        {mode === 'review' ? (
-          <Text style={[styles.summaryEmpty, { color: palette.foreground }]}>Your saved answers are unchanged.</Text>
-        ) : accuracy !== null ? (
-          <View style={styles.summaryRow} accessible accessibilityLabel={`${accuracy} percent: ${tally.correct} right of ${tally.answered} answered`}>
-            <Text style={[styles.summaryBig, { color: palette.foreground }]}>{accuracy}%</Text>
-            <Badge label={`${tally.correct} of ${tally.answered} right`} tone={accuracy >= 70 ? 'success' : accuracy < 40 ? 'danger' : 'warning'} />
+      <Card style={styles.verdictCard}>
+        <View accessible accessibilityRole="header" accessibilityLabel={`${verdict.title}. ${verdict.text}`}>
+          <Text style={[styles.verdictTitle, { color: verdictInk }]}>{verdict.title}</Text>
+          <Text style={[styles.verdictText, { color: palette.inkSoft }]}>{verdict.text}</Text>
+        </View>
+
+        {stats.accuracy !== null ? (
+          <View
+            style={styles.scoreRow}
+            accessible
+            accessibilityLabel={`${stats.correct} of ${stats.attempted} answered right, ${stats.accuracy} percent`}
+          >
+            <Text style={[styles.scoreBig, { color: palette.foreground }]}>
+              {stats.correct}
+              <Text style={[styles.scoreOf, { color: palette.mutedForeground }]}> / {stats.attempted}</Text>
+            </Text>
+            <View style={styles.scoreSide}>
+              <Text style={[styles.scorePercent, { color: verdictInk }]}>{stats.accuracy}%</Text>
+              <Text style={[styles.scoreCaption, { color: palette.mutedForeground }]}>of answered</Text>
+            </View>
           </View>
-        ) : (
-          <Text style={[styles.summaryEmpty, { color: palette.foreground }]}>You didn&apos;t answer any questions.</Text>
-        )}
+        ) : null}
+
+        {met ? (
+          <>
+            {/* Separate pills in the key's order, skipped drawn as an outline (not answered):
+                told apart by place and shape, not only by colour. The key carries the numbers. */}
+            <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.strip}>
+              {stats.correct ? <View style={[styles.pill, { flex: stats.correct, backgroundColor: palette.success }]} /> : null}
+              {stats.wrong ? <View style={[styles.pill, { flex: stats.wrong, backgroundColor: palette.danger }]} /> : null}
+              {stats.skipped ? <View style={[styles.pill, styles.pillOutline, { flex: stats.skipped, borderColor: palette.mutedForeground }]} /> : null}
+            </View>
+            <View style={styles.key}>
+              {/* Right and wrong always count; "0 skipped" is only noise. */}
+              {(stats.skipped ? (['correct', 'wrong', 'skipped'] as const) : (['correct', 'wrong'] as const)).map((o) => (
+                <View key={o} style={styles.keyItem}>
+                  <Icon name={OUTCOME[o].icon} color={ink[o]} size={15} />
+                  <Text style={[styles.keyText, { color: palette.inkSoft }]}>
+                    {o === 'correct' ? stats.correct : o === 'wrong' ? stats.wrong : stats.skipped} {OUTCOME[o].label.toLowerCase()}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </>
+        ) : null}
       </Card>
-      {mode !== 'review' ? (
-        <StatGrid>
-          <StatTile label="Answered" value={tally.answered} icon={{ ios: 'pencil.and.list.clipboard', android: 'edit_note' }} />
-          <StatTile label="Correct" value={tally.correct} icon={{ ios: 'checkmark.circle', android: 'check_circle' }} tone="success" />
-          <StatTile label="Incorrect" value={tally.wrong} icon={{ ios: 'xmark.circle', android: 'cancel' }} tone="danger" />
-        </StatGrid>
+
+      {rows.length ? (
+        <View style={styles.solution}>
+          <SectionTitle title="Question by question" />
+          {filterable ? (
+            <Segmented
+              label="Show questions"
+              value={show}
+              onChange={setShow}
+              options={[
+                { value: 'all', label: 'All', count: rows.length },
+                { value: 'wrong', label: 'Wrong', count: stats.wrong },
+                { value: 'skipped', label: 'Skipped', count: stats.skipped },
+              ]}
+            />
+          ) : null}
+          {shown.length ? (
+            <Card style={styles.listCard}>
+              {shown.map(({ index, question, outcome, selected }, i) => (
+                <Pressable
+                  key={question._id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Question ${numberOf(index)}${showTopic && question.topic ? `, ${question.topic}` : ''}: ${OUTCOME[outcome].label}. Open it again`}
+                  onPress={() => onOpen(index)}
+                  style={({ pressed }) => [
+                    styles.qRow,
+                    i < shown.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border },
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Icon name={OUTCOME[outcome].icon} color={ink[outcome]} size={22} />
+                  <View style={styles.flex}>
+                    <Text style={[styles.qTitle, { color: palette.foreground }]} numberOfLines={2}>
+                      Question {numberOf(index)}
+                      {showTopic && question.topic ? <Text style={{ color: palette.mutedForeground, fontWeight: '400' }}> · {question.topic}</Text> : null}
+                    </Text>
+                    <Text style={[styles.qMeta, { color: ink[outcome] }]}>
+                      {outcome === 'wrong' && selected ? `Wrong · you chose ${selected}` : OUTCOME[outcome].label}
+                    </Text>
+                  </View>
+                  <Text style={[styles.qAction, { color: palette.primaryInk }]}>{outcome === 'skipped' ? 'Answer' : 'Solution'}</Text>
+                  <Icon name={{ ios: 'chevron.right', android: 'chevron_right' }} color={palette.mutedForeground} size={14} />
+                </Pressable>
+              ))}
+            </Card>
+          ) : (
+            <Muted>{show === 'wrong' ? 'No wrong answers this round.' : 'Nothing skipped this round.'}</Muted>
+          )}
+        </View>
       ) : null}
-      {mode === 'continue' ? <Muted>{remaining ? `${remaining} question${remaining === 1 ? '' : 's'} left here. Your progress is saved, so you can carry on any time.` : 'You have attempted every question here.'}</Muted> : null}
+
+      {mode === 'continue' ? (
+        <Muted>{remaining ? `${remaining} question${remaining === 1 ? '' : 's'} left here. Your progress is saved, so you can carry on any time.` : 'You have attempted every question here.'}</Muted>
+      ) : null}
       {mode === 'again' ? <Muted>Your latest answer to each question is the one saved.</Muted> : null}
-      {next ? (
-        <>
-          <Button label={`${next.label} →`} onPress={onNext} accessibilityLabel={next.label} />
-          <Button label="Done" variant="secondary" onPress={onDone} />
-        </>
-      ) : (
-        <Button label="Done" onPress={onDone} />
-      )}
     </View>
   );
 }
@@ -356,13 +555,31 @@ const styles = StyleSheet.create({
   navButton: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, minWidth: 64 },
   navEnd: { justifyContent: 'flex-end' },
   navText: { fontSize: 15, fontWeight: '700' },
-  count: { fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  // Takes the space between Previous and End and wraps at large text sizes instead of colliding.
+  count: { flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   footerRow: { flexDirection: 'row', gap: 10 },
   solution: { gap: 8 },
-  summaryCard: { gap: 6, padding: 16 },
-  summaryLabel: { fontSize: 13, fontWeight: '600' },
-  summaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  summaryBig: { fontSize: 44, lineHeight: 52, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  summaryEmpty: { fontSize: 16, fontWeight: '600' },
+  feedback: { gap: 14 },
+  footerStack: { gap: 10 },
+  listCard: { paddingVertical: 0 },
+  verdictCard: { gap: 14, padding: 18 },
+  verdictTitle: { fontSize: 24, lineHeight: 30, fontWeight: '800' },
+  verdictText: { fontSize: 15, lineHeight: 21, marginTop: 4 },
+  scoreRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 },
+  scoreBig: { fontSize: 40, lineHeight: 46, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  scoreOf: { fontSize: 20, fontWeight: '600' },
+  scoreSide: { alignItems: 'flex-end', paddingBottom: 4 },
+  scorePercent: { fontSize: 20, lineHeight: 24, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  scoreCaption: { fontSize: 13, lineHeight: 18 },
+  strip: { flexDirection: 'row', height: 10, gap: 3 },
+  pill: { borderRadius: 5, minWidth: 10 },
+  pillOutline: { borderWidth: 1.5 },
+  key: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 16, rowGap: 6 },
+  keyItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  keyText: { fontSize: 13, lineHeight: 18, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  qRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingVertical: 10 },
+  qTitle: { fontSize: 15, lineHeight: 20, fontWeight: '600' },
+  qMeta: { fontSize: 13, lineHeight: 18, fontWeight: '600', marginTop: 1 },
+  qAction: { fontSize: 15, fontWeight: '600' },
 });

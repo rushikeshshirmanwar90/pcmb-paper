@@ -142,7 +142,7 @@ function WebKaTeXRenderer({
             output: 'htmlAndMathml',
           });
           return p.display
-            ? `<div class="katex-display-wrap" style="margin: 6px 0;">${rendered}</div>`
+            ? `<div class="katex-display-wrap" style="margin: 6px 0; overflow-x: auto; overflow-y: hidden; max-width: 100%;">${rendered}</div>`
             : `<span class="katex-inline-wrap" style="margin: 0 2px;">${rendered}</span>`;
         } catch {
           return `<span>${p.value}</span>`;

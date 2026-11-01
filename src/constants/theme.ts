@@ -29,7 +29,8 @@ const lightPalette = {
   sidebarActive: '#E9D6C9',
   sidebarBorder: '#DED6CA',
   foreground: '#282622',
-  mutedForeground: '#77736B',
+  // 4.74:1 on the page background, 5.0:1 on cards (#77736B was 4.48:1, just under 4.5:1).
+  mutedForeground: '#736F68',
   muted: '#F0EEE9',
   border: '#E5E0D7',
   borderStrong: '#CFC8BC',
@@ -52,7 +53,7 @@ const lightPalette = {
   white: '#FFFFFF',
   ink: '#282622',
   inkSoft: '#504B44',
-  mutedText: '#77736B',
+  mutedText: '#736F68',
   line: '#E5E0D7',
   canvas: '#FAF9F5',
   surface: '#FFFFFF',

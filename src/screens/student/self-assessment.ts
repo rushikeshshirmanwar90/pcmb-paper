@@ -220,12 +220,20 @@ export function questionList(numbers: number[]): string {
 }
 
 /** The line under an assessment in the list. */
-export function summaryLine(a: Pick<AssessmentSummary, 'state' | 'questionCount' | 'answeredCount' | 'result' | 'durationMinutes' | 'subject'>): string {
+export function summaryLine(
+  a: Pick<AssessmentSummary, 'state' | 'questionCount' | 'answeredCount' | 'result' | 'durationMinutes' | 'subject'> & { deadline?: string | null },
+  now = Date.now()
+): string {
   if (a.state === 'submitted' && a.result) {
     const weak = a.result.weakTopics ? ` · ${a.result.weakTopics} weak topic${a.result.weakTopics === 1 ? '' : 's'}` : '';
     return `${a.subject} · ${a.result.correct}/${a.questionCount} right${weak}`;
   }
-  if (a.state === 'in-progress') return `${a.subject} · In progress · ${a.answeredCount} of ${a.questionCount} answered`;
+  if (a.state === 'in-progress') {
+    // The timer keeps running while the student is away, so say how much is left.
+    const left = a.deadline ? secondsLeft(a.deadline, now) : null;
+    const time = left === null ? '' : left > 0 ? ` · ${Math.ceil(left / 60)} min left` : " · Time's up";
+    return `${a.subject} · In progress · ${a.answeredCount} of ${a.questionCount} answered${time}`;
+  }
   return `${a.subject} · Not started · ${a.questionCount} questions · ${durationLabel(a.durationMinutes)}`;
 }
 

@@ -106,6 +106,11 @@ describe('labels', () => {
     const base = { subject: 'Physics', questionCount: 20, answeredCount: 0, durationMinutes: 40, result: null };
     assert.equal(summaryLine({ ...base, state: 'ready' }), 'Physics · Not started · 20 questions · 40 min');
     assert.equal(summaryLine({ ...base, state: 'in-progress', answeredCount: 7 }), 'Physics · In progress · 7 of 20 answered');
+    // The timer runs on while the student is away: the time left, rounded up to the minute.
+    const now = Date.parse('2026-11-01T10:00:00Z');
+    assert.equal(summaryLine({ ...base, state: 'in-progress', answeredCount: 1, deadline: '2026-11-01T10:17:20Z' }, now), 'Physics · In progress · 1 of 20 answered · 18 min left');
+    assert.equal(summaryLine({ ...base, state: 'in-progress', answeredCount: 1, deadline: '2026-11-01T09:59:00Z' }, now), "Physics · In progress · 1 of 20 answered · Time's up");
+    assert.equal(summaryLine({ ...base, state: 'in-progress', answeredCount: 1, deadline: null }, now), 'Physics · In progress · 1 of 20 answered');
     assert.equal(
       summaryLine({ ...base, state: 'submitted', result: { correct: 12, weakTopics: 2 } }),
       'Physics · 12/20 right · 2 weak topics'

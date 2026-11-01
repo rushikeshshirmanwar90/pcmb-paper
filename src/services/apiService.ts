@@ -1,19 +1,9 @@
-import Constants from "expo-constants";
-import { Platform } from "react-native";
-import { resolveApiOrigin } from "@/services/api-origin";
+import { API_BASE_URL, API_URL } from "@/lib/config";
 import { DifficultyLevel, ExamCategory, FilterOptions, FilterState, Paper, Question, Standard, Subject } from "@/types/pcmb";
 
-// The live server for release builds; a development build can point at a
-// local one with EXPO_PUBLIC_API_URL (see src/services/api-origin.ts and .env.example).
-const API = resolveApiOrigin({
-  dev: __DEV__,
-  configured: process.env.EXPO_PUBLIC_API_URL,
-  hostUri: Constants.expoConfig?.hostUri,
-  platform: Platform.OS,
-});
-if (__DEV__ && API.source !== "production") console.log(`[api] using ${API.origin} (EXPO_PUBLIC_API_URL)`);
-export const API_ORIGIN = API.origin;
-export const API_BASE_URL = `${API_ORIGIN}/api`;
+// The server address is set in src/lib/config.ts.
+export const API_ORIGIN = API_URL;
+export { API_BASE_URL };
 
 export const MOCK_QUESTIONS: Question[] = [
   // --- FOUNDATION CLASS 9 ---

@@ -1,10 +1,8 @@
-// Step 2.5 focused tests: the API address (live for release builds, local
-// when asked), the subject timetable editor's rules, and the programs offered
-// for new batches and students.
+// Step 2.5 focused tests: the subject timetable editor's rules, and the
+// programs offered for new batches and students.
 //   node --experimental-strip-types --test tests/step25.test.mjs
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { PRODUCTION_API_ORIGIN, resolveApiOrigin } from '../src/services/api-origin.ts';
 import {
   classProblem,
   dateToTime,
@@ -19,35 +17,6 @@ import {
   weeklyMinutes,
 } from '../src/screens/tuition/timetable-draft.ts';
 import { OFFERED_PROGRAMS, programChoices } from '../src/constants/school.ts';
-
-describe('API address', () => {
-  const at = (patch) => resolveApiOrigin({ dev: true, configured: undefined, hostUri: '192.168.1.20:8081', platform: 'android', ...patch });
-
-  test('release builds always use the live server', () => {
-    assert.deepEqual(resolveApiOrigin({ dev: false, configured: 'http://192.168.1.20:3000', platform: 'android' }), { origin: PRODUCTION_API_ORIGIN, source: 'production' });
-    assert.equal(resolveApiOrigin({ dev: false, configured: 'local', hostUri: 'localhost:8081', platform: 'ios' }).origin, 'https://papers-jet.vercel.app');
-  });
-
-  test('development defaults to the live server, including empty or invalid configuration', () => {
-    assert.deepEqual(at({}), { origin: PRODUCTION_API_ORIGIN, source: 'production' });
-    assert.equal(at({ configured: '  ' }).origin, PRODUCTION_API_ORIGIN);
-    assert.equal(at({ configured: 'production' }).origin, PRODUCTION_API_ORIGIN);
-    assert.equal(at({ configured: 'nonsense' }).origin, PRODUCTION_API_ORIGIN);
-  });
-
-  test('"local": the computer Metro runs on, port 3000', () => {
-    assert.deepEqual(at({ configured: 'local' }), { origin: 'http://192.168.1.20:3000', source: 'local' }, 'a phone on the same Wi-Fi');
-    assert.equal(at({ configured: 'local:4000' }).origin, 'http://192.168.1.20:4000');
-    assert.equal(at({ configured: 'local', hostUri: 'localhost:8081' }).origin, 'http://10.0.2.2:3000', 'the Android emulator');
-    assert.equal(at({ configured: 'local', hostUri: '127.0.0.1:8081', platform: 'ios' }).origin, 'http://127.0.0.1:3000', 'the iOS simulator');
-    assert.equal(at({ configured: 'local', hostUri: null, platform: 'android' }).origin, 'http://10.0.2.2:3000');
-    assert.equal(at({ configured: 'local', hostUri: null, platform: 'ios' }).origin, 'http://localhost:3000');
-  });
-
-  test('an explicit address is used as given, without a trailing /api', () => {
-    assert.deepEqual(at({ configured: 'http://10.0.0.5:3000/api/' }), { origin: 'http://10.0.0.5:3000', source: 'configured' });
-  });
-});
 
 describe('subject timetable editor', () => {
   const cls = (id, subject, day, start, end) => ({ id, subject, day, start, end });
