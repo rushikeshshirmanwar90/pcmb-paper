@@ -56,7 +56,11 @@ export interface TestQuestion {
 export interface Attempt {
   state: 'in-progress' | 'submitted';
   startedAt: string;
+  /** "violation" when the attempt was ended for leaving the app during the exam. */
+  endedReason?: 'violation' | null;
   deadline: string;
+  /** The server's clock when it answered, so the time left doesn't depend on the phone's clock. */
+  serverTime?: string;
   answers: { index: number; selected: string | null; correct: boolean | null }[];
   result: { score: number; maxScore: number; correct: number; wrong: number; skipped: number; timeTakenSeconds: number; submittedAt: string } | null;
 }
@@ -335,6 +339,10 @@ export const studentApi = {
     api<{ saved: number }>(`/tests/${id}/answers`, { method: 'PUT', body: { answers } }),
   submit: (id: string, answers: { index: number; selected: string | null }[]) =>
     api<{ attempt: Attempt; questions: TestQuestion[] }>(`/tests/${id}/submit`, { method: 'POST', body: { answers } }),
+
+  /** The app came back after `awayMs` out of the foreground. The server records it and ends the attempt if that was too long. */
+  reportAway: (id: string, awayMs: number, answers: { index: number; selected: string | null }[]) =>
+    api<{ attempt: Attempt; questions: TestQuestion[] }>(`/tests/${id}/events`, { method: 'POST', body: { type: 'away', awayMs, answers } }),
 
   answerPyq: (questionId: string, selected: string) =>
     api<PyqAnswerResult>('/pyq/answer', {
