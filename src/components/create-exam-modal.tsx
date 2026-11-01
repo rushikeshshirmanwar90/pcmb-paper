@@ -455,6 +455,12 @@ interface QuestionSetFlowProps {
    * the phone; the flow shows its own error if this throws.
    */
   onSubmitTest?: (input: { title: string; standard: Standard; subject: Subject; questions: Question[] }) => Promise<void>;
+  /**
+   * The test's name, class and subject when they were already chosen (the
+   * teacher's first step): they aren't asked again, and the flow starts at the
+   * chapters, topics, levels and number of questions.
+   */
+  locked?: { title: string; standard: Standard; subject: Subject };
   /** In the modal, closes it; the form inline on the Questions tab has no close. */
   onClose?: () => void;
   /** After a room is made: show it in the Exam Rooms list. */
@@ -474,6 +480,7 @@ export function QuestionSetFlow({
   onPurposeChange,
   onRoomCreated,
   onSubmitTest,
+  locked,
   onClose,
   onViewRooms,
   onViewPdfs,
@@ -490,9 +497,9 @@ export function QuestionSetFlow({
   useKeepServerConnection(active && step === 'config');
 
   // Details
-  const [title, setTitle] = useState('');
-  const [standard, setStandard] = useState<Standard | null>(null);
-  const [subject, setSubject] = useState<Subject | null>(null);
+  const [title, setTitle] = useState(locked?.title ?? '');
+  const [standard, setStandard] = useState<Standard | null>(locked?.standard ?? null);
+  const [subject, setSubject] = useState<Subject | null>(locked?.subject ?? null);
   // None picked means all of them.
   const [pickedChapters, setPickedChapters] = useState<string[]>([]);
   const [pickedTopics, setPickedTopics] = useState<string[]>([]);
@@ -827,6 +834,8 @@ export function QuestionSetFlow({
             <ChoiceChips label="Make" choices={PURPOSE_CHOICES} selected={purpose} onSelect={onPurposeChange} columns={2} />
           ) : null}
 
+          {!locked && (
+            <>
           <View style={styles.fieldGroup}>
             <Text style={[styles.fieldLabel, { color: palette.mutedForeground }]}>
               {isPdf ? 'Paper name' : onSubmitTest ? 'Test name' : 'Room name'}
@@ -870,6 +879,8 @@ export function QuestionSetFlow({
             disabledText={standard ? undefined : 'Choose a class first'}
             columns={2}
           />
+            </>
+          )}
 
           <View style={styles.fieldGroup}>
             <MultiSelectDropdown
@@ -924,7 +935,7 @@ export function QuestionSetFlow({
 
           {questionCount !== null ? (
             <Text style={[styles.summaryLine, { color: palette.foreground }]}>
-              {questionCount} questions · {questionCount * MARKS_PER_QUESTION} marks
+              {locked ? `${questionCount} questions` : `${questionCount} questions · ${questionCount * MARKS_PER_QUESTION} marks`}
             </Text>
           ) : null}
 
@@ -1088,7 +1099,7 @@ export function QuestionSetFlow({
               <Text style={[styles.primaryActionBtnText, { color: palette.onPrimary }]}>
                 {selectedCount === 0
                   ? 'Pick at least one question'
-                  : `${isPdf ? 'Make PDF' : onSubmitTest ? 'Create test' : 'Create room'} · ${selectedCount} question${selectedCount === 1 ? '' : 's'}`}
+                  : `${isPdf ? 'Make PDF' : onSubmitTest ? 'Continue' : 'Create room'} · ${selectedCount} question${selectedCount === 1 ? '' : 's'}`}
               </Text>
             </Pressable>
           </View>

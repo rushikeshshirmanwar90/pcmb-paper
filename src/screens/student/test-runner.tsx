@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, type ScrollViewInstance, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Alert, AppState, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, type ScrollViewInstance, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { confirmAction } from '@/components/account-section';
+import { allowScreenCaptureAsync, preventScreenCaptureAsync } from 'expo-screen-capture';
 import {
   Badge,
   Button,
@@ -24,6 +24,7 @@ import {
 import { MaxContentWidth } from '@/constants/theme';
 import { useSignedInUser } from '@/context/auth-context';
 import { bumpDataVersion } from '@/context/data-version';
+import { AWAY_LIMIT_MS, cellStatus, createAwayTracker, examCounts, secondsLeft, skewOf, type CellStatus } from '@/screens/student/exam-guard';
 import { createAnswerSaver, type AnswerSaver, type SaveState } from '@/screens/student/answer-saver';
 import { QuestionView } from '@/screens/student/question-view';
 import { clock, percentOf, resultTone, spokenDuration, subjectIcon, whenLabel } from '@/screens/student/test-format';
@@ -38,7 +39,36 @@ type Phase =
   | { kind: 'running'; test: TestSummary; attempt: Attempt; questions: TestQuestion[] }
   | { kind: 'review'; test: TestSummary; attempt: Attempt | null; questions: TestQuestion[]; justSubmitted: boolean };
 
-/** A test, full screen: the start page, answering with a timer, then the results. */
+const SCREEN_KEY = 'secure-exam';
+
+/**
+ * Screenshots and screen recording are blocked while a test is being taken,
+ * and only then. Android's Modal copies the window's secure flag when it is
+ * created, so the Modal is only drawn once the flag is on (or off again, for
+ * the results), and is rebuilt when that changes. Resolves to null until the
+ * first change has settled.
+ */
+function useScreenProtection(on: boolean): boolean | null {
+  const [settled, setSettled] = useState<boolean | null>(Platform.OS === 'web' ? on : null);
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    let live = true;
+    (on ? preventScreenCaptureAsync(SCREEN_KEY) : allowScreenCaptureAsync(SCREEN_KEY)).catch(() => {}).finally(() => live && setSettled(on));
+    return () => {
+      live = false;
+    };
+  }, [on]);
+  // Never leave the protection on behind us, whatever closes the test.
+  useEffect(
+    () => () => {
+      if (Platform.OS !== 'web') void allowScreenCaptureAsync(SCREEN_KEY).catch(() => {});
+    },
+    []
+  );
+  return settled;
+}
+
+/** A test, full screen: the secure exam's start page, answering with a timer, then the results. */
 export function TestRunner({ testId, onClose }: { testId: string; onClose: () => void }) {
   const palette = usePalette();
   const insets = useSafeAreaInsets();
@@ -46,8 +76,9 @@ export function TestRunner({ testId, onClose }: { testId: string; onClose: () =>
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
   const [busy, setBusy] = useState(false);
   const [round, setRound] = useState(0);
-  // The running test's "leave?" question, for Android's back button.
-  const leaveRef = useRef<(() => void) | null>(null);
+  // Android's back button during the exam: it can't leave, and says so.
+  const blockedBackRef = useRef<(() => void) | null>(null);
+  const protectedScreen = useScreenProtection(phase.kind !== 'review');
 
   useEffect(() => {
     let cancelled = false;
@@ -96,8 +127,16 @@ export function TestRunner({ testId, onClose }: { testId: string; onClose: () =>
     [testId, user.id]
   );
 
+  if (protectedScreen === null) return null;
+
   return (
-    <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={phase.kind === 'running' ? () => leaveRef.current?.() : close}>
+    <Modal
+      key={String(protectedScreen)}
+      visible
+      animationType="slide"
+      presentationStyle="fullScreen"
+      onRequestClose={phase.kind === 'running' ? () => blockedBackRef.current?.() : close}
+    >
       {/* A Modal is its own native window, where SafeAreaView reads no insets. It covers the whole
           screen, so the app's own insets are the right ones. */}
       <View style={[styles.root, { backgroundColor: palette.background, paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
@@ -117,8 +156,8 @@ export function TestRunner({ testId, onClose }: { testId: string; onClose: () =>
             test={phase.test}
             attempt={phase.attempt}
             questions={phase.questions}
-            leaveRef={leaveRef}
-            onLeave={close}
+            blockedBackRef={blockedBackRef}
+            onExit={close}
             onSubmitted={(attempt, questions) => onSubmitted(phase.test, attempt, questions)}
           />
         ) : (
@@ -188,8 +227,9 @@ function Intro({ test, busy, onStart, onClose }: { test: TestSummary; busy: bool
 
   return (
     <View style={styles.flex}>
-      <Header title="Test details" onClose={onClose} />
+      <Header title="Secure examination" onClose={onClose} />
       <ScrollView contentContainerStyle={[styles.body, column]}>
+        <Text style={[styles.eyebrow, { color: palette.primary }]}>SECURE EXAMINATION</Text>
         <View style={styles.hero}>
           <View style={[styles.heroTile, { backgroundColor: palette.primarySoft }]}>
             <Icon name={subjectIcon(test.subject)} color={palette.primary} size={24} />
@@ -206,7 +246,7 @@ function Intro({ test, busy, onStart, onClose }: { test: TestSummary; busy: bool
 
         <View style={styles.facts}>
           <Fact label="Questions" value={String(test.questionCount)} />
-          <Fact label="Time limit" value={`${test.durationMinutes} min`} />
+          <Fact label="Duration" value={`${test.durationMinutes} min`} />
           <Fact label="Total marks" value={String(test.maxScore)} />
           <Fact label="Each question" value={`+${test.marksPerQuestion}${test.negativeMarks ? ` / −${test.negativeMarks}` : ''}`} />
         </View>
@@ -223,16 +263,26 @@ function Intro({ test, busy, onStart, onClose }: { test: TestSummary; busy: bool
           />
         ) : null}
 
-        <SectionTitle title="Before you start" />
+        <SectionTitle title="Examination instructions" />
         <Card>
-          <Tip icon={{ ios: 'timer', android: 'timer' }} text="The timer starts when you tap Start test, and keeps running if you leave the app." />
+          <Tip icon={{ ios: 'timer', android: 'timer' }} text="The timer starts when you tap the button below and runs on the server's clock. Closing or restarting the app does not pause or reset it." />
           <Tip icon={{ ios: 'checkmark.icloud', android: 'cloud_done' }} text="Your answers save as you go. The bar at the top shows when they're saved." />
-          <Tip icon={{ ios: 'bookmark', android: 'bookmark' }} text="Mark questions for review to find them again in All questions." />
-          <Tip icon={{ ios: 'paperplane', android: 'send' }} text="When time runs out, your answers are submitted for you." />
+          <Tip icon={{ ios: 'bookmark', android: 'bookmark' }} text="Mark questions for review and use the question palette to move around." />
+          <Tip icon={{ ios: 'paperplane', android: 'send' }} text="Submit when you are done. When time runs out, your answers are submitted for you." />
+        </Card>
+
+        <SectionTitle title="Security restrictions" />
+        <Card>
+          <Tip icon={{ ios: 'lock', android: 'lock' }} text="In-app navigation is disabled during the examination. You can't leave it until you submit or time runs out." />
+          <Tip icon={{ ios: 'rectangle.on.rectangle.slash', android: 'block' }} text={`Switching applications is prohibited. If you leave the app for more than ${AWAY_LIMIT_MS / 1000} seconds, your test ends and is submitted with the answers saved so far.`} />
+          <Tip icon={{ ios: 'camera.viewfinder', android: 'screenshot' }} text="Screenshots and screen recording are restricted." />
+          <Tip icon={{ ios: 'hourglass', android: 'hourglass_top' }} text="The examination timer continues during interruptions such as calls or a lost connection." />
+          <Tip icon={{ ios: 'exclamationmark.shield', android: 'gpp_maybe' }} text="Confirmed security violations may automatically end the attempt. An ended attempt can't be restarted." />
+          <Tip icon={{ ios: 'chart.bar', android: 'bar_chart' }} text="Results become available after the test closes." />
         </Card>
       </ScrollView>
       <Footer>
-        <Button label="Start test" icon={{ ios: 'play.fill', android: 'play_arrow' }} onPress={onStart} loading={busy} />
+        <Button label="I Understand — Start Test" icon={{ ios: 'play.fill', android: 'play_arrow' }} onPress={onStart} loading={busy} />
       </Footer>
     </View>
   );
@@ -269,21 +319,20 @@ function Footer({ children }: { children: React.ReactNode }) {
 
 // ─── Taking the test ───────────────────────────────────────────────────────
 
-const remainingOf = (deadline: string) => Math.max(0, Math.round((new Date(deadline).getTime() - Date.now()) / 1000));
-
 function Runner({
   test,
   attempt,
   questions,
-  leaveRef,
-  onLeave,
+  blockedBackRef,
+  onExit,
   onSubmitted,
 }: {
   test: TestSummary;
   attempt: Attempt;
   questions: TestQuestion[];
-  leaveRef: React.RefObject<(() => void) | null>;
-  onLeave: () => void;
+  blockedBackRef: React.RefObject<(() => void) | null>;
+  /** Leaves the exam without submitting: only offered once time is up and the server has the saved answers. */
+  onExit: () => void;
   onSubmitted: (attempt: Attempt, questions: TestQuestion[]) => void;
 }) {
   const palette = usePalette();
@@ -295,9 +344,15 @@ function Runner({
   const markedRef = useRef(marked);
   const touched = useRef(new Set<number>());
   const [restored, setRestored] = useState(false);
-  const leaving = useRef(false);
   const [current, setCurrent] = useState(0);
-  const [remaining, setRemaining] = useState(() => remainingOf(attempt.deadline));
+  // Questions opened so far, for the palette's "not visited".
+  const [visited, setVisited] = useState<Set<number>>(() => new Set([questions[0]?.index]));
+  // The time left is the deadline by the server's clock; the phone's clock only tells how long ago the server answered.
+  const skewRef = useRef(skewOf(attempt.serverTime));
+  const [remaining, setRemaining] = useState(() => secondsLeft(attempt.deadline, skewOf(attempt.serverTime)));
+  // Set when the app was away longer than allowed and the server hasn't confirmed the outcome yet: the exam is frozen until it does.
+  const [frozen, setFrozen] = useState(false);
+  const [hint, setHint] = useState<string | null>(null);
   const [showPalette, setShowPalette] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -400,6 +455,7 @@ function Runner({
   // ── The clock; warnings at 5 minutes and 1 minute; at zero the test is
   // submitted with what's answered.
   const warned = useRef({ five: false, one: false });
+  const lastExpiryTry = useRef(0);
   useEffect(() => {
     const warn = (secondsLeft: number) => {
       const minutes = Math.max(1, Math.ceil(secondsLeft / 60));
@@ -407,10 +463,15 @@ function Runner({
       AccessibilityInfo.announceForAccessibility(`${minutes} minute${minutes === 1 ? '' : 's'} left`);
     };
     const timer = setInterval(() => {
-      const left = remainingOf(attempt.deadline);
+      const left = secondsLeft(attempt.deadline, skewRef.current);
       setRemaining(left);
-      if (left === 0) void submit();
-      else if (left <= 60 && !warned.current.one) {
+      if (left === 0) {
+        // Time is up: submit what is saved. If that can't reach the server, try again every few seconds.
+        if (Date.now() - lastExpiryTry.current >= 5000) {
+          lastExpiryTry.current = Date.now();
+          void submit();
+        }
+      } else if (left <= 60 && !warned.current.one) {
         warned.current.one = warned.current.five = true;
         warn(left);
       } else if (left <= 300 && !warned.current.five) {
@@ -432,6 +493,76 @@ function Runner({
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [current]);
 
+  /** Opens a question (by its place in the test) and counts it as visited. */
+  const goTo = (position: number) => {
+    const target = Math.min(questions.length - 1, Math.max(0, position));
+    setCurrent(target);
+    setVisited((v) => (v.has(questions[target].index) ? v : new Set(v).add(questions[target].index)));
+  };
+
+  // ── Leaving the app. Only the app really going to the background counts (not
+  // the keyboard, the app's own dialogs, or moving between questions). On
+  // return the time away goes to the server, which records it and ends the
+  // attempt if it was too long; the exam stays frozen until it answers. A
+  // report that can't be sent (no connection) is kept and retried, and a
+  // dropped connection by itself is never treated as leaving.
+  const awayTracker = useRef(createAwayTracker());
+  const pendingAway = useRef<number | null>(null);
+  const reporting = useRef(false);
+  const reportAway = useCallback(async () => {
+    const ms = pendingAway.current;
+    if (ms === null || reporting.current || submittedRef.current) return;
+    reporting.current = true;
+    try {
+      const result = await studentApi.reportAway(test.id, ms, all());
+      pendingAway.current = null;
+      skewRef.current = skewOf(result.attempt.serverTime);
+      if (result.attempt.state === 'submitted') {
+        submittedRef.current = true;
+        saverRef.current?.pause();
+        onSubmitted(result.attempt, result.questions);
+      } else setFrozen(false);
+    } catch {
+      // Kept and tried again shortly.
+    } finally {
+      reporting.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [test.id, onSubmitted]);
+
+  useEffect(() => {
+    const tracker = awayTracker.current;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background') tracker.background();
+      else if (state === 'active') {
+        const ms = tracker.foreground();
+        if (ms === null) return;
+        pendingAway.current = Math.max(pendingAway.current ?? 0, ms);
+        if (ms > AWAY_LIMIT_MS) setFrozen(true);
+        void reportAway();
+      }
+    });
+    const retry = setInterval(() => void reportAway(), 4000);
+    return () => {
+      sub.remove();
+      clearInterval(retry);
+    };
+  }, [reportAway]);
+
+  // Android's back button and back gestures can't leave the exam; they say so.
+  useEffect(() => {
+    blockedBackRef.current = () => setHint('Navigation is disabled during the exam. Submit the test to finish.');
+    return () => {
+      blockedBackRef.current = null;
+    };
+  }, [blockedBackRef]);
+
+  useEffect(() => {
+    if (!hint) return;
+    const timer = setTimeout(() => setHint(null), 4000);
+    return () => clearTimeout(timer);
+  }, [hint]);
+
   const select = (value: string | null) => {
     const index = questions[current].index;
     answersRef.current = new Map(answersRef.current).set(index, value);
@@ -450,72 +581,37 @@ function Runner({
   };
 
   const isAnswered = (index: number) => (answers.get(index) ?? null) !== null;
-  const answeredCount = questions.filter((q) => isAnswered(q.index)).length;
-  const markedCount = questions.filter((q) => marked.has(q.index)).length;
+  const statusOf = (index: number): CellStatus => cellStatus(isAnswered(index), marked.has(index), visited.has(index));
+  const counts = examCounts(questions.map((x) => statusOf(x.index)));
+  const answeredCount = counts.answered;
 
   const askSubmit = () => {
-    const left = questions.length - answeredCount;
-    const notes = [
-      left ? `${left} question${left === 1 ? ' is' : 's are'} not answered.` : 'Every question is answered.',
-      markedCount ? `${markedCount} ${markedCount === 1 ? 'is' : 'are'} marked for review.` : null,
-      "You can't change answers after submitting.",
-    ];
-    confirmAction('Submit the test?', notes.filter(Boolean).join(' '), 'Submit', () => void submit());
+    const message = `Answered: ${counts.answered}
+Unanswered: ${counts.unanswered}
+Marked for Review: ${counts.marked}
+
+You can't change answers after submitting.`;
+    if (Platform.OS === 'web') {
+      if (globalThis.confirm?.(`SUBMIT TEST?
+
+${message}`)) void submit();
+      return;
+    }
+    Alert.alert('SUBMIT TEST?', message, [
+      { text: 'Continue Exam', style: 'cancel' },
+      { text: 'Submit Test', onPress: () => void submit() },
+    ]);
   };
-
-  // Leaves only once the last save has the server's answer. If it failed,
-  // says so and what happens to those answers, and lets the student stay.
-  const leave = useCallback(async () => {
-    if (leaving.current) return;
-    leaving.current = true;
-    const saved = (await saverRef.current?.settle()) ?? true;
-    const kept = await persistDraft();
-    leaving.current = false;
-    if (saved) return onLeave();
-    confirmAction(
-      "Some answers aren't saved",
-      kept
-        ? "They couldn't reach the server, so they're kept on this phone and sent when you open this test again. If time runs out before then, only the answers already saved count."
-        : "They couldn't reach the server or be kept on this phone, so they may be lost if you leave. Cancel to stay and keep trying.",
-      'Leave anyway',
-      onLeave
-    );
-  }, [onLeave, persistDraft]);
-
-  const askLeave = useCallback(() => {
-    confirmAction(
-      'Leave the test?',
-      `${
-        saveState === 'saved'
-          ? 'Your answers are saved.'
-          : saveState === 'error'
-          ? "Some answers aren't saved yet; the app tries again before you leave."
-          : 'Your last answer is being saved.'
-      } The timer keeps running while you're away. If time runs out before you come back, your saved answers are submitted.`,
-      'Leave',
-      () => void leave()
-    );
-  }, [saveState, leave]);
-
-  useEffect(() => {
-    leaveRef.current = askLeave;
-    return () => {
-      leaveRef.current = null;
-    };
-  }, [askLeave, leaveRef]);
 
   const q = questions[current];
   const last = current === questions.length - 1;
   const answeredNow = isAnswered(q.index);
   const markedNow = marked.has(q.index);
+  const timeUp = remaining === 0;
 
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Header
-        title={test.title}
-        leading={<IconButton icon={{ ios: 'chevron.down', android: 'close' }} label="Leave test" onPress={askLeave} />}
-        trailing={<TimerPill seconds={remaining} />}
-      />
+      <Header title={test.title} trailing={<TimerPill seconds={remaining} />} />
 
       <View style={[styles.statusBar, { borderBottomColor: palette.border, backgroundColor: palette.card }]}>
         <View style={[styles.statusRow, column]}>
@@ -548,13 +644,18 @@ function Runner({
         <QuestionPalette
           questions={questions}
           current={current}
-          isAnswered={isAnswered}
-          marked={marked}
+          statusOf={statusOf}
           onPick={(i) => {
-            setCurrent(i);
+            goTo(i);
             setShowPalette(false);
           }}
         />
+      ) : null}
+
+      {hint ? (
+        <View style={[styles.warning, column]}>
+          <Notice tone="warning" icon={{ ios: 'lock', android: 'lock' }} title="Exam in progress" text={hint} live />
+        </View>
       ) : null}
 
       {warning ? (
@@ -606,18 +707,30 @@ function Runner({
             label="Previous"
             variant="secondary"
             icon={{ ios: 'chevron.left', android: 'chevron_left' }}
-            onPress={() => setCurrent((i) => Math.max(0, i - 1))}
+            onPress={() => goTo(current - 1)}
             disabled={current === 0}
             style={styles.flex}
           />
           {last ? (
             <Button label="Submit test" icon={{ ios: 'paperplane.fill', android: 'send' }} onPress={askSubmit} loading={submitting} style={styles.flex} />
           ) : (
-            <Button label="Next" onPress={() => setCurrent((i) => Math.min(questions.length - 1, i + 1))} style={styles.flex} />
+            <Button label="Next" onPress={() => goTo(current + 1)} style={styles.flex} />
           )}
         </View>
         {!last ? <QuietButton label="Submit test" onPress={askSubmit} disabled={submitting} /> : null}
+        {timeUp && error ? <QuietButton label="Time is up — exit (saved answers are submitted)" tone="muted" onPress={onExit} /> : null}
       </Footer>
+      {frozen ? (
+        <View style={[styles.frozen, { backgroundColor: palette.background }]} accessibilityViewIsModal>
+          <Icon name={{ ios: 'lock.shield', android: 'gpp_maybe' }} color={palette.primary} size={32} />
+          <Text accessibilityRole="header" accessibilityLiveRegion="polite" style={[styles.frozenTitle, { color: palette.foreground }]}>
+            Ending your test
+          </Text>
+          <Text style={[styles.frozenText, { color: palette.mutedForeground }]}>
+            You left the app for longer than allowed. Your saved answers are being submitted. If you have no connection, this finishes as soon as you are back online.
+          </Text>
+        </View>
+      ) : null}
     </KeyboardAvoidingView>
   );
 }
@@ -668,40 +781,46 @@ function SaveStatus({ state, onRetry }: { state: SaveState; onRetry: () => void 
 function QuestionPalette({
   questions,
   current,
-  isAnswered,
-  marked,
+  statusOf,
   onPick,
 }: {
   questions: TestQuestion[];
   current: number;
-  isAnswered: (index: number) => boolean;
-  marked: Set<number>;
+  statusOf: (index: number) => CellStatus;
   onPick: (position: number) => void;
 }) {
   const palette = usePalette();
-  const answered = questions.filter((q) => isAnswered(q.index)).length;
-  const markedCount = questions.filter((q) => marked.has(q.index)).length;
+  const counts = examCounts(questions.map((x) => statusOf(x.index)));
   return (
     <View style={[styles.palettePanel, { borderBottomColor: palette.border, backgroundColor: palette.card }]}>
       <View style={[styles.paletteInner, column]}>
         <Text style={[styles.paletteSummary, { color: palette.foreground }]}>
-          {answered} answered · {questions.length - answered} not answered{markedCount ? ` · ${markedCount} marked` : ''}
+          {counts.answered} answered · {counts.unanswered} not answered · {counts.marked} marked · {counts.notVisited} not visited
         </Text>
         <View style={styles.legend} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           <LegendItem label="Answered" swatch={{ backgroundColor: palette.primarySoft, borderColor: palette.primaryBorder }} />
           <LegendItem label="Not answered" swatch={{ backgroundColor: palette.card, borderColor: palette.borderStrong }} />
+          <LegendItem label="Not visited" swatch={{ backgroundColor: palette.secondary, borderColor: palette.border }} />
           <LegendItem label="Current" swatch={{ backgroundColor: palette.card, borderColor: palette.primary, borderWidth: 2 }} />
           <View style={styles.legendItem}>
             <Icon name={{ ios: 'bookmark.fill', android: 'bookmark' }} color={palette.violet} size={13} />
-            <Text style={[styles.legendText, { color: palette.mutedForeground }]}>Marked</Text>
+            <Text style={[styles.legendText, { color: palette.mutedForeground }]}>Marked · answered and marked</Text>
           </View>
         </View>
         <ScrollView style={styles.paletteScroll} contentContainerStyle={styles.grid} nestedScrollEnabled>
           {questions.map((x, i) => {
-            const done = isAnswered(x.index);
-            const isMarked = marked.has(x.index);
+            const status = statusOf(x.index);
+            const done = status === 'answered' || status === 'answered-marked';
+            const isMarked = status === 'marked' || status === 'answered-marked';
+            const unseen = status === 'not-visited';
             const here = i === current;
-            const states = [done ? 'answered' : 'not answered', isMarked ? 'marked for review' : null, here ? 'current' : null].filter(Boolean).join(', ');
+            const states = [
+              done ? 'answered' : unseen ? 'not visited' : 'not answered',
+              isMarked ? 'marked for review' : null,
+              here ? 'current' : null,
+            ]
+              .filter(Boolean)
+              .join(', ');
             return (
               <Pressable
                 key={x.index}
@@ -711,8 +830,8 @@ function QuestionPalette({
                 style={({ pressed }) => [
                   styles.cell,
                   {
-                    backgroundColor: done ? palette.primarySoft : palette.card,
-                    borderColor: here ? palette.primary : done ? palette.primaryBorder : palette.borderStrong,
+                    backgroundColor: done ? palette.primarySoft : unseen ? palette.secondary : palette.card,
+                    borderColor: here ? palette.primary : done ? palette.primaryBorder : unseen ? palette.border : palette.borderStrong,
                     borderWidth: here ? 2 : 1,
                   },
                   pressed && styles.pressed,
@@ -781,11 +900,32 @@ function Review({
   const count = (o: Outcome) => rows.filter((r) => r.outcome === o).length;
   const shown = filter === 'all' ? rows : rows.filter((r) => r.outcome === filter);
 
+  // Until the test closes the server sends only the submission time: confirm it, show nothing about marks or answers.
+  if (attempt && typeof result?.score !== 'number') {
+    return <Submitted test={test} attempt={attempt} total={questions.length} justSubmitted={justSubmitted} onClose={onClose} />;
+  }
+
   return (
     <View style={styles.flex}>
       <Header title="Results" onClose={onClose} />
       <ScrollView contentContainerStyle={[styles.body, column]}>
-        {justSubmitted ? <Notice tone="success" title="Test submitted" text="Your answers are in. Here's how you did." live /> : null}
+        {attempt?.endedReason === 'violation' ? (
+          <Notice
+            tone="danger"
+            icon={{ ios: 'exclamationmark.shield', android: 'gpp_maybe' }}
+            title="Your test was ended"
+            text="You left the app during the examination, so it was submitted with the answers saved up to then. It can't be restarted."
+            live
+          />
+        ) : justSubmitted ? (
+          <Notice
+            tone="success"
+            icon={{ ios: 'checkmark.seal', android: 'verified' }}
+            title="✓ TEST SUBMITTED SUCCESSFULLY"
+            text={result && 'score' in result ? "Your answers are in. Here's how you did." : 'Your answers are in. Your results will be available after the test closes.'}
+            live
+          />
+        ) : null}
 
         <Text accessibilityRole="header" style={[styles.reviewTitle, { color: palette.foreground }]}>
           {test.title}
@@ -841,6 +981,46 @@ function Review({
           </Card>
         )}
       </ScrollView>
+    </View>
+  );
+}
+
+/** A submitted attempt while the test is still open: that it is in, and nothing about marks, right answers or solutions. */
+function Submitted({ test, attempt, total, justSubmitted, onClose }: { test: TestSummary; attempt: Attempt; total: number; justSubmitted: boolean; onClose: () => void }) {
+  const palette = usePalette();
+  const [now] = useState(() => Date.now());
+  const answered = attempt.answers.filter((a) => a.selected !== null).length;
+  const submittedAt = attempt.result?.submittedAt;
+  const violation = attempt.endedReason === 'violation';
+  return (
+    <View style={styles.flex}>
+      <Header title="Test submitted" />
+      <ScrollView contentContainerStyle={[styles.body, column]}>
+        {violation ? (
+          <Notice
+            tone="danger"
+            icon={{ ios: 'exclamationmark.shield', android: 'gpp_maybe' }}
+            title="Your test was ended"
+            text="You left the app during the examination, so it was submitted with the answers saved up to then. It can't be restarted."
+            live
+          />
+        ) : (
+          <Notice tone="success" icon={{ ios: 'checkmark.seal', android: 'verified' }} title="✓ TEST SUBMITTED SUCCESSFULLY" text="Your answers are in." live={justSubmitted} />
+        )}
+        <Text accessibilityRole="header" style={[styles.reviewTitle, { color: palette.foreground }]}>
+          {test.title}
+        </Text>
+        <Card>
+          <DetailRow label="Answered" value={`${answered} of ${total}`} />
+          {submittedAt ? <DetailRow label="Submitted" value={whenLabel(submittedAt, now)} /> : null}
+        </Card>
+        <Text style={[styles.meta, { color: palette.mutedForeground }]}>
+          Your score, the right answers and the solutions become available after the test closes{test.closesAt ? ` (${whenLabel(test.closesAt, now)})` : ''}.
+        </Text>
+      </ScrollView>
+      <Footer>
+        <Button label="Done" onPress={onClose} />
+      </Footer>
     </View>
   );
 }
@@ -905,6 +1085,10 @@ const styles = StyleSheet.create({
   footer: { borderTopWidth: 1 },
   footerInner: { padding: 16, paddingBottom: 12, gap: 6 },
 
+  eyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 1.1 },
+  frozen: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 32 },
+  frozenTitle: { fontSize: 20, fontWeight: '800', textAlign: 'center' },
+  frozenText: { fontSize: 14, lineHeight: 21, textAlign: 'center', maxWidth: 360 },
   hero: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   heroTile: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   heroTitle: { fontSize: 22, lineHeight: 28, fontWeight: '800' },

@@ -156,6 +156,7 @@ function NumericalAnswer({
         placeholderTextColor={palette.mutedForeground}
         keyboardType="numbers-and-punctuation"
         accessibilityLabel="Your answer"
+        contextMenuHidden
         maxLength={20}
         style={[styles.input, { color: palette.foreground, borderColor: border, backgroundColor: palette.card, borderWidth: right || wrong ? 2 : 1.5 }]}
       />
