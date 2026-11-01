@@ -85,6 +85,28 @@ export interface TestResultRow {
   timeTakenSeconds: number;
 }
 
+export type TestMonitorState = 'not-started' | 'in-progress' | 'submitted' | 'auto-submitted' | 'violation';
+
+/** One student's place in a test, as the server recorded it. No marks and no answer content. */
+export interface TestMonitorRow {
+  student: { id: string; name: string };
+  state: TestMonitorState;
+  answered: number;
+  total: number;
+  startedAt: string | null;
+  submittedAt: string | null;
+  /** Seconds left on the server's deadline; only while in progress. */
+  remainingSeconds: number | null;
+}
+
+export interface TestMonitor {
+  status: TestStatus;
+  serverTime: string;
+  /** total = notStarted + inProgress + submitted; submitted includes the auto-submitted and violation attempts counted again below. */
+  counts: { total: number; notStarted: number; inProgress: number; submitted: number; autoSubmitted: number; violations: number };
+  students: TestMonitorRow[];
+}
+
 /** A question as the test holds it: a copy, with `sourceId` pointing at the bank's original. */
 export type TestQuestionCopy = Omit<Question, '_id' | 'questionNumber'> & { sourceId: string | null };
 
@@ -149,6 +171,8 @@ export const schoolApi = {
 
   tests: (batchId?: string) => api<{ tests: TestSummary[] }>(`/tests${batchId ? `?batchId=${batchId}` : ''}`).then((r) => r.tests),
   test: (id: string) => api<TestDetail>(`/tests/${id}`),
+  /** Who has started, is answering or has finished a test (teachers and the tuition). */
+  testMonitor: (id: string) => api<TestMonitor>(`/tests/${id}/monitor`),
   createTest: (input: NewTest) => api<{ test: TestSummary }>('/tests', { method: 'POST', body: input }).then((r) => r.test),
   /** Edits an upcoming test that nobody has started, or closes an open one early with { closeNow: true }. */
   updateTest: (id: string, input: Partial<Omit<NewTest, 'batchId' | 'subject' | 'standard'>> & { closeNow?: boolean }) =>

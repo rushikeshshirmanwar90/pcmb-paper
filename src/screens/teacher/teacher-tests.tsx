@@ -29,6 +29,8 @@ import { PROGRAM_LABELS, SCHOOL_STANDARDS, programOf, questionBankOf, type Schoo
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
 import { DateField } from '@/screens/teacher/date-field';
 import { TestAnalysisSection } from '@/screens/teacher/test-analysis';
+import { LiveMonitorSection, useLiveMonitor } from '@/screens/teacher/test-monitor-section';
+import { monitorModeOf } from '@/screens/teacher/test-monitor';
 import {
   FILTER_LABELS,
   STATUS_FILTER,
@@ -50,7 +52,7 @@ import {
   type TestFilter,
 } from '@/screens/teacher/test-schedule';
 import { TimeField } from '@/screens/tuition/time-field';
-import { dateTimeLabel, schoolApi, type TeacherOverview, type TestQuestionCopy, type TestSummary } from '@/services/school-api';
+import { dateTimeLabel, schoolApi, type TeacherOverview, type TestDetail as TestDetailData, type TestQuestionCopy, type TestSummary } from '@/services/school-api';
 import type { Question, Standard, Subject } from '@/types/pcmb';
 
 export const STATUS_BADGE = STATUS_WORDS;
@@ -572,18 +574,20 @@ function QuestionPreview({ questions, onRemove }: { questions: Question[]; onRem
 // ─── A test's details, with what can be done by where it is ────────────────
 
 function TestDetail({ id, onClose, onEdit }: { id: string; onClose: () => void; onEdit: (test: TestSummary, questions: TestQuestionCopy[]) => void }) {
-  const palette = usePalette();
   const version = useDataVersion();
   const { data, error, loading, refreshing, refresh, reload } = useLoad(() => schoolApi.test(id), [id, version]);
   const [actionError, setActionError] = useState<string | null>(null);
   const test: TestSummary | undefined = data?.test;
   const can = test ? actionsFor(test) : null;
+  // Live: polled while this sheet is open; completed: read once; upcoming: nothing to watch.
+  const monitor = useLiveMonitor(id, monitorModeOf(test?.status), reload);
 
   const act = async (action: () => Promise<unknown>, after?: () => void) => {
     setActionError(null);
     try {
       await action();
       bumpDataVersion();
+      void monitor.refresh();
       after?.();
     } catch (e) {
       setActionError(e instanceof Error ? e.message : 'Something went wrong.');
@@ -600,7 +604,10 @@ function TestDetail({ id, onClose, onEdit }: { id: string; onClose: () => void; 
       visible
       title={test?.title ?? 'Test'}
       onClose={onClose}
-      onRefresh={refresh}
+      onRefresh={() => {
+        refresh();
+        void monitor.refresh();
+      }}
       refreshing={refreshing}
       footer={
         data?.canEdit && test && can && (can.edit || can.closeNow) ? (
@@ -622,15 +629,16 @@ function TestDetail({ id, onClose, onEdit }: { id: string; onClose: () => void; 
           <Card>
             <View style={styles.badges}>
               <Badge label={STATUS_WORDS[test.status].label} tone={STATUS_WORDS[test.status].tone} />
-              {test.subject ? <Badge label={test.subject} tone="violet" /> : null}
             </View>
+            <DetailRow label="Subject" value={test.subject || '—'} />
             <DetailRow label="Batch" value={test.batch.name} />
-            <DetailRow label="Questions" value={`${test.questionCount} · ${test.maxScore} marks`} />
-            <DetailRow label="Marking" value={`+${test.marksPerQuestion}${test.negativeMarks ? ` / −${test.negativeMarks}` : ', no negative marks'}`} />
-            <DetailRow label="Time limit" value={`${test.durationMinutes} min`} />
-            <DetailRow label="Opens" value={dateTimeLabel(test.opensAt)} />
-            <DetailRow label="Closes" value={dateTimeLabel(test.closesAt)} />
+            <DetailRow label="Start time" value={dateTimeLabel(test.opensAt)} />
+            <DetailRow label="Closing time" value={dateTimeLabel(test.closesAt)} />
             {test.lastStartAt ? <DetailRow label="Last start" value={dateTimeLabel(test.lastStartAt)} /> : null}
+            <DetailRow label="Duration" value={`${test.durationMinutes} min`} />
+            <DetailRow label="Total questions" value={String(test.questionCount)} />
+            <DetailRow label="Maximum marks" value={String(test.maxScore)} />
+            <DetailRow label="Marking" value={`+${test.marksPerQuestion}${test.negativeMarks ? ` / −${test.negativeMarks}` : ', no negative marks'}`} />
             <DetailRow label="Set by" value={test.teacher.name} />
           </Card>
 
@@ -638,45 +646,56 @@ function TestDetail({ id, onClose, onEdit }: { id: string; onClose: () => void; 
             <Muted>{"Students can't see this test's questions until it opens. You can edit or cancel it until then."}</Muted>
           ) : (
             <>
-              <SectionTitle title={`${test.status === 'closed' ? 'Results' : 'Submissions'} · ${test.submitted}/${test.batchStudents} submitted`} />
-              {test.averageScore !== null ? (
-                <Muted>
-                  Average {test.averageScore} of {test.maxScore}
-                </Muted>
-              ) : null}
-              {data.results.length ? (
-                <Card style={styles.listCard}>
-                  {data.results.map((r, i) => (
-                    <ListRow
-                      key={r.student.id}
-                      title={r.student.name}
-                      subtitle={
-                        r.state === 'submitted'
-                          ? `${r.correct} right · ${r.wrong} wrong · ${r.skipped} skipped · ${Math.round(r.timeTakenSeconds / 60)} min`
-                          : r.state === 'in-progress'
-                          ? 'Taking it now'
-                          : 'Not taken yet'
-                      }
-                      right={
-                        r.score !== null ? (
-                          <Text style={[styles.score, { color: palette.foreground }]}>
-                            {r.score}/{test.maxScore}
-                          </Text>
-                        ) : undefined
-                      }
-                      last={i === data.results.length - 1}
-                    />
-                  ))}
-                </Card>
-              ) : (
-                <Muted>No students in this batch.</Muted>
-              )}
+              <LiveMonitorSection monitor={monitor} live={test.status === 'open'} />
+              {test.status === 'closed' ? <ResultsList data={data} test={test} /> : null}
               <TestAnalysisSection testId={test.id} submitted={test.submitted} />
             </>
           )}
         </>
       ) : null}
     </DetailSheet>
+  );
+}
+
+/** The scores of a completed test, best first. */
+function ResultsList({ data, test }: { data: TestDetailData; test: TestSummary }) {
+  const palette = usePalette();
+  return (
+    <>
+      <SectionTitle title={`Results · ${test.submitted}/${test.batchStudents} submitted`} />
+      {test.averageScore !== null ? (
+        <Muted>
+          Average {test.averageScore} of {test.maxScore}
+        </Muted>
+      ) : null}
+      {data.results.length ? (
+        <Card style={styles.listCard}>
+          {data.results.map((r, i) => (
+            <ListRow
+              key={r.student.id}
+              title={r.student.name}
+              subtitle={
+                r.state === 'submitted'
+                  ? `${r.correct} right · ${r.wrong} wrong · ${r.skipped} skipped · ${Math.round(r.timeTakenSeconds / 60)} min`
+                  : r.state === 'in-progress'
+                  ? 'Taking it now'
+                  : 'Not taken yet'
+              }
+              right={
+                r.score !== null ? (
+                  <Text style={[styles.score, { color: palette.foreground }]}>
+                    {r.score}/{test.maxScore}
+                  </Text>
+                ) : undefined
+              }
+              last={i === data.results.length - 1}
+            />
+          ))}
+        </Card>
+      ) : (
+        <Muted>No students in this batch.</Muted>
+      )}
+    </>
   );
 }
 
