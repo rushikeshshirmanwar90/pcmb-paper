@@ -2,7 +2,9 @@ import React, { useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { confirmAction } from '@/components/account-section';
-import { QuestionSetFlow } from '@/components/create-exam-modal';
+import { QuestionSetFlow, type QuestionFlowControl } from '@/components/create-exam-modal';
+import { Diagrams } from '@/components/diagrams';
+import { MathText } from '@/components/math-text';
 import {
   Badge,
   Button,
@@ -28,6 +30,7 @@ import {
 import { PROGRAM_LABELS, SCHOOL_STANDARDS, programOf, questionBankOf, type SchoolStandard, type SchoolSubject } from '@/constants/school';
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
 import { DateField } from '@/screens/teacher/date-field';
+import { pickerQuestions, stepBack } from '@/screens/teacher/test-questions';
 import { TestAnalysisSection } from '@/screens/teacher/test-analysis';
 import { LiveMonitorSection, useLiveMonitor } from '@/screens/teacher/test-monitor-section';
 import { monitorModeOf } from '@/screens/teacher/test-monitor';
@@ -187,8 +190,6 @@ type Batch = TeacherOverview['batches'][number];
 type Step = 1 | 2 | 3 | 4 | 5;
 const STEP_NAMES = ['Details', 'Questions', 'Marks and timing', 'Review'];
 
-/** A test's saved copy of a question, as the question picker holds it. */
-const asQuestion = (q: TestQuestionCopy, i: number): Question => ({ ...q, _id: q.sourceId ?? '', questionNumber: i + 1 });
 
 /** Tomorrow at 10:00, in the phone's time zone. */
 function defaultOpening() {
@@ -226,10 +227,12 @@ function TestWizard({
   const bank = batch ? questionBankOf(programOf(batch)) : null;
 
   // Step 2: questions
-  const [questions, setQuestions] = useState<Question[]>(edit ? edit.questions.map(asQuestion) : []);
-  const [picking, setPicking] = useState(!edit);
+  // An edited test's questions start picked, matched to the bank by their source id.
+  const [questions, setQuestions] = useState<Question[]>(() => (edit ? pickerQuestions(edit.questions) : []));
   // Mounted only once the details are right, so nothing is fetched for a batch without a question bank.
   const [pickerOpened, setPickerOpened] = useState(false);
+  // The picker's own steps (Change topic) and live picks, for Back and for unsaved changes.
+  const flow = useRef<QuestionFlowControl | null>(null);
 
   // Step 3: marks and timing
   const [correct, setCorrect] = useState(String(edit?.test.marksPerQuestion ?? 4));
@@ -273,11 +276,6 @@ function TestWizard({
     goTo(2);
   };
 
-  const fromQuestions = () => {
-    if (!questions.length) return setError('Pick at least one question.');
-    goTo(3);
-  };
-
   const fromTiming = () => {
     const problem = timingError();
     if (problem) return setError(problem);
@@ -316,10 +314,42 @@ function TestWizard({
   };
 
   const headerTitle = step === 5 ? 'Done' : edit ? 'Edit test' : 'New test';
-  const back = () => goTo((step - 1) as Step);
+
+  // Whether an edit has anything not yet saved; the picks come from the picker while it holds them.
+  const changed = () => {
+    if (!edit) return false;
+    const t = edit.test;
+    const picked = flow.current?.pickedIds() ?? questions.map((q) => q._id);
+    const saved = pickerQuestions(edit.questions).map((q) => q._id);
+    return (
+      title.trim() !== t.title ||
+      picked.join('|') !== saved.join('|') ||
+      correct !== String(t.marksPerQuestion ?? 4) ||
+      wrong !== String(t.negativeMarks ?? 0) ||
+      minutes !== String(t.durationMinutes ?? 60) ||
+      mode !== 'later' ||
+      opens.getTime() !== new Date(t.opensAt).getTime() ||
+      (closesPick !== null && closesPick.getTime() !== new Date(t.closesAt).getTime())
+    );
+  };
+
+  // The ✕: leaving an edit with unsaved changes asks first; the saved test stays as it was.
+  const leave = () => {
+    if (step < 5 && changed()) confirmAction('Discard your changes?', 'The test stays as it was last saved.', 'Discard', onClose);
+    else onClose();
+  };
+
+  // One Back for the arrow, the Back buttons and Android's Back button or gesture:
+  // inside the picker it steps back from Change topic to the questions, otherwise one step back.
+  const back = () => {
+    if (step === 2 && flow.current?.back()) return;
+    const to = stepBack(step);
+    if (to === 'leave') return leave();
+    goTo(to);
+  };
 
   return (
-    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={back}>
       <SafeAreaView edges={['top', 'bottom']} style={[styles.flex, { backgroundColor: palette.background }]}>
         <View style={[styles.wizardHeader, { borderBottomColor: palette.border, backgroundColor: palette.card }]}>
           {step > 1 && step < 5 ? (
@@ -337,7 +367,7 @@ function TestWizard({
               </Text>
             ) : null}
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} hitSlop={10} style={styles.headerBtn}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={leave} hitSlop={10} style={styles.headerBtn}>
             <Icon name={{ ios: 'xmark', android: 'close' }} color={palette.foreground} size={18} />
           </Pressable>
         </View>
@@ -364,40 +394,26 @@ function TestWizard({
         ) : null}
 
         {/* The question picker stays mounted once opened, so going back to it keeps the picks. */}
-        {pickerOpened && !edit && bank && standard && subject ? (
+        {pickerOpened && (edit || (bank && standard && subject)) ? (
           <View style={[styles.flex, step !== 2 && styles.hidden]}>
             <QuestionSetFlow
-              key={`${batchId}|${subject}|${standard}`}
+              key={edit ? edit.test.id : `${batchId}|${subject}|${standard}`}
               purpose="room"
               active={step === 2}
-              locked={{ title: title.trim(), standard: standard as Standard, subject: subject as Subject }}
+              locked={{
+                title: title.trim(),
+                standard: (edit ? edit.test.standard || '11th' : standard) as Standard,
+                subject: (edit ? edit.test.subject : subject) as Subject,
+              }}
+              initialQuestions={edit ? questions : undefined}
+              onBack={back}
+              controlRef={flow}
               onSubmitTest={async ({ questions: picked }) => {
                 setQuestions(picked);
                 goTo(3);
               }}
             />
           </View>
-        ) : null}
-
-        {step === 2 && edit ? (
-          picking ? (
-            <View style={styles.flex}>
-              <QuestionSetFlow
-                purpose="room"
-                locked={{ title: title.trim(), standard: (edit.test.standard || '11th') as Standard, subject: edit.test.subject as Subject }}
-                onClose={() => setPicking(false)}
-                onSubmitTest={async ({ questions: picked }) => {
-                  setQuestions(picked);
-                  setPicking(false);
-                }}
-              />
-            </View>
-          ) : (
-            <WizardPage footer={<Button label="Next: marks and timing" onPress={fromQuestions} />} error={error}>
-              <QuestionPreview questions={questions} onRemove={(i) => setQuestions((q) => q.filter((_, at) => at !== i))} />
-              <Button label="Pick different questions" variant="secondary" icon={{ ios: 'arrow.triangle.2.circlepath', android: 'autorenew' }} onPress={() => setPicking(true)} />
-            </WizardPage>
-          )
         ) : null}
 
         {step === 3 ? (
@@ -486,7 +502,14 @@ function TestWizard({
               <DetailRow label="Last start" value={dateTimeLabel(lastStartOf(closesAt, duration).toISOString())} />
             </Card>
             <SectionTitle title="Questions" />
-            <QuestionPreview questions={questions} onRemove={(i) => setQuestions((q) => q.filter((_, at) => at !== i))} />
+            <QuestionPreview
+              questions={questions}
+              onRemove={(i) => {
+                // The picker is where picks live: unpick there too, or going back would bring it back.
+                flow.current?.deselect(questions[i]._id);
+                setQuestions((q) => q.filter((_, at) => at !== i));
+              }}
+            />
           </WizardPage>
         ) : null}
 
@@ -550,9 +573,21 @@ function QuestionPreview({ questions, onRemove }: { questions: Question[]; onRem
         <View key={`${q._id}-${i}`} style={[styles.previewRow, i < shown.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }]}>
           <Text style={[styles.previewNo, { color: palette.mutedForeground }]}>{i + 1}</Text>
           <View style={styles.flex}>
-            <Text style={[styles.previewText, { color: palette.foreground }]} numberOfLines={2}>
-              {q.questionText}
-            </Text>
+            <MathText text={q.questionText} fontSize={14} color={palette.foreground} />
+            <Diagrams urls={q.diagramUrls} maxHeight={180} />
+            {(['A', 'B', 'C', 'D'] as const).map((key) => {
+              const option = q[`option${key}` as const];
+              const figures = q.optionDiagramUrls?.[key];
+              return option || figures?.length ? (
+                <View key={key} style={styles.previewOption}>
+                  <Text style={[styles.previewOptionKey, { color: palette.mutedForeground }]}>{key}.</Text>
+                  <View style={styles.flex}>
+                    {option ? <MathText text={option} fontSize={13} color={palette.foreground} /> : null}
+                    <Diagrams urls={figures} maxHeight={120} />
+                  </View>
+                </View>
+              ) : null;
+            })}
             <Text style={[styles.cardLine, { color: palette.mutedForeground }]} numberOfLines={1}>
               {[q.chapter, q.topic].filter(Boolean).join(' · ')}
             </Text>
@@ -718,9 +753,11 @@ const styles = StyleSheet.create({
   headerBtn: { padding: 4 },
   wizardBody: { padding: 16, gap: 14 },
   wizardFooter: { padding: 16, gap: 10, borderTopWidth: 1 },
-  previewRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
+  previewRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 10 },
   previewNo: { width: 22, fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'] },
   previewText: { fontSize: 14 },
+  previewOption: { flexDirection: 'row', gap: 6, marginTop: 4 },
+  previewOptionKey: { width: 16, fontSize: 13, fontWeight: '600' },
   doneHead: { alignItems: 'center', gap: 12, paddingVertical: 12 },
   doneIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
   doneTitle: { fontSize: 17, fontWeight: '800', letterSpacing: 0.4, textAlign: 'center' },

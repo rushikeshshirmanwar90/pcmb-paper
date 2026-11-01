@@ -1,4 +1,4 @@
-import React, { useState, memo, useCallback } from 'react';
+import React, { useState, useRef, useEffect, memo, useCallback } from 'react';
 import {
   Modal,
   View,
@@ -21,7 +21,9 @@ import { DropdownSelect } from '@/components/dropdown-select';
 import { MultiSelectDropdown } from '@/components/multi-select-dropdown';
 import { useChapterTopicOptions } from '@/hooks/use-chapter-topic-options';
 import { ALL_STANDARDS, SUBJECTS_BY_TRACK, trackOf } from '@/constants/syllabus';
+import { Diagrams } from './diagrams';
 import { MathText } from './math-text';
+import { pickedInOrder, pickerList, pickerTakesBack, reconcilePool, seedTopic } from '@/screens/teacher/test-questions';
 import { Explanation } from './explanation';
 import type {
   DifficultyLevel,
@@ -387,6 +389,7 @@ const QuestionReviewCard = memo(function QuestionReviewCard({
       {/* Question Content */}
       <View style={{ marginBottom: 8 }}>
         <MathText text={question.questionText} fontSize={14} color={palette.foreground} />
+        <Diagrams urls={question.diagramUrls} maxHeight={180} />
       </View>
 
       {/* Options Preview */}
@@ -423,6 +426,7 @@ const QuestionReviewCard = memo(function QuestionReviewCard({
                   fontSize={12}
                   color={isCorrect ? palette.successInk : palette.foreground}
                 />
+                <Diagrams urls={question.optionDiagramUrls?.[optKey as 'A' | 'B' | 'C' | 'D']} maxHeight={100} />
               </View>
             </View>
           );
@@ -461,6 +465,17 @@ interface QuestionSetFlowProps {
    * chapters, topics, levels and number of questions.
    */
   locked?: { title: string; standard: Standard; subject: Subject };
+  /**
+   * The questions a test being edited already holds, as the picker knows them.
+   * Giving them puts the picker in edit mode: it opens on the question list
+   * with these picked, loads more from the first saved topic, and keeps every
+   * pick (even from topics no longer shown) when the topic changes.
+   */
+  initialQuestions?: Question[];
+  /** Edit mode: the Back button under the list. */
+  onBack?: () => void;
+  /** Edit mode: lets the wizard around the picker drive its Back and drop picks. */
+  controlRef?: React.MutableRefObject<QuestionFlowControl | null>;
   /** In the modal, closes it; the form inline on the Questions tab has no close. */
   onClose?: () => void;
   /** After a room is made: show it in the Exam Rooms list. */
@@ -475,12 +490,25 @@ interface QuestionSetFlowProps {
 
 type Step = 'config' | 'questions' | 'success';
 
+/** What an edit-mode picker offers the wizard around it. */
+export interface QuestionFlowControl {
+  /** Steps back inside the picker (from Change topic to the list); false when it is already at the list. */
+  back: () => boolean;
+  /** Unpicks a question the wizard's review took out. */
+  deselect: (id: string) => void;
+  /** The ids picked right now, in the order they will be saved. */
+  pickedIds: () => string[];
+}
+
 export function QuestionSetFlow({
   purpose,
   onPurposeChange,
   onRoomCreated,
   onSubmitTest,
   locked,
+  initialQuestions,
+  onBack,
+  controlRef,
   onClose,
   onViewRooms,
   onViewPdfs,
@@ -492,7 +520,11 @@ export function QuestionSetFlow({
   const palette = getPalette(dark);
   const isPdf = purpose === 'pdf';
 
-  const [step, setStep] = useState<Step>('config');
+  // Editing a test: the questions it holds come first, and the topic choice is a side trip.
+  const editing = !!initialQuestions;
+  const [seed] = useState(() => (initialQuestions ? seedTopic(initialQuestions) : null));
+
+  const [step, setStep] = useState<Step>(editing ? 'questions' : 'config');
   // The form leads to a request; keep the connection fresh while it's filled in.
   useKeepServerConnection(active && step === 'config');
 
@@ -500,12 +532,14 @@ export function QuestionSetFlow({
   const [title, setTitle] = useState(locked?.title ?? '');
   const [standard, setStandard] = useState<Standard | null>(locked?.standard ?? null);
   const [subject, setSubject] = useState<Subject | null>(locked?.subject ?? null);
-  // None picked means all of them.
-  const [pickedChapters, setPickedChapters] = useState<string[]>([]);
-  const [pickedTopics, setPickedTopics] = useState<string[]>([]);
+  // None picked means all of them. An edited test starts on its first saved topic.
+  const [pickedChapters, setPickedChapters] = useState<string[]>(seed ? [seed.chapter] : []);
+  const [pickedTopics, setPickedTopics] = useState<string[]>(seed ? [seed.topic] : []);
+  // Edit mode lists either this topic's questions or every pick, whatever topic it is from.
+  const [view, setView] = useState<'all' | 'selected'>(seed ? 'all' : 'selected');
   const [levels, setLevels] = useState<DifficultyLevel[]>([]);
   // Typed in; null until it's a whole number in range.
-  const [questionCountText, setQuestionCountText] = useState('20');
+  const [questionCountText, setQuestionCountText] = useState(String(initialQuestions?.length || 20));
   const questionCount = wholeNumberIn(questionCountText, QUESTION_RANGE);
   const [pdfContent, setPdfContent] = useState<PdfContent>('answers');
 
@@ -534,13 +568,18 @@ export function QuestionSetFlow({
   const topicOptions = [...new Set(topicSections.flatMap((section) => section.options))];
 
   // Questions to pick from, kept per picked topic or chapter for Auto select.
-  const [loading, setLoading] = useState(false);
+  // An edited test loads its topic's questions as soon as the picker opens.
+  const [loading, setLoading] = useState(!!seed);
   // A request had to be retried: the connection is slow or stalled.
   const [slowConnection, setSlowConnection] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [poolGroups, setPoolGroups] = useState<Question[][]>([]);
   const [fetchedQuestions, setFetchedQuestions] = useState<Question[]>([]);
-  const [selectedQuestionIds, setSelectedQuestionIds] = useState<Set<string>>(new Set());
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<Set<string>>(
+    () => new Set(initialQuestions?.map((q) => q._id))
+  );
+  // Every question seen so far, so picks outlive the list they were picked from.
+  const [known, setKnown] = useState(() => new Map<string, Question>(initialQuestions?.map((q) => [q._id, q])));
 
   // Inline question editor
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
@@ -557,7 +596,7 @@ export function QuestionSetFlow({
     !title.trim() && (isPdf ? 'a paper name' : onSubmitTest ? 'a test name' : 'a room name'),
     !standard && 'a class',
     !subject && 'a subject',
-    questionCount === null && `${QUESTION_RANGE.min} to ${QUESTION_RANGE.max} questions`,
+    !editing && questionCount === null && `${QUESTION_RANGE.min} to ${QUESTION_RANGE.max} questions`,
   ].filter((word): word is string => !!word);
   const selectedCount = selectedQuestionIds.size;
   const stillToPick = questionCount === null ? 0 : questionCount - selectedCount;
@@ -577,6 +616,60 @@ export function QuestionSetFlow({
     setPickedTopics((prev) => prev.filter((topic) => picked.some((name) => chapterTopics[name]?.includes(topic))));
   };
 
+  // Fetches the pool for these groups and shows it. Returns whether there are
+  // questions to show; otherwise the reason is in fetchError.
+  const loadPool = async (groups: { chapter?: string; topic?: string }[]) => {
+    if (!standard || !subject || !examCategory) {
+      setLoading(false);
+      return false;
+    }
+    // About three candidates per question asked for, shared between the groups.
+    const poolSize = Math.min(300, Math.max(60, (questionCount ?? QUESTION_RANGE.min) * 3));
+    const perGroup = Math.max(10, Math.ceil(poolSize / groups.length));
+
+    setLoading(true);
+    setSlowConnection(false);
+    setFetchError(null);
+    try {
+      const pool = await fetchQuestionPool({ examCategory, standard, subject, groups, levels, perGroup }, () =>
+        setSlowConnection(true)
+      );
+      const seen = new Set<string>();
+      let byGroup = pool.map((group) =>
+        group.filter((q) => {
+          if (seen.has(q._id)) return false;
+          seen.add(q._id);
+          return true;
+        })
+      );
+      // An edited test keeps its own copy of any question it already holds.
+      if (editing) byGroup = byGroup.map((group) => reconcilePool(group, known));
+      const qs = byGroup.flat();
+      if (qs.length === 0) {
+        setFetchError('No questions match these choices. Try more chapters or topics, or another level.');
+        return false;
+      }
+
+      setPoolGroups(byGroup);
+      setFetchedQuestions(qs);
+      if (editing) setKnown((prev) => new Map([...qs.map((q) => [q._id, q] as const), ...prev]));
+      // A new test starts with nothing picked: the teacher picks by hand first
+      // and Auto select is a button away. An edited test keeps every pick.
+      if (!editing) setSelectedQuestionIds(new Set());
+      setPdfError(null);
+      setView('all');
+      setStep('questions');
+      return true;
+    } catch (error) {
+      setFetchError(
+        error instanceof QuestionLoadError ? error.message : 'Could not load questions. Check your connection and try again.'
+      );
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Step 1 -> Step 2: fetch only the questions that match
   const handleFetchQuestions = async () => {
     if (!standard || !subject || !examCategory || !title.trim() || questionCount === null) return;
@@ -589,45 +682,23 @@ export function QuestionSetFlow({
       : pickedChapters.length
       ? pickedChapters.map((chapter) => ({ chapter }))
       : [{}];
-    // About three candidates per question asked for, shared between the groups.
-    const poolSize = Math.min(300, Math.max(60, questionCount * 3));
-    const perGroup = Math.max(10, Math.ceil(poolSize / groups.length));
-
-    setLoading(true);
-    setSlowConnection(false);
-    setFetchError(null);
-    try {
-      const pool = await fetchQuestionPool({ examCategory, standard, subject, groups, levels, perGroup }, () =>
-        setSlowConnection(true)
-      );
-      const seen = new Set<string>();
-      const byGroup = pool.map((group) =>
-        group.filter((q) => {
-          if (seen.has(q._id)) return false;
-          seen.add(q._id);
-          return true;
-        })
-      );
-      const qs = byGroup.flat();
-      if (qs.length === 0) {
-        setFetchError('No questions match these choices. Try more chapters or topics, or another level.');
-        return;
-      }
-
-      setPoolGroups(byGroup);
-      setFetchedQuestions(qs);
-      // The teacher picks by hand first; Auto select is a button away.
-      setSelectedQuestionIds(new Set());
-      setPdfError(null);
-      setStep('questions');
-    } catch (error) {
-      setFetchError(
-        error instanceof QuestionLoadError ? error.message : 'Could not load questions. Check your connection and try again.'
-      );
-    } finally {
-      setLoading(false);
-    }
+    await loadPool(groups);
   };
+
+  // An edited test opens on its questions, plus the others from its first saved
+  // topic; the saved picks are already listed, so a failed load only costs the extras.
+  const seedLoaded = useRef(false);
+  const loadSeedTopic = async () => {
+    if (!seed) return;
+    if (!(await loadPool([seed]))) setView('selected');
+  };
+  useEffect(() => {
+    if (seedLoaded.current) return;
+    seedLoaded.current = true;
+    void loadSeedTopic();
+    // Once, when the picker opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Toggle question selection
   const toggleQuestionSelect = useCallback((id: string) => {
@@ -652,12 +723,37 @@ export function QuestionSetFlow({
 
   // Save edited question
   const handleSaveEditedQuestion = (updated: Question) => {
+    setKnown((prev) => new Map(prev).set(updated._id, updated));
     setFetchedQuestions((prev) => prev.map((q) => (q._id === updated._id ? updated : q)));
     setPoolGroups((prev) => prev.map((group) => group.map((q) => (q._id === updated._id ? updated : q))));
     setEditingQuestion(null);
   };
 
-  const pickedQuestions = () => fetchedQuestions.filter((q) => selectedQuestionIds.has(q._id));
+  const pickedQuestions = () =>
+    editing ? pickedInOrder(selectedQuestionIds, known) : fetchedQuestions.filter((q) => selectedQuestionIds.has(q._id));
+
+  // The wizard around an edit-mode picker steps it back and unpicks from it.
+  // Kept current every render, since back() depends on the step shown.
+  useEffect(() => {
+    if (!controlRef) return;
+    controlRef.current = {
+      back: () => {
+        if (!pickerTakesBack(editing, step)) return false;
+        setStep('questions');
+        return true;
+      },
+      deselect: (id) =>
+        setSelectedQuestionIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        }),
+      pickedIds: () => [...selectedQuestionIds],
+    };
+    return () => {
+      controlRef.current = null;
+    };
+  });
 
   // Final step: create the room
   const [savingTest, setSavingTest] = useState(false);
@@ -769,7 +865,24 @@ export function QuestionSetFlow({
   };
 
   // Inline, the screen's own header names the task; only picking needs a back button.
-  const showHeader = !!onClose || step === 'questions';
+  // An edited test sits inside the wizard, whose own header and Back lead the way.
+  const showHeader = !editing && (!!onClose || step === 'questions');
+
+  // Edit mode's banner: where the listed questions come from.
+  const scopeLines = [
+    `Subject: ${subject ?? ''}`,
+    pickedChapters.length || pickedTopics.length
+      ? [
+          pickedChapters.length ? `Chapter: ${pickedChapters.join(', ')}` : null,
+          `Topic: ${pickedTopics.length ? pickedTopics.join(', ') : 'All topics'}`,
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : fetchedQuestions.length
+      ? 'Topic: All chapters'
+      : 'Topic: not chosen yet',
+  ];
+  const listed = editing ? pickerList(view, fetchedQuestions, selectedQuestionIds, known) : fetchedQuestions;
   const headerTitle =
     step === 'questions'
       ? 'Pick questions'
@@ -832,6 +945,15 @@ export function QuestionSetFlow({
         >
           {onPurposeChange ? (
             <ChoiceChips label="Make" choices={PURPOSE_CHOICES} selected={purpose} onSelect={onPurposeChange} columns={2} />
+          ) : null}
+
+          {editing ? (
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.summaryTitle, { color: palette.foreground }]}>Change topic</Text>
+              <Text style={[styles.summaryMeta, { color: palette.mutedForeground }]}>
+                Your {selectedCount} picked question{selectedCount === 1 ? '' : 's'} stay picked. Choose where to look for more.
+              </Text>
+            </View>
           ) : null}
 
           {!locked && (
@@ -921,19 +1043,21 @@ export function QuestionSetFlow({
 
           <MultiChoiceChips label="Levels" choices={LEVEL_CHOICES} selected={levels} onChange={setLevels} columns={4} />
 
-          <NumberField
-            label="Questions"
-            unit="questions"
-            value={questionCountText}
-            onChange={setQuestionCountText}
-            range={QUESTION_RANGE}
-          />
+          {editing ? null : (
+            <NumberField
+              label="Questions"
+              unit="questions"
+              value={questionCountText}
+              onChange={setQuestionCountText}
+              range={QUESTION_RANGE}
+            />
+          )}
 
           {isPdf ? (
             <ChoiceChips label="In the PDF" choices={PDF_CONTENT_CHOICES} selected={pdfContent} onSelect={setPdfContent} />
           ) : null}
 
-          {questionCount !== null ? (
+          {!editing && questionCount !== null ? (
             <Text style={[styles.summaryLine, { color: palette.foreground }]}>
               {locked ? `${questionCount} questions` : `${questionCount} questions · ${questionCount * MARKS_PER_QUESTION} marks`}
             </Text>
@@ -956,7 +1080,9 @@ export function QuestionSetFlow({
               <ActivityIndicator color={palette.onPrimary} />
             ) : (
               <>
-                <Text style={[styles.primaryActionBtnText, { color: palette.onPrimary }]}>Next: pick questions</Text>
+                <Text style={[styles.primaryActionBtnText, { color: palette.onPrimary }]}>
+                  {editing ? 'Show questions' : 'Next: pick questions'}
+                </Text>
                 <SymbolView
                   name={{ ios: 'arrow.right', android: 'arrow_forward', web: 'arrow_forward' }}
                   tintColor={palette.onPrimary}
@@ -965,6 +1091,17 @@ export function QuestionSetFlow({
               </>
             )}
           </Pressable>
+
+          {editing ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Back to the questions"
+              onPress={() => setStep('questions')}
+              style={({ pressed }) => [styles.secondaryBtn, { borderColor: palette.border }, pressed && styles.pressed]}
+            >
+              <Text style={[styles.secondaryBtnText, { color: palette.foreground }]}>Back to the questions</Text>
+            </Pressable>
+          ) : null}
 
           {missing.length > 0 ? (
             <Text style={[styles.helperText, { color: palette.mutedForeground }]}>
@@ -1003,6 +1140,51 @@ export function QuestionSetFlow({
       {/* ── Step 2: Pick questions, by hand or with Auto select ── */}
       {step === 'questions' && !makingPdf && (
         <View style={styles.stepContainer}>
+          {editing ? (
+            <View style={[styles.summaryBanner, { backgroundColor: palette.card, borderColor: palette.border }]}>
+              <Text accessibilityRole="header" style={[styles.fieldLabel, { color: palette.mutedForeground }]}>
+                EDIT QUESTIONS
+              </Text>
+              {scopeLines.map((line) => (
+                <Text key={line} style={[styles.summaryTitle, { color: palette.foreground }]} numberOfLines={2}>
+                  {line}
+                </Text>
+              ))}
+              <View style={styles.bannerActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Change topic or subtopic"
+                  onPress={() => setStep('config')}
+                  style={({ pressed }) => [
+                    styles.autoSelectBtn,
+                    { backgroundColor: palette.primarySoft, borderColor: palette.primaryBorder },
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <SymbolView
+                    name={{ ios: 'arrow.triangle.2.circlepath', android: 'autorenew', web: 'autorenew' }}
+                    tintColor={palette.primary}
+                    size={16}
+                  />
+                  <Text style={[styles.autoSelectText, { color: palette.primaryInk }]}>Change Topic / Subtopic</Text>
+                </Pressable>
+              </View>
+              <Text accessibilityLiveRegion="polite" style={[styles.summaryMeta, { color: palette.mutedForeground }]}>
+                Selected Questions: {selectedCount}
+              </Text>
+              <ChoiceChips
+                label="Show"
+                choices={[
+                  { value: 'all' as const, label: 'All Questions' },
+                  { value: 'selected' as const, label: `Selected Questions (${selectedCount})` },
+                ]}
+                selected={view}
+                onSelect={setView}
+                columns={2}
+              />
+            </View>
+          ) : null}
+          {!editing && (
           <View
             style={[
               styles.summaryBanner,
@@ -1053,10 +1235,42 @@ export function QuestionSetFlow({
               ) : null}
             </View>
           </View>
+          )}
 
           <FlatList
-            data={fetchedQuestions}
+            data={listed}
             keyExtractor={(item) => item._id}
+            ListEmptyComponent={
+              editing ? (
+                <View style={styles.emptyList}>
+                  {view === 'all' && loading ? (
+                    <>
+                      <ActivityIndicator color={palette.primary} />
+                      <Text accessibilityLiveRegion="polite" style={[styles.helperText, { color: palette.mutedForeground }]}>
+                        {slowConnection ? 'The connection is slow, still trying…' : 'Loading more questions…'}
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={[styles.helperText, { color: fetchError && view === 'all' ? palette.dangerInk : palette.mutedForeground }]}>
+                        {view === 'selected'
+                          ? 'No questions are picked. Pick some from All Questions.'
+                          : fetchError ?? 'Choose a topic to see more questions.'}
+                      </Text>
+                      {view === 'all' && seed && fetchError ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={loadSeedTopic}
+                          style={({ pressed }) => [styles.secondaryBtn, { borderColor: palette.border }, pressed && styles.pressed]}
+                        >
+                          <Text style={[styles.secondaryBtnText, { color: palette.foreground }]}>Try again</Text>
+                        </Pressable>
+                      ) : null}
+                    </>
+                  )}
+                </View>
+              ) : undefined
+            }
             renderItem={({ item, index }) => (
               <QuestionReviewCard
                 question={item}
@@ -1085,23 +1299,38 @@ export function QuestionSetFlow({
                 {pdfError}
               </Text>
             ) : null}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ disabled: selectedCount === 0 || savingTest, busy: savingTest }}
-              disabled={selectedCount === 0 || savingTest}
-              onPress={isPdf ? handleMakePdf : handleCreateRoom}
-              style={({ pressed }) => [
-                styles.primaryActionBtn,
-                { backgroundColor: palette.primary, opacity: selectedCount === 0 ? 0.45 : pressed || savingTest ? 0.8 : 1 },
-              ]}
-            >
-              {savingTest ? <ActivityIndicator color={palette.onPrimary} /> : null}
-              <Text style={[styles.primaryActionBtnText, { color: palette.onPrimary }]}>
-                {selectedCount === 0
-                  ? 'Pick at least one question'
-                  : `${isPdf ? 'Make PDF' : onSubmitTest ? 'Continue' : 'Create room'} · ${selectedCount} question${selectedCount === 1 ? '' : 's'}`}
-              </Text>
-            </Pressable>
+            <View style={editing ? styles.editBottomRow : undefined}>
+              {editing ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Back to the details"
+                  onPress={onBack}
+                  style={({ pressed }) => [styles.secondaryBtn, styles.editBackBtn, { borderColor: palette.border }, pressed && styles.pressed]}
+                >
+                  <Text style={[styles.secondaryBtnText, { color: palette.foreground }]}>Back</Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ disabled: selectedCount === 0 || savingTest, busy: savingTest }}
+                disabled={selectedCount === 0 || savingTest}
+                onPress={isPdf ? handleMakePdf : handleCreateRoom}
+                style={({ pressed }) => [
+                  styles.primaryActionBtn,
+                  editing && styles.editNextBtn,
+                  { backgroundColor: palette.primary, opacity: selectedCount === 0 ? 0.45 : pressed || savingTest ? 0.8 : 1 },
+                ]}
+              >
+                {savingTest ? <ActivityIndicator color={palette.onPrimary} /> : null}
+                <Text style={[styles.primaryActionBtnText, { color: palette.onPrimary }]}>
+                  {selectedCount === 0
+                    ? 'Pick at least one question'
+                    : editing
+                    ? `Next · ${selectedCount} question${selectedCount === 1 ? '' : 's'}`
+                    : `${isPdf ? 'Make PDF' : onSubmitTest ? 'Continue' : 'Create room'} · ${selectedCount} question${selectedCount === 1 ? '' : 's'}`}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       )}
@@ -1816,6 +2045,21 @@ const styles = StyleSheet.create({
   summaryMeta: {
     fontSize: 12,
     marginTop: 2,
+  },
+  emptyList: {
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 32,
+  },
+  editBottomRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  editBackBtn: {
+    flex: 1,
+  },
+  editNextBtn: {
+    flex: 2,
   },
   selectAllBtn: {
     borderWidth: 1,
