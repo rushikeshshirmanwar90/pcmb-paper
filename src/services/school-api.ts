@@ -60,10 +60,15 @@ export interface TestSummary {
   negativeMarks: number;
   maxScore: number;
   durationMinutes: number;
+  /** UTC instants (ISO); shown in the phone's time zone. */
   opensAt: string;
-  closesAt: string | null;
+  closesAt: string;
+  /** The latest a student can start and still get the whole time limit. */
+  lastStartAt: string | null;
   status: TestStatus;
   createdAt: string;
+  /** Students who have opened it: once any have, it can't be edited. */
+  started: number;
   submitted: number;
   batchStudents: number;
   averageScore: number | null;
@@ -80,10 +85,13 @@ export interface TestResultRow {
   timeTakenSeconds: number;
 }
 
+/** A question as the test holds it: a copy, with `sourceId` pointing at the bank's original. */
+export type TestQuestionCopy = Omit<Question, '_id' | 'questionNumber'> & { sourceId: string | null };
+
 export interface TestDetail {
   test: TestSummary;
   canEdit: boolean;
-  questions: Question[];
+  questions: TestQuestionCopy[];
   results: TestResultRow[];
 }
 
@@ -94,16 +102,18 @@ export interface TeacherOverview {
   week: TimetableEntry[];
 }
 
+/** A test to set or change. `startNow` opens it at the server's clock; otherwise `opensAt` (in the future) is needed. */
 export type NewTest = {
   batchId: string;
   title: string;
-  subject?: string;
+  subject: string;
   standard?: string;
   durationMinutes: number;
   marksPerQuestion: number;
   negativeMarks: number;
+  startNow?: boolean;
   opensAt?: string;
-  closesAt?: string | null;
+  closesAt: string;
   questions: Question[];
 };
 
@@ -140,8 +150,10 @@ export const schoolApi = {
   tests: (batchId?: string) => api<{ tests: TestSummary[] }>(`/tests${batchId ? `?batchId=${batchId}` : ''}`).then((r) => r.tests),
   test: (id: string) => api<TestDetail>(`/tests/${id}`),
   createTest: (input: NewTest) => api<{ test: TestSummary }>('/tests', { method: 'POST', body: input }).then((r) => r.test),
-  updateTest: (id: string, input: Partial<{ title: string; durationMinutes: number; opensAt: string; closesAt: string | null; closeNow: boolean }>) =>
+  /** Edits an upcoming test that nobody has started, or closes an open one early with { closeNow: true }. */
+  updateTest: (id: string, input: Partial<Omit<NewTest, 'batchId' | 'subject' | 'standard'>> & { closeNow?: boolean }) =>
     api<{ test: TestSummary }>(`/tests/${id}`, { method: 'PATCH', body: input }).then((r) => r.test),
+  /** Cancels an upcoming test that nobody has started. */
   deleteTest: (id: string) => api(`/tests/${id}`, { method: 'DELETE' }),
 };
 
