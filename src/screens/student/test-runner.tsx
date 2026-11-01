@@ -6,6 +6,7 @@ import {
   Badge,
   Button,
   Card,
+  Chips,
   DetailRow,
   EmptyView,
   ErrorText,
@@ -26,20 +27,25 @@ import { useSignedInUser } from '@/context/auth-context';
 import { bumpDataVersion } from '@/context/data-version';
 import { AWAY_LIMIT_MS, cellStatus, createAwayTracker, examCounts, secondsLeft, skewOf, type CellStatus } from '@/screens/student/exam-guard';
 import { createAnswerSaver, type AnswerSaver, type SaveState } from '@/screens/student/answer-saver';
+import { RESULT_SECTIONS, numberLabel, percentLabel, resultFigures, type ResultSection } from '@/screens/shared/result-format';
+
+import { TopicPerformanceList, WeakTopicsSection } from '@/screens/shared/topic-performance';
 import { QuestionView } from '@/screens/student/question-view';
-import { clock, percentOf, resultTone, spokenDuration, subjectIcon, whenLabel } from '@/screens/student/test-format';
+import { clock, resultTone, spokenDuration, subjectIcon, whenLabel } from '@/screens/student/test-format';
 import type { TestSummary } from '@/services/school-api';
 import { clearDraft, loadDraft, saveDraft } from '@/services/attempt-store';
-import { studentApi, type Attempt, type TestQuestion } from '@/services/student-api';
+import { studentApi, type Attempt, type TestAnalytics, type TestQuestion } from '@/services/student-api';
 
 type Phase =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
   | { kind: 'intro'; test: TestSummary }
   | { kind: 'running'; test: TestSummary; attempt: Attempt; questions: TestQuestion[] }
-  | { kind: 'review'; test: TestSummary; attempt: Attempt | null; questions: TestQuestion[]; justSubmitted: boolean };
+  | { kind: 'review'; test: TestSummary; attempt: Attempt | null; questions: TestQuestion[]; analytics?: TestAnalytics | null; justSubmitted: boolean };
 
 const SCREEN_KEY = 'secure-exam';
+const SECTION_KEYS = RESULT_SECTIONS.map((s) => s.value);
+const SECTION_LABELS = Object.fromEntries(RESULT_SECTIONS.map((s) => [s.value, s.label]));
 
 /**
  * Screenshots and screen recording are blocked while a test is being taken,
@@ -83,12 +89,12 @@ export function TestRunner({ testId, onClose }: { testId: string; onClose: () =>
   useEffect(() => {
     let cancelled = false;
     studentApi.test(testId).then(
-      async ({ test, attempt, questions }) => {
+      async ({ test, attempt, questions, analytics }) => {
         if (cancelled) return;
         if (attempt?.state === 'submitted' || (!attempt && test.status === 'closed')) {
           // Submitted (here, elsewhere, or when time ran out): the phone's draft is done with.
           if (attempt) void clearDraft(user.id, testId);
-          setPhase({ kind: 'review', test, attempt, questions, justSubmitted: false });
+          setPhase({ kind: 'review', test, attempt, questions, analytics, justSubmitted: false });
         } else if (attempt) {
           // Carry on where they left off.
           const resumed = await studentApi.start(testId).catch(() => null);
@@ -161,7 +167,7 @@ export function TestRunner({ testId, onClose }: { testId: string; onClose: () =>
             onSubmitted={(attempt, questions) => onSubmitted(phase.test, attempt, questions)}
           />
         ) : (
-          <Review test={phase.test} attempt={phase.attempt} questions={phase.questions} justSubmitted={phase.justSubmitted} onClose={close} />
+          <Review test={phase.test} attempt={phase.attempt} questions={phase.questions} analytics={phase.analytics ?? null} justSubmitted={phase.justSubmitted} onClose={close} />
         )}
       </View>
     </Modal>
@@ -869,8 +875,8 @@ type Filter = 'all' | 'wrong' | 'skipped';
 
 function outcomeOf(question: TestQuestion, answer: Attempt['answers'][number] | undefined): Outcome {
   const selected = answer?.selected ?? null;
-  if (selected === null) return 'skipped';
   if (answer?.correct === true) return 'right';
+  if (selected === null) return 'skipped';
   if (answer?.correct === false) return 'wrong';
   // Not graded on this answer (shouldn't happen once submitted): compare with the key.
   return (question.correctAnswer ?? '').trim().toUpperCase() === selected.trim().toUpperCase() ? 'right' : 'wrong';
@@ -880,17 +886,20 @@ function Review({
   test,
   attempt,
   questions,
+  analytics,
   justSubmitted,
   onClose,
 }: {
   test: TestSummary;
   attempt: Attempt | null;
   questions: TestQuestion[];
+  analytics: TestAnalytics | null;
   justSubmitted: boolean;
   onClose: () => void;
 }) {
   const palette = usePalette();
   const [filter, setFilter] = useState<Filter>('all');
+  const [section, setSection] = useState<ResultSection>('overview');
   const result = attempt?.result;
 
   const rows = questions.map((q, position) => {
@@ -933,32 +942,49 @@ function Review({
 
         {result ? (
           <>
-            <ScoreCard test={test} result={result} />
-            <StatGrid>
-              <StatTile label="Right" value={result.correct} icon={{ ios: 'checkmark.circle', android: 'check_circle' }} tone="success" />
-              <StatTile label="Wrong" value={result.wrong} icon={{ ios: 'xmark.circle', android: 'cancel' }} tone="danger" />
-              <StatTile label="Skipped" value={result.skipped} icon={{ ios: 'minus.circle', android: 'remove_circle_outline' }} tone="neutral" />
-            </StatGrid>
+            <Chips label="Result sections" choices={SECTION_KEYS} selected={section} onChange={setSection} labels={SECTION_LABELS} />
+            {section === 'overview' ? (
+              <>
+                <ScoreCard test={test} result={result} analytics={analytics} />
+                <StatGrid>
+                  <StatTile label="Correct" value={result.correct} icon={{ ios: 'checkmark.circle', android: 'check_circle' }} tone="success" />
+                  <StatTile label="Incorrect" value={result.wrong} icon={{ ios: 'xmark.circle', android: 'cancel' }} tone="danger" />
+                  <StatTile label="Unanswered" value={analytics?.unanswered ?? result.skipped} icon={{ ios: 'minus.circle', android: 'remove_circle_outline' }} tone="neutral" />
+                </StatGrid>
+              </>
+            ) : null}
           </>
         ) : (
           <Notice tone="info" title="You didn't take this test" text="It has closed. Its answers and solutions are below to learn from." />
         )}
 
-        <SectionTitle title="Answers and solutions" />
-        {attempt ? (
+        {section === 'topics' && result ? (
+          analytics ? (
+            <>
+              <SectionTitle title="Topic performance" />
+              <TopicPerformanceList topics={analytics.topics} audience="student" />
+              <WeakTopicsSection weak={analytics.weakTopics} audience="student" />
+            </>
+          ) : (
+            <Notice tone="info" title="Topic performance isn't available" text="Your topic-wise results could not be loaded. Close this and open the result again." />
+          )
+        ) : null}
+
+        {section === 'questions' || !result ? <SectionTitle title="Question review" /> : null}
+        {(section === 'questions' || !result) && attempt ? (
           <Segmented
             label="Show answers"
             value={filter}
             onChange={setFilter}
             options={[
               { value: 'all', label: 'All', count: rows.length },
-              { value: 'wrong', label: 'Wrong', count: count('wrong') },
-              { value: 'skipped', label: 'Skipped', count: count('skipped') },
+              { value: 'wrong', label: 'Incorrect', count: count('wrong') },
+              { value: 'skipped', label: 'Unanswered', count: count('skipped') },
             ]}
           />
         ) : null}
 
-        {shown.length ? (
+        {section !== 'questions' && result ? null : shown.length ? (
           shown.map(({ q, position, selected, outcome, answer }) => (
             // Keyed by the filter too, so solutions open or close to suit it.
             <Card key={`${filter}-${q.index}`} style={styles.answerCard}>
@@ -975,8 +1001,8 @@ function Review({
           <Card>
             <EmptyView
               icon={{ ios: 'checkmark.seal', android: 'verified' }}
-              title={filter === 'wrong' ? 'No wrong answers' : 'Nothing skipped'}
-              text={filter === 'wrong' ? 'Every question you answered was right.' : 'You answered every question.'}
+              title={filter === 'wrong' ? 'No incorrect answers' : 'Nothing unanswered'}
+              text={filter === 'wrong' ? 'Every question you answered was correct.' : 'You answered every question.'}
             />
           </Card>
         )}
@@ -1025,25 +1051,25 @@ function Submitted({ test, attempt, total, justSubmitted, onClose }: { test: Tes
   );
 }
 
-function ScoreCard({ test, result }: { test: TestSummary; result: NonNullable<Attempt['result']> }) {
+function ScoreCard({ test, result, analytics }: { test: TestSummary; result: NonNullable<Attempt['result']>; analytics: TestAnalytics | null }) {
   const palette = usePalette();
-  const percent = percentOf(result.score, result.maxScore);
-  const attempted = result.correct + result.wrong;
+  const figures = resultFigures(test, result, analytics);
   const total = Math.max(1, result.correct + result.wrong + result.skipped);
-  const minutes = Math.max(1, Math.round(result.timeTakenSeconds / 60));
   return (
     <Card style={styles.scoreCard}>
-      <Text style={[styles.scoreLabel, { color: palette.mutedForeground }]}>Your score</Text>
-      <View style={styles.scoreRow} accessible accessibilityLabel={`Score ${result.score} out of ${result.maxScore}, ${percent} percent`}>
+      <Text accessibilityRole="header" style={[styles.eyebrow, { color: palette.mutedForeground }]}>
+        YOUR TEST RESULT
+      </Text>
+      <View style={styles.scoreRow} accessible accessibilityLabel={`Score ${numberLabel(result.score)} out of ${numberLabel(result.maxScore)}, ${percentLabel(figures.percentage)}`}>
         <Text style={[styles.scoreBig, { color: palette.foreground }]}>
-          {result.score}
-          <Text style={[styles.scoreOf, { color: palette.mutedForeground }]}> / {result.maxScore}</Text>
+          {numberLabel(result.score)}
+          <Text style={[styles.scoreOf, { color: palette.mutedForeground }]}> / {numberLabel(result.maxScore)}</Text>
         </Text>
-        <Badge label={`${percent}%`} tone={resultTone(percent)} />
+        <Badge label={percentLabel(figures.percentage)} tone={figures.percentage === null ? 'neutral' : resultTone(figures.percentage)} />
       </View>
       <View
         accessible
-        accessibilityLabel={`${result.correct} right, ${result.wrong} wrong, ${result.skipped} skipped`}
+        accessibilityLabel={`${result.correct} correct, ${result.wrong} incorrect, ${result.skipped} unanswered`}
         style={[styles.outcomeBar, { backgroundColor: palette.secondary }]}
       >
         {result.correct ? <View style={{ flex: result.correct / total, backgroundColor: palette.success }} /> : null}
@@ -1051,20 +1077,20 @@ function ScoreCard({ test, result }: { test: TestSummary; result: NonNullable<At
         {result.skipped ? <View style={{ flex: result.skipped / total, backgroundColor: palette.borderStrong }} /> : null}
       </View>
       <View style={[styles.divider, { backgroundColor: palette.border }]} />
-      <DetailRow
-        label="Marks"
-        value={`+${result.correct * test.marksPerQuestion} for right${test.negativeMarks ? `, −${result.wrong * test.negativeMarks} for wrong` : ''}`}
-      />
-      <DetailRow label="Accuracy" value={attempted ? `${Math.round((result.correct / attempted) * 100)}% of answered` : 'None answered'} />
-      <DetailRow label="Time taken" value={`${minutes} of ${test.durationMinutes} min`} />
+      <DetailRow label="Percentage" value={percentLabel(figures.percentage)} />
+      <DetailRow label="Accuracy" value={figures.accuracy === null ? 'None answered' : `${percentLabel(figures.accuracy)} of answered`} />
+      <DetailRow label="Marks" value={`+${numberLabel(result.correct * test.marksPerQuestion)} for correct`} />
+      <DetailRow label="Negative marking" value={test.negativeMarks ? (figures.negativeDeducted ? `−${numberLabel(figures.negativeDeducted)} deducted` : 'Nothing deducted') : 'None in this test'} />
+      <DetailRow label="Time taken" value={figures.time} />
+      {figures.rank ? <DetailRow label="Your rank" value={figures.rank} /> : null}
     </Card>
   );
 }
 
 function OutcomeBadge({ outcome, test }: { outcome: Outcome; test: TestSummary }) {
-  if (outcome === 'right') return <Badge label={`Right · +${test.marksPerQuestion}`} tone="success" />;
-  if (outcome === 'wrong') return <Badge label={`Wrong · ${test.negativeMarks ? `−${test.negativeMarks}` : '0'}`} tone="danger" />;
-  return <Badge label="Skipped · 0" />;
+  if (outcome === 'right') return <Badge label={`Correct · +${test.marksPerQuestion}`} tone="success" />;
+  if (outcome === 'wrong') return <Badge label={`Incorrect · ${test.negativeMarks ? `−${test.negativeMarks}` : '0'}`} tone="danger" />;
+  return <Badge label="Unanswered · 0" />;
 }
 
 const styles = StyleSheet.create({

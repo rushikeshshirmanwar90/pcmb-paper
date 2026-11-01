@@ -32,6 +32,7 @@ import { bumpDataVersion, useDataVersion } from '@/context/data-version';
 import { DateField } from '@/screens/teacher/date-field';
 import { pickerQuestions, stepBack } from '@/screens/teacher/test-questions';
 import { TestAnalysisSection } from '@/screens/teacher/test-analysis';
+import { TestResultsSection } from '@/screens/teacher/test-results-section';
 import { LiveMonitorSection, useLiveMonitor } from '@/screens/teacher/test-monitor-section';
 import { monitorModeOf } from '@/screens/teacher/test-monitor';
 import {
@@ -55,7 +56,7 @@ import {
   type TestFilter,
 } from '@/screens/teacher/test-schedule';
 import { TimeField } from '@/screens/tuition/time-field';
-import { dateTimeLabel, schoolApi, type TeacherOverview, type TestDetail as TestDetailData, type TestQuestionCopy, type TestSummary } from '@/services/school-api';
+import { dateTimeLabel, schoolApi, type TeacherOverview, type TestQuestionCopy, type TestSummary } from '@/services/school-api';
 import type { Question, Standard, Subject } from '@/types/pcmb';
 
 export const STATUS_BADGE = STATUS_WORDS;
@@ -615,7 +616,8 @@ function TestDetail({ id, onClose, onEdit }: { id: string; onClose: () => void; 
   const test: TestSummary | undefined = data?.test;
   const can = test ? actionsFor(test) : null;
   // Live: polled while this sheet is open; completed: read once; upcoming: nothing to watch.
-  const monitor = useLiveMonitor(id, monitorModeOf(test?.status), reload);
+  // A completed test's participation is part of its results, so it isn't read twice.
+  const monitor = useLiveMonitor(id, test?.status === 'closed' ? 'off' : monitorModeOf(test?.status), reload);
 
   const act = async (action: () => Promise<unknown>, after?: () => void) => {
     setActionError(null);
@@ -681,56 +683,19 @@ function TestDetail({ id, onClose, onEdit }: { id: string; onClose: () => void; 
             <Muted>{"Students can't see this test's questions until it opens. You can edit or cancel it until then."}</Muted>
           ) : (
             <>
-              <LiveMonitorSection monitor={monitor} live={test.status === 'open'} />
-              {test.status === 'closed' ? <ResultsList data={data} test={test} /> : null}
-              <TestAnalysisSection testId={test.id} submitted={test.submitted} />
+              {test.status === 'closed' ? (
+                <TestResultsSection test={test} questions={data.questions} />
+              ) : (
+                <>
+                  <LiveMonitorSection monitor={monitor} live={test.status === 'open'} />
+                  <TestAnalysisSection testId={test.id} submitted={test.submitted} />
+                </>
+              )}
             </>
           )}
         </>
       ) : null}
     </DetailSheet>
-  );
-}
-
-/** The scores of a completed test, best first. */
-function ResultsList({ data, test }: { data: TestDetailData; test: TestSummary }) {
-  const palette = usePalette();
-  return (
-    <>
-      <SectionTitle title={`Results · ${test.submitted}/${test.batchStudents} submitted`} />
-      {test.averageScore !== null ? (
-        <Muted>
-          Average {test.averageScore} of {test.maxScore}
-        </Muted>
-      ) : null}
-      {data.results.length ? (
-        <Card style={styles.listCard}>
-          {data.results.map((r, i) => (
-            <ListRow
-              key={r.student.id}
-              title={r.student.name}
-              subtitle={
-                r.state === 'submitted'
-                  ? `${r.correct} right · ${r.wrong} wrong · ${r.skipped} skipped · ${Math.round(r.timeTakenSeconds / 60)} min`
-                  : r.state === 'in-progress'
-                  ? 'Taking it now'
-                  : 'Not taken yet'
-              }
-              right={
-                r.score !== null ? (
-                  <Text style={[styles.score, { color: palette.foreground }]}>
-                    {r.score}/{test.maxScore}
-                  </Text>
-                ) : undefined
-              }
-              last={i === data.results.length - 1}
-            />
-          ))}
-        </Card>
-      ) : (
-        <Muted>No students in this batch.</Muted>
-      )}
-    </>
   );
 }
 
@@ -742,7 +707,6 @@ const styles = StyleSheet.create({
   cards: { gap: 10 },
   listCard: { paddingVertical: 0 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  score: { fontSize: 15, fontWeight: '800', fontVariant: ['tabular-nums'] },
   pressed: { opacity: 0.8 },
   testCard: { borderWidth: 1, borderRadius: 14, padding: 14, gap: 4 },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },

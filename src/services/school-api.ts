@@ -107,6 +107,136 @@ export interface TestMonitor {
   students: TestMonitorRow[];
 }
 
+// ─── Results and performance (papers/src/lib/test-results.ts decides every figure) ──
+
+export type TopicLevel = 'strong' | 'average' | 'weak' | 'not-enough';
+
+/** A topic's accuracy across the attempts counted (one student's, or a batch's). `accuracy` is null when nothing was answered. */
+export interface TopicPerformance {
+  subject: string;
+  chapter: string;
+  topic: string;
+  /** The topic, else the chapter, else "Unclassified". */
+  label: string;
+  /** False for questions that carry no chapter or topic. */
+  classified: boolean;
+  questions: number;
+  questionsAnswered: number;
+  possible: number;
+  attempted: number;
+  correct: number;
+  incorrect: number;
+  unanswered: number;
+  accuracy: number | null;
+  marks: number;
+  maxMarks: number;
+  level: TopicLevel;
+}
+
+export interface WeakTopic extends TopicPerformance {
+  recommendation: string;
+}
+
+export type ResultState = 'submitted' | 'auto-submitted' | 'violation';
+export type ResultBand = 'top' | 'average' | 'needs-improvement';
+
+export interface RankingRow {
+  /** Equal scores share a rank. */
+  rank: number;
+  student: { id: string; name: string };
+  state: ResultState;
+  score: number;
+  maxScore: number;
+  percentage: number | null;
+  accuracy: number | null;
+  correct: number;
+  incorrect: number;
+  unanswered: number;
+  negativeDeducted: number;
+  timeTakenSeconds: number;
+  band: ResultBand;
+}
+
+export interface QuestionStatistic {
+  index: number;
+  subject: string;
+  chapter: string;
+  topic: string;
+  answerType: string;
+  correctAnswer: string;
+  hasKey: boolean;
+  bonus: boolean;
+  attempts: number;
+  answered: number;
+  correct: number;
+  incorrect: number;
+  unanswered: number;
+  correctRate: number | null;
+  incorrectRate: number | null;
+  skipRate: number | null;
+  /** How many picked each option; null for numerical and bonus questions. */
+  options: Record<string, number> | null;
+}
+
+export interface TestResults {
+  status: TestStatus;
+  summary: {
+    total: number;
+    attempted: number;
+    notAttempted: number;
+    inProgress: number;
+    /** Included in total and attempted: finished the test but are no longer in the batch (moved, or left). */
+    former?: number;
+    submissionRate: number | null;
+    normal: number;
+    autoSubmitted: number;
+    violations: number;
+    highest: number | null;
+    lowest: number | null;
+    averageScore: number | null;
+    averagePercentage: number | null;
+    averageAccuracy: number | null;
+  };
+  rankings: RankingRow[];
+  notAttempted: { id: string; name: string }[];
+  questions: QuestionStatistic[];
+  highlights: { mostCorrect: number[]; mostIncorrect: number[]; mostSkipped: number[] };
+  topics: TopicPerformance[];
+  weakTopics: WeakTopic[];
+}
+
+export type QuestionOutcome = 'correct' | 'incorrect' | 'unanswered' | 'unmarked';
+
+export interface StudentPerformance {
+  student: { id: string; name: string };
+  state: TestMonitorState;
+  rank: number;
+  ranked: number;
+  score: number;
+  maxScore: number;
+  percentage: number | null;
+  accuracy: number | null;
+  correct: number;
+  incorrect: number;
+  unanswered: number;
+  negativeDeducted: number;
+  timeTakenSeconds: number;
+  submittedAt: string;
+  questions: {
+    index: number;
+    status: QuestionOutcome;
+    selected: string | null;
+    /** Marks awarded (negative when deducted). */
+    marks: number;
+    question: Pick<TestQuestionCopy, 'subject' | 'chapter' | 'topic' | 'questionText' | 'optionA' | 'optionB' | 'optionC' | 'optionD' | 'correctAnswer' | 'explanation' | 'diagramUrls' | 'explanationDiagramUrls'> & {
+      answerType: string;
+      optionDiagramUrls: { A: string[]; B: string[]; C: string[]; D: string[] };
+    };
+  }[];
+  topics: TopicPerformance[];
+  weakTopics: WeakTopic[];
+}
+
 /** A question as the test holds it: a copy, with `sourceId` pointing at the bank's original. */
 export type TestQuestionCopy = Omit<Question, '_id' | 'questionNumber'> & { sourceId: string | null };
 
@@ -173,6 +303,10 @@ export const schoolApi = {
   test: (id: string) => api<TestDetail>(`/tests/${id}`),
   /** Who has started, is answering or has finished a test (teachers and the tuition). */
   testMonitor: (id: string) => api<TestMonitor>(`/tests/${id}/monitor`),
+  /** How a batch did on a test: summary, rankings, question and topic statistics (teachers and the tuition). */
+  testResults: (id: string) => api<TestResults>(`/tests/${id}/results`),
+  /** One student's attempt, question by question (teachers and the tuition). */
+  studentResult: (id: string, studentId: string) => api<StudentPerformance>(`/tests/${id}/results/${studentId}`),
   createTest: (input: NewTest) => api<{ test: TestSummary }>('/tests', { method: 'POST', body: input }).then((r) => r.test),
   /** Edits an upcoming test that nobody has started, or closes an open one early with { closeNow: true }. */
   updateTest: (id: string, input: Partial<Omit<NewTest, 'batchId' | 'subject' | 'standard'>> & { closeNow?: boolean }) =>

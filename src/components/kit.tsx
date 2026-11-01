@@ -227,7 +227,7 @@ export function Badge({ label, tone = 'neutral' }: { label: string; tone?: 'neut
 }
 
 /** A thin bar for "x% covered". */
-export function ProgressBar({ value, tone = 'primary' }: { value: number; tone?: 'primary' | 'success' }) {
+export function ProgressBar({ value, tone = 'primary' }: { value: number; tone?: 'primary' | 'success' | 'danger' }) {
   const palette = usePalette();
   const pct = Math.max(0, Math.min(100, Math.round(value)));
   return (
@@ -236,7 +236,7 @@ export function ProgressBar({ value, tone = 'primary' }: { value: number; tone?:
       accessibilityValue={{ min: 0, max: 100, now: pct }}
       style={[styles.progressTrack, { backgroundColor: palette.secondary }]}
     >
-      <View style={[styles.progressFill, { width: `${pct}%`, backgroundColor: tone === 'success' ? palette.success : palette.primary }]} />
+      <View style={[styles.progressFill, { width: `${pct}%`, backgroundColor: tone === 'success' ? palette.success : tone === 'danger' ? palette.danger : palette.primary }]} />
     </View>
   );
 }

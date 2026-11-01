@@ -1,6 +1,6 @@
 import { api, ApiError } from '@/services/api-client';
 import type { Program, SchoolStandard, SchoolSubject, Track } from '@/constants/school';
-import type { TestSummary, TimetableEntry } from '@/services/school-api';
+import type { TestSummary, TimetableEntry, TopicPerformance, WeakTopic } from '@/services/school-api';
 import type { Batch, Coverage } from '@/services/tuition-api';
 import { practiceQuery, type PracticeNode, type PracticeStatus } from '@/screens/student/topic-practice';
 
@@ -63,6 +63,19 @@ export interface Attempt {
   serverTime?: string;
   answers: { index: number; selected: string | null; correct: boolean | null }[];
   result: { score: number; maxScore: number; correct: number; wrong: number; skipped: number; timeTakenSeconds: number; submittedAt: string } | null;
+}
+
+/** A student's own analytics for a closed test: their rank (a number, nothing about others) and topic performance. */
+export interface TestAnalytics {
+  rank: number;
+  /** How many attempts were ranked. */
+  ranked: number;
+  percentage: number | null;
+  accuracy: number | null;
+  unanswered: number;
+  negativeDeducted: number;
+  topics: TopicPerformance[];
+  weakTopics: WeakTopic[];
 }
 
 export interface RoadmapChapter {
@@ -333,7 +346,8 @@ export const studentApi = {
 
   /** The batch's tests, upcoming (scheduled) ones included as summaries; they can't be opened until they open. */
   tests: () => api<{ tests: StudentTest[] }>('/tests?upcoming=1').then((r) => r.tests),
-  test: (id: string) => api<{ test: TestSummary; attempt: Attempt | null; questions: TestQuestion[] }>(`/tests/${id}`),
+  /** `analytics` is null (or missing from older servers) until the test has closed and the student has submitted. */
+  test: (id: string) => api<{ test: TestSummary; attempt: Attempt | null; questions: TestQuestion[]; analytics?: TestAnalytics | null }>(`/tests/${id}`),
   start: (id: string) => api<{ attempt: Attempt; questions: TestQuestion[] }>(`/tests/${id}/start`, { method: 'POST' }),
   saveAnswers: (id: string, answers: { index: number; selected: string | null }[]) =>
     api<{ saved: number }>(`/tests/${id}/answers`, { method: 'PUT', body: { answers } }),
