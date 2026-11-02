@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Badge, Button, Card, EmptyView, ErrorView, Icon, LoadingView, Screen, SectionTitle, useLoad, usePalette, type IconName } from '@/components/kit';
-import { useDataVersion } from '@/context/data-version';
+import { useTabDataVersion } from '@/context/data-version';
 import {
   byUrgency,
   closesSoon,
@@ -34,7 +34,7 @@ function useNow(everyMs = 30_000) {
 
 /** The student's tests: to do now, upcoming, and past ones with results. */
 export function StudentTestsScreen() {
-  const version = useDataVersion();
+  const version = useTabDataVersion('tests');
   const now = useNow();
   const { data, error, loading, refreshing, refresh, reload } = useLoad(() => studentApi.tests(), [version]);
   const [openId, setOpenId] = useState<string | null>(null);

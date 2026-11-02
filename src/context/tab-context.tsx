@@ -92,6 +92,11 @@ export function TabProvider({ children, tabKeys }: PropsWithChildren<{ /** The s
   );
 }
 
+/** The tab on screen, or null outside the role tabs. */
+export function useActiveTabKey(): string | null {
+  return useContext(TabContext)?.activeKey ?? null;
+}
+
 export function useTabNavigation() {
   const ctx = useContext(TabContext);
   if (!ctx) {

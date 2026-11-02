@@ -5,7 +5,7 @@ import { Badge, Button, Card, Icon, ListRow, Muted, Notice, SectionTitle, Screen
 import { PROGRAM_LABELS, programOf } from '@/constants/school';
 import { useAppearance, type AppearancePreference } from '@/context/appearance-context';
 import { useSignedInUser } from '@/context/auth-context';
-import { useDataVersion } from '@/context/data-version';
+import { useTabDataVersion } from '@/context/data-version';
 import { classRemindersOn, classRemindersSupported, setClassReminders } from '@/services/notifications';
 import { studentApi } from '@/services/student-api';
 import { tuitionApi } from '@/services/tuition-api';
@@ -18,7 +18,7 @@ export function StudentProfileScreen() {
   const user = useSignedInUser();
   const program = programOf(user);
   const palette = usePalette();
-  const version = useDataVersion();
+  const version = useTabDataVersion('profile');
   const overview = useLoad(() => studentApi.overview(), [version]);
   const tuition = useLoad(() => tuitionApi.profile(), [version]);
   const batch = overview.data?.batch ?? null;

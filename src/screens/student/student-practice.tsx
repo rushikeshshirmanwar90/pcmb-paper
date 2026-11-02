@@ -19,7 +19,7 @@ import {
 } from '@/components/kit';
 import { PROGRAM_LABELS, programOf, programSubjects, questionBankOf, type Program, type SchoolSubject } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
-import { bumpDataVersion, useDataVersion } from '@/context/data-version';
+import { bumpDataVersion, useTabDataVersion } from '@/context/data-version';
 import { clearPracticeTarget, usePracticeTarget, type PracticeTarget } from '@/context/practice-target';
 import { useTabNavigation } from '@/context/tab-context';
 import { toneOf } from '@/screens/student/practice-session';
@@ -73,7 +73,7 @@ const subjectLabel = (s: SchoolSubject) => (s === 'Mathematics' ? 'Maths' : s);
 export function StudentPracticeScreen() {
   const user = useSignedInUser();
   const palette = usePalette();
-  const version = useDataVersion();
+  const version = useTabDataVersion(PRACTICE_TAB);
   const { activeKey } = useTabNavigation();
   const program = programOf(user);
   const subjects = programSubjects(program);

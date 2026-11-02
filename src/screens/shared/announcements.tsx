@@ -19,7 +19,7 @@ import {
   usePalette,
 } from '@/components/kit';
 import { useSignedInUser } from '@/context/auth-context';
-import { bumpDataVersion, useDataVersion } from '@/context/data-version';
+import { bumpDataVersion, useTabDataVersion } from '@/context/data-version';
 import { announcementsApi, timeAgo, type Announcement } from '@/services/tuition-api';
 
 const KIND_LABELS = { update: 'Update', schedule: 'Schedule' } as const;
@@ -59,6 +59,7 @@ export function AnnouncementsSection({
   canPost,
   allowAllBatches,
   limit = 3,
+  tabKey = null,
 }: {
   /** The batches the user can post to. */
   batches: { id: string; name: string }[];
@@ -66,10 +67,12 @@ export function AnnouncementsSection({
   /** The tuition can send to everyone at once; a teacher picks their batches. */
   allowAllBatches: boolean;
   limit?: number;
+  /** The tab it's shown in: it reloads after changes elsewhere only once that tab is open. */
+  tabKey?: string | null;
 }) {
   const palette = usePalette();
   const user = useSignedInUser();
-  const version = useDataVersion();
+  const version = useTabDataVersion(tabKey);
   const { data, error, loading, reload } = useLoad(() => announcementsApi.list(50), [version]);
   const [posting, setPosting] = useState(false);
   const [showAll, setShowAll] = useState(false);

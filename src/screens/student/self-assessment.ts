@@ -219,6 +219,33 @@ export function questionList(numbers: number[]): string {
   return qs.length < 2 ? qs.join('') : `${qs.slice(0, -1).join(', ')} and ${qs[qs.length - 1]}`;
 }
 
+export type AnswerOutcome = 'right' | 'wrong' | 'skipped';
+export type AnswerFilter = 'all' | AnswerOutcome;
+
+const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/**
+ * The result's answer rows in question order, each with how it went, limited
+ * to one topic when one is picked. Unanswered or unmarked counts as skipped.
+ */
+export function answerRows<Q extends { index: number; standard: string; chapter: string; topic: string }>(
+  questions: Q[],
+  answers: { index: number; selected: string | null; correct: boolean | null }[],
+  topic: { standard: string; chapter: string; topic: string } | null
+): { q: Q; outcome: AnswerOutcome }[] {
+  const byIndex = new Map(answers.map((x) => [x.index, x]));
+  return questions
+    .filter((q) => !topic || (q.standard === topic.standard && sameName(q.chapter, topic.chapter) && sameName(q.topic, topic.topic)))
+    .map((q) => {
+      const x = byIndex.get(q.index);
+      const outcome: AnswerOutcome = !x || x.selected === null || x.correct === null ? 'skipped' : x.correct ? 'right' : 'wrong';
+      return { q, outcome };
+    });
+}
+
+/** The rows a filter shows ("All", "Wrong" or "Skipped"), in order. */
+export const filterRows = <R extends { outcome: AnswerOutcome }>(rows: R[], filter: AnswerFilter) => (filter === 'all' ? rows : rows.filter((r) => r.outcome === filter));
+
 /** The line under an assessment in the list. */
 export function summaryLine(
   a: Pick<AssessmentSummary, 'state' | 'questionCount' | 'answeredCount' | 'result' | 'durationMinutes' | 'subject'> & { deadline?: string | null },
