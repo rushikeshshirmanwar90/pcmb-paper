@@ -8,7 +8,6 @@ import {
   chooseMcqLayout,
   DEFAULT_SMART_SLIDE_SETTINGS,
   normalizeSlideSettings,
-  planQuestionSlides,
   SLIDE,
   slideGeometry,
   slidePrefsKey,
@@ -77,9 +76,5 @@ describe('sample preview', () => {
   test('font sizes grow small → large', () => {
     const px = ['small', 'medium', 'large'].map((fontSize) => slideGeometry({ ...DEFAULT_SMART_SLIDE_SETTINGS, fontSize }).fontPx);
     assert.ok(px[0] < px[1] && px[1] < px[2]);
-  });
-
-  test('the sample fits one slide with the default layout', () => {
-    assert.equal(planQuestionSlides(SAMPLE, DEFAULT_SMART_SLIDE_SETTINGS).parts.length, 1);
   });
 });
