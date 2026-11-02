@@ -20,7 +20,39 @@ import {
   timeLabel,
   toggleChapter,
   toggleTopic,
+  answerRows,
+  filterRows,
 } from '../src/screens/student/self-assessment.ts';
+
+describe('result answer rows', () => {
+  const q = (index, topic, chapter = 'Kinematics') => ({ index, standard: '11th', chapter, topic });
+  const questions = [q(0, 'Projectile Motion'), q(1, 'Relative Velocity'), q(2, 'Projectile Motion'), q(3, 'Heat', 'Thermal'), q(4, 'Relative Velocity')];
+  const answers = [
+    { index: 0, selected: 'A', correct: true },
+    { index: 1, selected: 'B', correct: false },
+    { index: 2, selected: null, correct: null },
+    // 3: never answered
+    { index: 4, selected: 'C', correct: false },
+  ];
+
+  test('every question once, in question order, with its outcome', () => {
+    const rows = answerRows(questions, answers, null);
+    assert.deepEqual(rows.map((r) => [r.q.index, r.outcome]), [[0, 'right'], [1, 'wrong'], [2, 'skipped'], [3, 'skipped'], [4, 'wrong']]);
+  });
+
+  test('filters keep order: wrong, skipped, all', () => {
+    const rows = answerRows(questions, answers, null);
+    assert.deepEqual(filterRows(rows, 'wrong').map((r) => r.q.index), [1, 4]);
+    assert.deepEqual(filterRows(rows, 'skipped').map((r) => r.q.index), [2, 3]);
+    assert.equal(filterRows(rows, 'all'), rows);
+  });
+
+  test('one topic only (names matched trimmed, any case), then filtered', () => {
+    const rows = answerRows(questions, answers, { standard: '11th', chapter: ' kinematics', topic: 'RELATIVE velocity ' });
+    assert.deepEqual(rows.map((r) => r.q.index), [1, 4]);
+    assert.deepEqual(filterRows(rows, 'skipped'), []);
+  });
+});
 
 const kin = {
   standard: '11th',

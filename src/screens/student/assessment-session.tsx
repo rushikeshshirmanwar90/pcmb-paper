@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, KeyboardAvoidingView, Platform, Pressable, ScrollView, type ScrollViewInstance, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AccessibilityInfo, ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, type ScrollViewInstance, StyleSheet, Text, View } from 'react-native';
 import { confirmAction } from '@/components/account-section';
 import {
   Badge,
@@ -25,7 +25,10 @@ import { MaxContentWidth } from '@/constants/theme';
 import { createAnswerSaver, type AnswerSaver, type SaveState } from '@/screens/student/answer-saver';
 import { QuestionView } from '@/screens/student/question-view';
 import {
+  answerRows,
   basisText,
+  filterRows,
+  type AnswerOutcome,
   durationLabel,
   LEVEL_INFO,
   MIX_INFO,
@@ -426,6 +429,7 @@ function Runner({
     saverRef.current?.pause();
     setSubmitting(true);
     setError(null);
+    AccessibilityInfo.announceForAccessibility('Submitting your answers');
     try {
       // Every answer goes with the submission, saved or not.
       const all = questions.map((q) => ({ index: q.index, selected: answersRef.current.get(q.index) ?? null }));
@@ -625,6 +629,13 @@ function Runner({
 
       <SheetFooter>
         <ErrorText message={error} />
+        {/* Only that it's on its way: the result shows once the server has marked it. */}
+        {submitting ? (
+          <View style={styles.submitting} accessible accessibilityLabel="Submitting your answers">
+            <ActivityIndicator size="small" color={palette.primary} />
+            <Text style={[styles.saveText, { color: palette.mutedForeground }]}>Submitting your answers…</Text>
+          </View>
+        ) : null}
         <View style={styles.row}>
           <Button label="Previous" variant="secondary" icon={{ ios: 'chevron.left', android: 'chevron_left' }} onPress={() => setCurrent((i) => Math.max(0, i - 1))} disabled={current === 0} style={styles.flex} />
           {last ? (
@@ -681,31 +692,44 @@ function Result({
   const { assessment: a, questions, report } = detail;
   const [filter, setFilter] = useState<Filter>('all');
   const [topicFilter, setTopicFilter] = useState<TopicStrength | null>(null);
-  const scrollRef = useRef<ScrollViewInstance>(null);
+  const listRef = useRef<FlatList<ResultRow>>(null);
   const answersY = useRef(0);
 
-  const outcome = (index: number): 'right' | 'wrong' | 'skipped' => {
-    const x = detail.answers.find((y) => y.index === index);
-    return !x || x.selected === null || x.correct === null ? 'skipped' : x.correct ? 'right' : 'wrong';
-  };
-  const inTopic = (q: AssessmentQuestion) =>
-    !topicFilter || (q.standard === topicFilter.standard && q.chapter.trim().toLowerCase() === topicFilter.chapter.trim().toLowerCase() && q.topic.trim().toLowerCase() === topicFilter.topic.trim().toLowerCase());
-  const rows = questions.filter(inTopic).map((q) => ({ q, outcome: outcome(q.index) }));
-  const shown = filter === 'all' ? rows : rows.filter((r) => r.outcome === filter);
+  const answerOf = useMemo(() => new Map(detail.answers.map((x) => [x.index, x])), [detail.answers]);
+  const rows = useMemo(() => answerRows(questions, detail.answers, topicFilter), [questions, detail.answers, topicFilter]);
+  const shown = useMemo(() => filterRows(rows, filter), [rows, filter]);
 
   const seeQuestions = (t: TopicStrength) => {
     setTopicFilter(t);
     setFilter('all');
-    scrollRef.current?.scrollTo({ y: answersY.current, animated: true });
+    // The answers heading's place in the header, plus the list's top padding.
+    listRef.current?.scrollToOffset({ offset: answersY.current + styles.body.padding, animated: true });
   };
+
+  // Only the cards on screen and nearby are mounted (each draws its maths as native views).
+  const renderAnswer = useCallback(
+    ({ item: { q, outcome } }: { item: ResultRow }) => {
+      const answer = answerOf.get(q.index);
+      return (
+        <AnswerCard
+          question={q}
+          outcome={outcome}
+          selected={answer?.selected ?? null}
+          correct={answer?.correct ?? null}
+          solutionOpen={filter !== 'all'}
+          marksPerQuestion={a.marksPerQuestion}
+          negativeMarks={a.negativeMarks}
+        />
+      );
+    },
+    [answerOf, filter, a.marksPerQuestion, a.negativeMarks]
+  );
 
   const toPick = (t: TopicStrength): TopicPick => ({ standard: t.standard, chapter: t.chapter, topic: t.topic });
   const needWork = report ? report.topics.filter((t) => t.level !== 'strong') : [];
 
-  return (
-    <View style={styles.flex}>
-      <SheetHeader title="Result" onBack={onBack} />
-      <ScrollView ref={scrollRef} contentContainerStyle={[styles.body, column]}>
+  const header = (
+      <View style={styles.resultHeader}>
         {justSubmitted ? <Notice tone="success" title="Submitted" text="Here's how you did, topic by topic." live /> : null}
         <View>
           <Text accessibilityRole="header" style={[styles.reviewTitle, { color: palette.foreground }]}>
@@ -799,30 +823,21 @@ function Result({
             { value: 'skipped', label: 'Skipped', count: rows.filter((r) => r.outcome === 'skipped').length },
           ]}
         />
-        {shown.length ? (
-          shown.map(({ q, outcome: o }) => {
-            const answer = detail.answers.find((x) => x.index === q.index);
-            return (
-              <Card key={`${filter}-${q.index}`} style={styles.answerCard}>
-                <View style={styles.answerTop}>
-                  {/* Two lines, so a long topic isn't cut short by the badges beside it. */}
-                  <Text style={[styles.qMetaText, { color: palette.primary }]} numberOfLines={2}>
-                    Q{q.index + 1} · {q.topic || q.chapter}
-                  </Text>
-                  {q.difficulty ? <Badge label={q.difficulty} tone="neutral" /> : null}
-                  {o === 'right' ? (
-                    <Badge label={`Right · +${a.marksPerQuestion}`} tone="success" />
-                  ) : o === 'wrong' ? (
-                    <Badge label={`Wrong · ${a.negativeMarks ? `−${a.negativeMarks}` : '0'}`} tone="danger" />
-                  ) : (
-                    <Badge label="Skipped · 0" />
-                  )}
-                </View>
-                <QuestionView question={q} selected={answer?.selected ?? null} reveal solutionOpen={filter !== 'all'} answerCorrect={answer?.correct ?? null} />
-              </Card>
-            );
-          })
-        ) : (
+      </View>
+  );
+
+  return (
+    <View style={styles.flex}>
+      <SheetHeader title="Result" onBack={onBack} />
+      {/* One list: the score and report are its header, the answer cards its items (virtualized). */}
+      <FlatList
+        ref={listRef}
+        data={shown}
+        // The filter is in the key: another filter remounts the cards, so solutions start open or closed for it.
+        keyExtractor={(r) => `${filter}-${r.q.index}`}
+        renderItem={renderAnswer}
+        ListHeaderComponent={header}
+        ListEmptyComponent={
           <Card>
             <EmptyView
               icon={{ ios: 'checkmark.seal', android: 'verified' }}
@@ -830,15 +845,67 @@ function Result({
               text={filter === 'wrong' ? 'Every question you answered here was right.' : 'You answered every question here.'}
             />
           </Card>
-        )}
-        <QuietButton label="Delete this self-assessment" icon={{ ios: 'trash', android: 'delete' }} tone="danger" onPress={onDelete} />
-      </ScrollView>
+        }
+        ListFooterComponent={<QuietButton label="Delete this self-assessment" icon={{ ios: 'trash', android: 'delete' }} tone="danger" onPress={onDelete} />}
+        initialNumToRender={RESULT_CARDS.initial}
+        maxToRenderPerBatch={RESULT_CARDS.batch}
+        windowSize={RESULT_CARDS.window}
+        contentContainerStyle={[styles.body, column]}
+      />
       <SheetFooter>
         <Button label="Done" onPress={onBack} />
       </SheetFooter>
     </View>
   );
 }
+
+type ResultRow = { q: AssessmentQuestion; outcome: AnswerOutcome };
+
+/** Answer cards mounted at first, added per batch, and kept around the screen (in screen heights). */
+const RESULT_CARDS = { initial: 3, batch: 4, window: 5 } as const;
+
+/**
+ * One question of the result with the student's answer and the solution.
+ * Memoised: a card redraws only when its own answer or the filter changes.
+ */
+const AnswerCard = React.memo(function AnswerCard({
+  question: q,
+  outcome: o,
+  selected,
+  correct,
+  solutionOpen,
+  marksPerQuestion,
+  negativeMarks,
+}: {
+  question: AssessmentQuestion;
+  outcome: AnswerOutcome;
+  selected: string | null;
+  correct: boolean | null;
+  solutionOpen: boolean;
+  marksPerQuestion: number;
+  negativeMarks: number;
+}) {
+  const palette = usePalette();
+  return (
+    <Card style={styles.answerCard}>
+      <View style={styles.answerTop}>
+        {/* Two lines, so a long topic isn't cut short by the badges beside it. */}
+        <Text style={[styles.qMetaText, { color: palette.primary }]} numberOfLines={2}>
+          Q{q.index + 1} · {q.topic || q.chapter}
+        </Text>
+        {q.difficulty ? <Badge label={q.difficulty} tone="neutral" /> : null}
+        {o === 'right' ? (
+          <Badge label={`Right · +${marksPerQuestion}`} tone="success" />
+        ) : o === 'wrong' ? (
+          <Badge label={`Wrong · ${negativeMarks ? `−${negativeMarks}` : '0'}`} tone="danger" />
+        ) : (
+          <Badge label="Skipped · 0" />
+        )}
+      </View>
+      <QuestionView question={q} selected={selected} reveal solutionOpen={solutionOpen} answerCorrect={correct} />
+    </Card>
+  );
+});
 
 function ScoreCard({ assessment: a }: { assessment: AssessmentSummary }) {
   const palette = usePalette();
@@ -1076,6 +1143,8 @@ const styles = StyleSheet.create({
   position: { fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
   saveStatus: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2, alignSelf: 'flex-start' },
   saveText: { fontSize: 12, lineHeight: 16 },
+  resultHeader: { gap: 14 },
+  submitting: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 24 },
   gridToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1 },
   gridToggleText: { fontSize: 14, fontWeight: '700', fontVariant: ['tabular-nums'] },
   gridPanel: { borderBottomWidth: StyleSheet.hairlineWidth, paddingHorizontal: 16, paddingVertical: 12 },

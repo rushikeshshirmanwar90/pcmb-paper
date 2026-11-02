@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Badge, Button, Card, DetailSheet, EmptyView, ErrorView, Icon, ListRow, LoadingView, Muted, Notice, ProgressBar, Screen, SectionTitle, useLoad, usePalette } from '@/components/kit';
 import { programOf, questionBankOf, SCHOOL_SUBJECTS, WEEKDAY_NAMES, type SchoolSubject } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
-import { useDataVersion } from '@/context/data-version';
+import { useTabDataVersion } from '@/context/data-version';
 import { openPracticeAt } from '@/context/practice-target';
 import { useTabNavigation } from '@/context/tab-context';
 import { syncClassReminders } from '@/services/notifications';
@@ -30,7 +30,7 @@ const asSubject = (s: string): SchoolSubject | null => ((SCHOOL_SUBJECTS as read
  */
 export function StudentHomeScreen() {
   const user = useSignedInUser();
-  const version = useDataVersion();
+  const version = useTabDataVersion('home');
   const { goToTab } = useTabNavigation();
   // The overview's open tests don't say whether one is under way, so the
   // student's test list (which does) loads alongside it. If that list fails,
@@ -138,7 +138,7 @@ export function StudentHomeScreen() {
             <SyllabusCard batch={data.batch} recent={data.recent} onShowRecent={() => setShowRecent(true)} />
           ) : null}
 
-          <AnnouncementsSection batches={[]} canPost={false} allowAllBatches={false} limit={2} />
+          <AnnouncementsSection batches={[]} canPost={false} allowAllBatches={false} limit={2} tabKey="home" />
 
           <DetailSheet visible={showWeek} title="Weekly timetable" onClose={() => setShowWeek(false)}>
             <WeekTimetable entries={data.week} emptyText="Your teachers haven't added classes yet." />
