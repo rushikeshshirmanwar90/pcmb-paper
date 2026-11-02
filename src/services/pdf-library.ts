@@ -19,13 +19,26 @@ import type { Question } from '@/types/pcmb';
  * The web app has no file storage, so PDFs are made in the phone app only.
  */
 
-export type PdfContent = 'questions' | 'answers' | 'solutions';
+/** What a saved PDF holds: the paper alone, the answer key alone, or the paper with either or both after it. */
+export type PdfContent = 'questions' | 'answers' | 'solutions' | 'answerKey';
 
 export const PDF_CONTENT_LABELS: Record<PdfContent, string> = {
   questions: 'Questions only',
   answers: 'With answer key',
   solutions: 'With solutions',
+  answerKey: 'Answer key only',
 };
+
+/** The details printed at the top of a paper, kept so another version can repeat them. */
+export interface PaperDetails {
+  /** The title printed in the header, which may differ from the file name ("EMI" for "EMI (2).pdf"). */
+  title?: string;
+  /** "1" in "Paper Set : 1". */
+  paperSet?: string;
+  /** The exam's day, yyyy-mm-dd. */
+  date?: string;
+  durationMinutes?: number;
+}
 
 export interface SavedPdf {
   id: string;
@@ -40,6 +53,7 @@ export interface SavedPdf {
   content: PdfContent;
   standard?: string;
   subject?: string;
+  paper?: PaperDetails;
   chapters: string[];
   /** Whether the questions were kept, so another version can be made. */
   hasQuestions: boolean;
@@ -55,6 +69,7 @@ export interface NewPdf {
   totalMarks?: number;
   standard?: string;
   subject?: string;
+  paper?: PaperDetails;
 }
 
 export const pdfLibraryAvailable = Platform.OS !== 'web';
@@ -185,6 +200,7 @@ export function addPdf(input: NewPdf): SavedPdf {
     content: input.content,
     standard: input.standard,
     subject: input.subject,
+    paper: input.paper,
     chapters: [...new Set(input.questions.map((q) => q.chapter).filter(Boolean))],
     hasQuestions,
   };

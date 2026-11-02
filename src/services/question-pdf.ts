@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import { authHeaders, reportLoginExpired } from '@/services/api-client';
 import { API_BASE_URL } from '@/services/apiService';
-import { addPdf, loadPdfQuestions, type PdfContent, type SavedPdf } from '@/services/pdf-library';
+import { addPdf, loadPdfQuestions, type PaperDetails, type PdfContent, type SavedPdf } from '@/services/pdf-library';
 import type { Question } from '@/types/pcmb';
 
 // PDFs are made on the server (papers backend, POST /api/question-paper-pdf)
@@ -14,8 +14,23 @@ import type { Question } from '@/types/pcmb';
  * - questions: a paper to hand out
  * - answers:   the paper, then an answer key on its own page
  * - solutions: the paper, the answer key, then each question's worked solution
+ * - answerKey: the answer key alone
  */
-export type { PdfContent };
+export type { PaperDetails, PdfContent };
+
+/**
+ * What a teacher asks for, in the three ways the PDF flow offers it:
+ * - answers:   one PDF, the questions then the answer key
+ * - solutions: one PDF, the questions, the answer key, then the solutions
+ * - separate:  two PDFs, the question paper and the answer key
+ */
+export type PdfChoice = 'answers' | 'solutions' | 'separate';
+
+export const PDF_CHOICES: { value: PdfChoice; label: string; hint: string }[] = [
+  { value: 'answers', label: 'Questions + Answer Key', hint: 'One PDF; the answer key is on its own page' },
+  { value: 'solutions', label: 'Questions + Answer Key + Solutions', hint: 'One PDF, with the answer key and solutions on new pages' },
+  { value: 'separate', label: 'Separate PDFs', hint: 'Two PDFs: the question paper and the answer key' },
+];
 
 export interface QuestionPdfOptions {
   /** Printed at the top of the paper. */
@@ -28,6 +43,8 @@ export interface QuestionPdfOptions {
   /** Printed under the title, and kept with the PDF for My PDFs' filters. */
   standard?: string;
   subject?: string;
+  /** Paper set, date and duration printed in the header; the server prints a dash for what's missing. */
+  paper?: PaperDetails;
 }
 
 /** What createQuestionsPdf is doing, for the screen to show. */
@@ -44,10 +61,11 @@ const DEFAULT_MARKS_PER_QUESTION = 4;
 // The server gives itself two minutes; a little more here covers the transfer.
 const REQUEST_TIMEOUT_MS = 150000;
 
-const SERVER_SECTIONS: Record<PdfContent, { answerKey: boolean; solutions: boolean }> = {
-  questions: { answerKey: false, solutions: false },
-  answers: { answerKey: true, solutions: false },
-  solutions: { answerKey: true, solutions: true },
+const SERVER_SECTIONS: Record<PdfContent, { questionPaper: boolean; answerKey: boolean; solutions: boolean }> = {
+  questions: { questionPaper: true, answerKey: false, solutions: false },
+  answers: { questionPaper: true, answerKey: true, solutions: false },
+  solutions: { questionPaper: true, answerKey: true, solutions: true },
+  answerKey: { questionPaper: false, answerKey: true, solutions: false },
 };
 
 /** " (answer key)" for the answer-key version of a paper, and so on. */
@@ -55,6 +73,7 @@ export const VERSION_SUFFIX: Record<PdfContent, string> = {
   questions: '',
   answers: ' (answer key)',
   solutions: ' (solutions)',
+  answerKey: ' (answer key only)',
 };
 
 /** "11th", or "11th, 12th" when the questions come from more than one. */
@@ -62,12 +81,16 @@ const namesIn = (values: (string | undefined)[]) => [...new Set(values.filter(Bo
 
 /** Only what the printed paper shows, so the request stays small. */
 function requestBody(opts: QuestionPdfOptions, marksPerQuestion: number): string {
-  const { answerKey, solutions } = SERVER_SECTIONS[opts.content];
+  const { questionPaper, answerKey, solutions } = SERVER_SECTIONS[opts.content];
   return JSON.stringify({
     title: opts.title,
     standard: opts.standard ?? namesIn(opts.questions.map((q) => q.standard)),
     subject: opts.subject ?? namesIn(opts.questions.map((q) => q.subject)),
     marksPerQuestion,
+    paperSet: opts.paper?.paperSet,
+    date: opts.paper?.date,
+    durationMinutes: opts.paper?.durationMinutes,
+    questionPaper,
     answerKey,
     solutions,
     questions: opts.questions.map((q) => ({
@@ -80,6 +103,7 @@ function requestBody(opts: QuestionPdfOptions, marksPerQuestion: number): string
       correctAnswer: q.correctAnswer,
       explanation: solutions ? q.explanation : '',
       chapter: q.chapter,
+      source: q.source ?? '',
       diagramUrls: q.diagramUrls ?? [],
       optionDiagramUrls: {
         A: q.optionDiagramUrls?.A ?? [],
@@ -199,9 +223,39 @@ export async function createQuestionsPdf(
       totalMarks: marksPerQuestion * opts.questions.length,
       standard: opts.standard,
       subject: opts.subject,
+      paper: { ...opts.paper, title: opts.title },
     });
   } catch {
     throw new PdfRequestError("The PDF was made but couldn't be saved on this phone. Check its free space and try again.");
+  }
+}
+
+/**
+ * Makes what a teacher asked for and saves it to My PDFs: one PDF, or for
+ * "separate" the question paper and then the answer key, as two. Returns them
+ * in that order. If the answer key fails, the question paper is already saved
+ * and the error says so.
+ */
+export async function createPdfsFor(
+  opts: Omit<QuestionPdfOptions, 'content' | 'fileName'>,
+  choice: PdfChoice,
+  onStage?: (stage: PdfStage) => void
+): Promise<SavedPdf[]> {
+  if (choice !== 'separate') return [await createQuestionsPdf({ ...opts, content: choice }, onStage)];
+
+  const paper = await createQuestionsPdf(
+    { ...opts, content: 'questions', fileName: `${opts.title} - Question Paper` },
+    onStage
+  );
+  try {
+    const key = await createQuestionsPdf(
+      { ...opts, content: 'answerKey', fileName: `${opts.title} - Answer Key` },
+      onStage
+    );
+    return [paper, key];
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'Try again.';
+    throw new PdfRequestError(`The question paper is saved in My PDFs, but the answer key couldn't be made. ${reason}`);
   }
 }
 
@@ -220,12 +274,14 @@ export async function createPdfVersion(source: SavedPdf, content: PdfContent): P
   const marksPerQuestion =
     source.totalMarks && source.questionCount ? source.totalMarks / source.questionCount : undefined;
   return createQuestionsPdf({
-    title: baseName,
+    // The title the paper was made with (as edited), not its file name.
+    title: source.paper?.title || baseName,
     fileName: `${baseName}${VERSION_SUFFIX[content]}`,
     questions,
     content,
     marksPerQuestion,
     standard: source.standard,
     subject: source.subject,
+    paper: source.paper,
   });
 }

@@ -35,7 +35,8 @@ import type {
 } from '@/types/pcmb';
 import { fetchQuestionPool, QuestionLoadError } from '@/services/apiService';
 import { useKeepServerConnection } from '@/hooks/use-keep-server-connection';
-import { createQuestionsPdf, PdfRequestError, type PdfContent, type PdfStage } from '@/services/question-pdf';
+import { createPdfsFor, PDF_CHOICES, PdfRequestError, type PdfChoice, type PdfStage } from '@/services/question-pdf';
+import { DateField } from '@/screens/teacher/date-field';
 import { openPdf, PDF_CONTENT_LABELS, printPdf, sharePdf, type SavedPdf } from '@/services/pdf-library';
 
 interface CreateExamModalProps {
@@ -73,10 +74,20 @@ const PURPOSE_CHOICES: Choice<QuestionSetPurpose>[] = [
   { value: 'pdf', label: 'PDF paper' },
 ];
 
-const PDF_CONTENT_CHOICES: Choice<PdfContent>[] = (['questions', 'answers', 'solutions'] as const).map((value) => ({
-  value,
-  label: PDF_CONTENT_LABELS[value],
-}));
+const PDF_CHOICE_OPTIONS: Choice<PdfChoice>[] = PDF_CHOICES.map(({ value, label }) => ({ value, label }));
+
+/** The paper's duration, in minutes: 0 leaves the time out of the header. */
+const DURATION_RANGE = { min: 0, max: 600 };
+const DEFAULT_DURATION_MINUTES = 60;
+
+const startOfToday = () => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+};
+
+/** A day as yyyy-mm-dd, in the phone's own calendar. */
+const dayKey = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 const LEVEL_NAMES: Record<string, string> = { Easy: 'Easy', Mid: 'Medium', Hard: 'Hard' };
 
@@ -90,6 +101,17 @@ const LEVEL_CHOICES: Choice<DifficultyLevel>[] = [
   { value: 'Mid', label: 'Medium' },
   { value: 'Hard', label: 'Hard' },
 ];
+
+/** A paper's name from the chapters or topics picked: "EMI", or "EMI, Optics +2 more" once it would be too long for a heading. */
+function titleFromNames(names: string[]): string {
+  let title = '';
+  for (let i = 0; i < names.length; i++) {
+    const next = title ? `${title}, ${names[i]}` : names[i];
+    if (title && next.length > 60) return `${title} +${names.length - i} more`;
+    title = next;
+  }
+  return title.slice(0, 80);
+}
 
 /** "a room name, a class and a subject" */
 function listWords(words: string[]) {
@@ -529,19 +551,29 @@ export function QuestionSetFlow({
   useKeepServerConnection(active && step === 'config');
 
   // Details
-  const [title, setTitle] = useState(locked?.title ?? '');
+  // What the teacher typed for the name; null until they do (or after they clear it).
+  const [typedTitle, setTypedTitle] = useState<string | null>(locked?.title ?? null);
   const [standard, setStandard] = useState<Standard | null>(locked?.standard ?? null);
   const [subject, setSubject] = useState<Subject | null>(locked?.subject ?? null);
   // None picked means all of them. An edited test starts on its first saved topic.
   const [pickedChapters, setPickedChapters] = useState<string[]>(seed ? [seed.chapter] : []);
   const [pickedTopics, setPickedTopics] = useState<string[]>(seed ? [seed.topic] : []);
+  // A PDF paper's name is the topic (else the chapter) picked, e.g. "EMI", until the teacher types their own.
+  const autoTitle = isPdf && !locked ? titleFromNames(pickedTopics.length ? pickedTopics : pickedChapters) : '';
+  const title = typedTitle ?? autoTitle;
   // Edit mode lists either this topic's questions or every pick, whatever topic it is from.
   const [view, setView] = useState<'all' | 'selected'>(seed ? 'all' : 'selected');
   const [levels, setLevels] = useState<DifficultyLevel[]>([]);
   // Typed in; null until it's a whole number in range.
   const [questionCountText, setQuestionCountText] = useState(String(initialQuestions?.length || 20));
   const questionCount = wholeNumberIn(questionCountText, QUESTION_RANGE);
-  const [pdfContent, setPdfContent] = useState<PdfContent>('answers');
+  // The paper's header: the set, the exam's day and its length. Everything else
+  // in it (institute, class, subject, chapter, marks) comes from what's picked.
+  const [pdfChoice, setPdfChoice] = useState<PdfChoice>('answers');
+  const [paperSet, setPaperSet] = useState('1');
+  const [examDate, setExamDate] = useState(startOfToday);
+  const [durationText, setDurationText] = useState(String(DEFAULT_DURATION_MINUTES));
+  const durationMinutes = wholeNumberIn(durationText, DURATION_RANGE);
 
   const examCategory = standard ? trackOf(standard) : null;
   // The whole subject's chapters and topics; chapters only mean something
@@ -586,8 +618,8 @@ export function QuestionSetFlow({
 
   // What was made
   const [createdRoom, setCreatedRoom] = useState<ExamRoom | null>(null);
-  // The PDF as saved in My PDFs, and the questions it was made from.
-  const [madePdf, setMadePdf] = useState<{ pdf: SavedPdf; questions: Question[] } | null>(null);
+  // The PDFs as saved in My PDFs (two when "Separate PDFs" was chosen), and the questions they were made from.
+  const [madePdf, setMadePdf] = useState<{ pdfs: SavedPdf[]; questions: Question[] } | null>(null);
   const [makingPdf, setMakingPdf] = useState(false);
   const [pdfProgress, setPdfProgress] = useState<{ stage: PdfStage; count: number }>({ stage: 'making', count: 0 });
   const [pdfError, setPdfError] = useState<string | null>(null);
@@ -597,6 +629,7 @@ export function QuestionSetFlow({
     !standard && 'a class',
     !subject && 'a subject',
     !editing && questionCount === null && `${QUESTION_RANGE.min} to ${QUESTION_RANGE.max} questions`,
+    isPdf && durationMinutes === null && `a duration from ${DURATION_RANGE.min} to ${DURATION_RANGE.max} minutes`,
   ].filter((word): word is string => !!word);
   const selectedCount = selectedQuestionIds.size;
   const stillToPick = questionCount === null ? 0 : questionCount - selectedCount;
@@ -805,18 +838,23 @@ export function QuestionSetFlow({
     setPdfProgress({ stage: 'making', count: selectedList.length });
     setPdfError(null);
     try {
-      const pdf = await createQuestionsPdf(
+      const pdfs = await createPdfsFor(
         {
           title: title.trim(),
           questions: selectedList,
-          content: pdfContent,
           marksPerQuestion: MARKS_PER_QUESTION,
           standard,
           subject,
+          paper: {
+            paperSet: paperSet.trim() || '1',
+            date: dayKey(examDate),
+            durationMinutes: durationMinutes || undefined,
+          },
         },
+        pdfChoice,
         (stage) => setPdfProgress((progress) => ({ ...progress, stage }))
       );
-      setMadePdf({ pdf, questions: selectedList });
+      setMadePdf({ pdfs, questions: selectedList });
       setStep('success');
     } catch (error) {
       setPdfError(
@@ -827,12 +865,11 @@ export function QuestionSetFlow({
     }
   };
 
-  /** Opens, shares or prints the PDF just made, saying so if that fails. */
-  const runPdfAction = async (action: (pdf: SavedPdf) => Promise<void>) => {
-    if (!madePdf) return;
+  /** Opens, shares or prints a PDF just made, saying so if that fails. */
+  const runPdfAction = async (action: (pdf: SavedPdf) => Promise<void>, pdf: SavedPdf) => {
     setPdfError(null);
     try {
-      await action(madePdf.pdf);
+      await action(pdf);
     } catch (error) {
       setPdfError(error instanceof Error ? error.message : 'Something went wrong. Try again.');
     }
@@ -841,7 +878,7 @@ export function QuestionSetFlow({
   // A teacher often makes several for one class: keep its class, subject and
   // settings, clear the rest.
   const startAnother = () => {
-    setTitle('');
+    setTypedTitle(null);
     setPickedChapters([]);
     setPickedTopics([]);
     setPoolGroups([]);
@@ -853,6 +890,62 @@ export function QuestionSetFlow({
     setPdfError(null);
     setStep('config');
   };
+
+  /** Open, Share and Print for a PDF just made. A lone PDF gets a large Open button; each of two gets its own row. */
+  const renderPdfActions = (pdf: SavedPdf, lone: boolean) => (
+    <View key={pdf.id} style={styles.fullWidth}>
+      {lone ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => runPdfAction(openPdf, pdf)}
+          style={({ pressed }) => [
+            styles.primaryActionBtn,
+            styles.fullWidth,
+            { backgroundColor: palette.primary, marginTop: 24 },
+            pressed && styles.pressed,
+          ]}
+        >
+          <SymbolView name={{ ios: 'eye', android: 'visibility', web: 'visibility' }} tintColor={palette.onPrimary} size={18} />
+          <Text style={[styles.primaryActionBtnText, { color: palette.onPrimary }]}>Open PDF</Text>
+        </Pressable>
+      ) : (
+        <View style={styles.successPdfHead}>
+          <Text style={[styles.successPdfName, { color: palette.foreground }]} numberOfLines={2}>
+            {pdf.name}
+          </Text>
+          <Text style={[styles.successPdfMeta, { color: palette.mutedForeground }]}>
+            {PDF_CONTENT_LABELS[pdf.content]}
+            {pdf.pageCount ? ` · ${pdf.pageCount} page${pdf.pageCount === 1 ? '' : 's'}` : ''}
+          </Text>
+        </View>
+      )}
+      <View style={[styles.fullWidth, styles.successBtnRow]}>
+        {(
+          [
+            ...(lone ? [] : [['Open', { ios: 'eye', android: 'visibility', web: 'visibility' }, openPdf] as const]),
+            ['Share', { ios: 'square.and.arrow.up', android: 'share', web: 'share' }, sharePdf] as const,
+            ['Print', { ios: 'printer', android: 'print', web: 'print' }, printPdf] as const,
+          ]
+        ).map(([label, icon, action]) => (
+          <Pressable
+            key={label}
+            accessibilityRole="button"
+            accessibilityLabel={lone ? label : `${label} ${pdf.name}`}
+            onPress={() => runPdfAction(action, pdf)}
+            style={({ pressed }) => [
+              styles.secondaryBtn,
+              styles.successRowBtn,
+              { borderColor: palette.border },
+              pressed && styles.pressed,
+            ]}
+          >
+            <SymbolView name={icon} tintColor={palette.primary} size={16} />
+            <Text style={[styles.secondaryBtnText, { color: palette.foreground }]}>{label}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
 
   const shareRoom = async (room: ExamRoom) => {
     try {
@@ -964,7 +1057,7 @@ export function QuestionSetFlow({
             </Text>
             <TextInput
               value={title}
-              onChangeText={setTitle}
+              onChangeText={(text) => setTypedTitle(text === '' ? null : text)}
               placeholder={isPdf ? 'e.g. 11th Physics chapter test' : 'e.g. 11th Physics weekly test'}
               placeholderTextColor={palette.mutedForeground}
               accessibilityLabel={isPdf ? 'Paper name' : onSubmitTest ? 'Test name' : 'Room name'}
@@ -978,6 +1071,11 @@ export function QuestionSetFlow({
                 },
               ]}
             />
+            {isPdf ? (
+              <Text style={[styles.fieldHint, { color: palette.mutedForeground }]}>
+                Filled in from the chapter or topic you pick. Edit it if you like.
+              </Text>
+            ) : null}
           </View>
 
           <ChoiceChips
@@ -1054,7 +1152,45 @@ export function QuestionSetFlow({
           )}
 
           {isPdf ? (
-            <ChoiceChips label="In the PDF" choices={PDF_CONTENT_CHOICES} selected={pdfContent} onSelect={setPdfContent} />
+            <>
+              <ChoiceChips
+                label="In the PDF"
+                hint={PDF_CHOICES.find((choice) => choice.value === pdfChoice)?.hint}
+                choices={PDF_CHOICE_OPTIONS}
+                selected={pdfChoice}
+                onSelect={setPdfChoice}
+                columns={1}
+              />
+              <View style={styles.fieldGroup}>
+                <Text style={[styles.fieldLabel, { color: palette.mutedForeground }]}>Paper set</Text>
+                <TextInput
+                  value={paperSet}
+                  onChangeText={(text) => setPaperSet(text.slice(0, 10))}
+                  placeholder="1"
+                  placeholderTextColor={palette.mutedForeground}
+                  accessibilityLabel="Paper set"
+                  accessibilityHint="Printed in the paper's header"
+                  returnKeyType="done"
+                  style={[
+                    styles.textInput,
+                    { backgroundColor: palette.card, borderColor: palette.border, color: palette.foreground },
+                  ]}
+                />
+                <Text style={[styles.fieldHint, { color: palette.mutedForeground }]}>
+                  The institute, class, subject, chapter and marks are filled in for you.
+                </Text>
+              </View>
+              <View style={styles.numberRow}>
+                <DateField label="Date" value={examDate} minimumDate={startOfToday()} onChange={setExamDate} />
+                <NumberField
+                  label="Duration"
+                  unit="minutes"
+                  value={durationText}
+                  onChange={setDurationText}
+                  range={DURATION_RANGE}
+                />
+              </View>
+            </>
           ) : null}
 
           {!editing && questionCount !== null ? (
@@ -1462,16 +1598,24 @@ export function QuestionSetFlow({
               />
             </View>
 
-            <Text style={[styles.successTitle, { color: palette.foreground }]}>{madePdf.pdf.name}</Text>
+            <Text style={[styles.successTitle, { color: palette.foreground }]}>
+              {madePdf.pdfs.length > 1 ? 'PDFs ready' : madePdf.pdfs[0].name}
+            </Text>
             <Text style={[styles.successSubtitle, { color: palette.mutedForeground }]}>
-              Saved to My PDFs on this phone. Open it, send it to your students, or print it.
+              {madePdf.pdfs.length > 1
+                ? 'Both are saved to My PDFs on this phone. Open them, send them to your students, or print them.'
+                : 'Saved to My PDFs on this phone. Open it, send it to your students, or print it.'}
             </Text>
 
             <View style={styles.detailsList}>
               {[
                 ...successDetails(madePdf.questions),
-                ...(madePdf.pdf.pageCount ? [['Pages', `${madePdf.pdf.pageCount}`]] : []),
-                ['In the PDF', PDF_CONTENT_LABELS[madePdf.pdf.content]],
+                ...(madePdf.pdfs.length === 1
+                  ? [
+                      ...(madePdf.pdfs[0].pageCount ? [['Pages', `${madePdf.pdfs[0].pageCount}`]] : []),
+                      ['In the PDF', PDF_CONTENT_LABELS[madePdf.pdfs[0].content]],
+                    ]
+                  : []),
               ].map(([key, value]) => (
                 <View key={key} style={styles.detailRow}>
                   <Text style={[styles.detailKey, { color: palette.mutedForeground }]}>{key}</Text>
@@ -1486,46 +1630,7 @@ export function QuestionSetFlow({
               </Text>
             ) : null}
 
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => runPdfAction(openPdf)}
-              style={({ pressed }) => [
-                styles.primaryActionBtn,
-                styles.fullWidth,
-                { backgroundColor: palette.primary, marginTop: 24 },
-                pressed && styles.pressed,
-              ]}
-            >
-              <SymbolView
-                name={{ ios: 'eye', android: 'visibility', web: 'visibility' }}
-                tintColor={palette.onPrimary}
-                size={18}
-              />
-              <Text style={[styles.primaryActionBtnText, { color: palette.onPrimary }]}>Open PDF</Text>
-            </Pressable>
-            <View style={[styles.fullWidth, styles.successBtnRow]}>
-              {(
-                [
-                  ['Share', { ios: 'square.and.arrow.up', android: 'share', web: 'share' }, sharePdf],
-                  ['Print', { ios: 'printer', android: 'print', web: 'print' }, printPdf],
-                ] as const
-              ).map(([label, icon, action]) => (
-                <Pressable
-                  key={label}
-                  accessibilityRole="button"
-                  onPress={() => runPdfAction(action)}
-                  style={({ pressed }) => [
-                    styles.secondaryBtn,
-                    styles.successRowBtn,
-                    { borderColor: palette.border },
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <SymbolView name={icon} tintColor={palette.primary} size={16} />
-                  <Text style={[styles.secondaryBtnText, { color: palette.foreground }]}>{label}</Text>
-                </Pressable>
-              ))}
-            </View>
+            {madePdf.pdfs.map((pdf) => renderPdfActions(pdf, madePdf.pdfs.length === 1))}
             {onViewPdfs ? (
               <Pressable
                 accessibilityRole="button"
@@ -1963,6 +2068,18 @@ const styles = StyleSheet.create({
   secondaryBtnText: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  successPdfHead: {
+    marginTop: 20,
+    marginBottom: 8,
+    gap: 2,
+  },
+  successPdfName: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  successPdfMeta: {
+    fontSize: 12,
   },
   successBtnRow: {
     flexDirection: 'row',
