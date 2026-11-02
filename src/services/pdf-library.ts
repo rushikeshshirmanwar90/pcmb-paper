@@ -57,7 +57,13 @@ export interface SavedPdf {
   chapters: string[];
   /** Whether the questions were kept, so another version can be made. */
   hasQuestions: boolean;
+  /** A Smart PDF: one question per 16:9 slide, with room to write. Missing for an exam paper. */
+  format?: 'smart';
 }
+
+/** What My PDFs calls a PDF's contents. */
+export const pdfContentLabel = (pdf: Pick<SavedPdf, 'content' | 'format'>) =>
+  pdf.format === 'smart' ? 'Smart PDF (slides)' : PDF_CONTENT_LABELS[pdf.content];
 
 export interface NewPdf {
   name: string;
@@ -70,6 +76,7 @@ export interface NewPdf {
   standard?: string;
   subject?: string;
   paper?: PaperDetails;
+  format?: 'smart';
 }
 
 export const pdfLibraryAvailable = Platform.OS !== 'web';
@@ -203,6 +210,7 @@ export function addPdf(input: NewPdf): SavedPdf {
     paper: input.paper,
     chapters: [...new Set(input.questions.map((q) => q.chapter).filter(Boolean))],
     hasQuestions,
+    ...(input.format ? { format: input.format } : {}),
   };
   commit([pdf, ...items]);
   return pdf;

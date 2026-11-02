@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { authHeaders, reportLoginExpired } from '@/services/api-client';
 import { API_BASE_URL } from '@/services/apiService';
 import { addPdf, loadPdfQuestions, type PaperDetails, type PdfContent, type SavedPdf } from '@/services/pdf-library';
+import type { SmartSlideSettings } from '@/shared/smart-slide-layout';
 import type { Question } from '@/types/pcmb';
 
 // PDFs are made on the server (papers backend, POST /api/question-paper-pdf)
@@ -45,6 +46,8 @@ export interface QuestionPdfOptions {
   subject?: string;
   /** Paper set, date and duration printed in the header; the server prints a dash for what's missing. */
   paper?: PaperDetails;
+  /** Makes a Smart PDF (16:9 slides, questions only) with this layout instead of the exam paper. */
+  smart?: SmartSlideSettings;
 }
 
 /** What createQuestionsPdf is doing, for the screen to show. */
@@ -76,6 +79,9 @@ export const VERSION_SUFFIX: Record<PdfContent, string> = {
   answerKey: ' (answer key only)',
 };
 
+/** " (slides)" after a Smart PDF's name in My PDFs. */
+export const SMART_SUFFIX = ' (slides)';
+
 /** "11th", or "11th, 12th" when the questions come from more than one. */
 const namesIn = (values: (string | undefined)[]) => [...new Set(values.filter(Boolean))].join(', ');
 
@@ -93,6 +99,7 @@ function requestBody(opts: QuestionPdfOptions, marksPerQuestion: number): string
     questionPaper,
     answerKey,
     solutions,
+    ...(opts.smart ? { format: 'smart', slides: opts.smart } : {}),
     questions: opts.questions.map((q) => ({
       questionText: q.questionText,
       optionA: q.optionA,
@@ -224,6 +231,7 @@ export async function createQuestionsPdf(
       standard: opts.standard,
       subject: opts.subject,
       paper: { ...opts.paper, title: opts.title },
+      ...(opts.smart ? { format: 'smart' as const } : {}),
     });
   } catch {
     throw new PdfRequestError("The PDF was made but couldn't be saved on this phone. Check its free space and try again.");
@@ -260,6 +268,22 @@ export async function createPdfsFor(
 }
 
 /**
+ * Makes a Smart PDF of the picked questions with this layout and saves it to
+ * My PDFs as "<title> (slides)". Questions only: no answers or solutions.
+ */
+export function createSmartPdf(
+  opts: Pick<QuestionPdfOptions, 'title' | 'questions' | 'standard' | 'subject'>,
+  settings: SmartSlideSettings,
+  onStage?: (stage: PdfStage) => void
+): Promise<SavedPdf> {
+  return createQuestionsPdf(
+    // Slides carry no marks, so My PDFs shows none.
+    { ...opts, content: 'questions', fileName: `${opts.title}${SMART_SUFFIX}`, marksPerQuestion: 0, smart: settings },
+    onStage
+  );
+}
+
+/**
  * Makes another version of a saved PDF from its kept questions, e.g. the
  * answer key of a paper already handed out. Returns the new PDF.
  */
@@ -267,7 +291,7 @@ export async function createPdfVersion(source: SavedPdf, content: PdfContent): P
   const questions = loadPdfQuestions(source.id);
   if (!questions?.length) throw new Error("This PDF's questions weren't kept, so another version can't be made.");
   // "Kinematics test (answer key)" → "Kinematics test"
-  const baseName = Object.values(VERSION_SUFFIX).reduce(
+  const baseName = [...Object.values(VERSION_SUFFIX), SMART_SUFFIX].reduce(
     (name, suffix) => (suffix && name.endsWith(suffix) ? name.slice(0, -suffix.length) : name),
     source.name
   );

@@ -23,6 +23,7 @@ import {
   deletePdf,
   openPdf,
   PDF_CONTENT_LABELS,
+  pdfContentLabel,
   pdfLibraryAvailable,
   printPdf,
   renamePdf,
@@ -131,7 +132,7 @@ const PdfCard = memo(function PdfCard({
           </Text>
           <View style={styles.cardFooter}>
             <View style={[styles.badge, { backgroundColor: badge.bg }]}>
-              <Text style={[styles.badgeText, { color: badge.text }]}>{PDF_CONTENT_LABELS[pdf.content]}</Text>
+              <Text style={[styles.badgeText, { color: badge.text }]}>{pdfContentLabel(pdf)}</Text>
             </View>
             <Text style={[styles.cardSmall, { color: palette.mutedForeground }]} numberOfLines={1}>
               {formatBytes(pdf.sizeBytes)} · {formatDate(pdf.createdAt)}
@@ -194,7 +195,8 @@ function ActionSheet({
   onNotice: (pdf: SavedPdf) => void;
 }) {
   const [busy, setBusy] = useState<PdfContent | null>(null);
-  const otherVersions = (Object.keys(PDF_CONTENT_LABELS) as PdfContent[]).filter((c) => c !== pdf.content);
+  // A Smart PDF can be made into any exam version of its questions, the plain paper too.
+  const otherVersions = (Object.keys(PDF_CONTENT_LABELS) as PdfContent[]).filter((c) => pdf.format === 'smart' || c !== pdf.content);
 
   // iOS can't show the share sheet or another dialog while this one is still
   // sliding away, so those wait for it to close.

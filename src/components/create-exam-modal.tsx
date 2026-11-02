@@ -37,7 +37,8 @@ import { fetchQuestionPool, QuestionLoadError } from '@/services/apiService';
 import { useKeepServerConnection } from '@/hooks/use-keep-server-connection';
 import { createPdfsFor, PDF_CHOICES, PdfRequestError, type PdfChoice, type PdfStage } from '@/services/question-pdf';
 import { DateField } from '@/screens/teacher/date-field';
-import { openPdf, PDF_CONTENT_LABELS, printPdf, sharePdf, type SavedPdf } from '@/services/pdf-library';
+import { openPdf, pdfContentLabel, printPdf, sharePdf, type SavedPdf } from '@/services/pdf-library';
+import { SmartPdfScreen } from './smart-pdf-screen';
 
 interface CreateExamModalProps {
   visible: boolean;
@@ -75,6 +76,19 @@ const PURPOSE_CHOICES: Choice<QuestionSetPurpose>[] = [
 ];
 
 const PDF_CHOICE_OPTIONS: Choice<PdfChoice>[] = PDF_CHOICES.map(({ value, label }) => ({ value, label }));
+
+/** Chosen at the last step, after the questions are picked. */
+type PdfKind = 'exam' | 'smart';
+
+const PDF_KIND_CHOICES: Choice<PdfKind>[] = [
+  { value: 'exam', label: 'Exam PDF' },
+  { value: 'smart', label: 'Smart PDF' },
+];
+
+const PDF_KIND_HINTS: Record<PdfKind, string> = {
+  exam: 'The printed paper, with the options chosen on the details step',
+  smart: 'One question per 16:9 slide, with space below to write',
+};
 
 /** The paper's duration, in minutes: 0 leaves the time out of the header. */
 const DURATION_RANGE = { min: 0, max: 600 };
@@ -510,7 +524,7 @@ interface QuestionSetFlowProps {
   active?: boolean;
 }
 
-type Step = 'config' | 'questions' | 'success';
+type Step = 'config' | 'questions' | 'smart' | 'success';
 
 /** What an edit-mode picker offers the wizard around it. */
 export interface QuestionFlowControl {
@@ -570,6 +584,7 @@ export function QuestionSetFlow({
   // The paper's header: the set, the exam's day and its length. Everything else
   // in it (institute, class, subject, chapter, marks) comes from what's picked.
   const [pdfChoice, setPdfChoice] = useState<PdfChoice>('answers');
+  const [pdfKind, setPdfKind] = useState<PdfKind>('exam');
   const [paperSet, setPaperSet] = useState('1');
   const [examDate, setExamDate] = useState(startOfToday);
   const [durationText, setDurationText] = useState(String(DEFAULT_DURATION_MINUTES));
@@ -914,7 +929,7 @@ export function QuestionSetFlow({
             {pdf.name}
           </Text>
           <Text style={[styles.successPdfMeta, { color: palette.mutedForeground }]}>
-            {PDF_CONTENT_LABELS[pdf.content]}
+            {pdfContentLabel(pdf)}
             {pdf.pageCount ? ` · ${pdf.pageCount} page${pdf.pageCount === 1 ? '' : 's'}` : ''}
           </Text>
         </View>
@@ -959,7 +974,7 @@ export function QuestionSetFlow({
 
   // Inline, the screen's own header names the task; only picking needs a back button.
   // An edited test sits inside the wizard, whose own header and Back lead the way.
-  const showHeader = !editing && (!!onClose || step === 'questions');
+  const showHeader = !editing && (!!onClose || step === 'questions' || step === 'smart');
 
   // Edit mode's banner: where the listed questions come from.
   const scopeLines = [
@@ -979,6 +994,8 @@ export function QuestionSetFlow({
   const headerTitle =
     step === 'questions'
       ? 'Pick questions'
+      : step === 'smart'
+      ? 'Smart PDF'
       : step === 'success'
       ? isPdf
         ? 'PDF ready'
@@ -1001,11 +1018,11 @@ export function QuestionSetFlow({
       {showHeader && (
         <View style={[styles.header, { borderBottomColor: palette.border }]}>
           <View style={styles.headerLeft}>
-            {step === 'questions' && (
+            {(step === 'questions' || step === 'smart') && (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Back to the details"
-                onPress={() => setStep('config')}
+                accessibilityLabel={step === 'smart' ? 'Back to the questions' : 'Back to the details'}
+                onPress={() => setStep(step === 'smart' ? 'questions' : 'config')}
                 style={styles.iconBtn}
               >
                 <SymbolView
@@ -1435,6 +1452,16 @@ export function QuestionSetFlow({
                 {pdfError}
               </Text>
             ) : null}
+            {isPdf && !editing && selectedCount > 0 ? (
+              <ChoiceChips
+                label="PDF type"
+                hint={PDF_KIND_HINTS[pdfKind]}
+                choices={PDF_KIND_CHOICES}
+                selected={pdfKind}
+                onSelect={setPdfKind}
+                columns={2}
+              />
+            ) : null}
             <View style={editing ? styles.editBottomRow : undefined}>
               {editing ? (
                 <Pressable
@@ -1450,7 +1477,7 @@ export function QuestionSetFlow({
                 accessibilityRole="button"
                 accessibilityState={{ disabled: selectedCount === 0 || savingTest, busy: savingTest }}
                 disabled={selectedCount === 0 || savingTest}
-                onPress={isPdf ? handleMakePdf : handleCreateRoom}
+                onPress={isPdf ? (pdfKind === 'smart' ? () => setStep('smart') : handleMakePdf) : handleCreateRoom}
                 style={({ pressed }) => [
                   styles.primaryActionBtn,
                   editing && styles.editNextBtn,
@@ -1463,12 +1490,28 @@ export function QuestionSetFlow({
                     ? 'Pick at least one question'
                     : editing
                     ? `Next · ${selectedCount} question${selectedCount === 1 ? '' : 's'}`
-                    : `${isPdf ? 'Make PDF' : onSubmitTest ? 'Continue' : 'Create room'} · ${selectedCount} question${selectedCount === 1 ? '' : 's'}`}
+                    : `${isPdf ? (pdfKind === 'smart' ? 'Next: Smart PDF layout' : 'Make PDF') : onSubmitTest ? 'Continue' : 'Create room'} · ${selectedCount} question${selectedCount === 1 ? '' : 's'}`}
                 </Text>
               </Pressable>
             </View>
           </View>
         </View>
+      )}
+
+      {/* ── Step 3, Smart PDF: layout preview, then Generate ── */}
+      {step === 'smart' && (
+        <SmartPdfScreen
+          title={title.trim()}
+          questions={pickedQuestions()}
+          standard={standard ?? undefined}
+          subject={subject ?? undefined}
+          bottomInset={bottomInset}
+          onMade={(pdf) => {
+            setMadePdf({ pdfs: [pdf], questions: pickedQuestions() });
+            setPdfError(null);
+            setStep('success');
+          }}
+        />
       )}
 
       {/* ── Step 3a: Room code ── */}
@@ -1613,7 +1656,7 @@ export function QuestionSetFlow({
                 ...(madePdf.pdfs.length === 1
                   ? [
                       ...(madePdf.pdfs[0].pageCount ? [['Pages', `${madePdf.pdfs[0].pageCount}`]] : []),
-                      ['In the PDF', PDF_CONTENT_LABELS[madePdf.pdfs[0].content]],
+                      ['In the PDF', pdfContentLabel(madePdf.pdfs[0])],
                     ]
                   : []),
               ].map(([key, value]) => (
