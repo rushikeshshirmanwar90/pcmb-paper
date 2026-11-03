@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { useRouter } from 'expo-router';
 import { Share, StyleSheet, Text, View } from 'react-native';
 import { confirmAction } from '@/components/account-section';
-import { Badge, Button, Card, Chips, DetailSheet, EmptyView, ErrorView, LoadingView, Muted, Notice, SectionTitle, useLoad, usePalette } from '@/components/kit';
+import { Button, Card, Chips, DetailSheet, EmptyView, ErrorView, LoadingView, Muted, Notice, SectionTitle, useLoad, usePalette } from '@/components/kit';
 import { OFFERED_PROGRAMS, PROGRAM_LABELS } from '@/constants/school';
-import { ActionRow, copyText, FlashNotice, InfoRow, programTone, useFlash } from '@/screens/tuition/admin-ui';
-import { batchInviteApi, teacherInviteApi, type Batch, type BatchInvite, type InviteChange, type JoinInvite, type TeacherInvite } from '@/services/tuition-api';
+import { ActionRow, copyText, FlashNotice, InfoRow, useFlash } from '@/screens/tuition/admin-ui';
+import { batchHref } from '@/screens/tuition/batch-nav';
+import { teacherInviteApi, type Batch, type InviteChange, type JoinInvite, type TeacherInvite } from '@/services/tuition-api';
 
 /** What differs between inviting a batch's students and inviting the institute's teachers. */
 interface InviteKind<T extends JoinInvite> {
@@ -63,7 +65,7 @@ function InviteCodeSheet<T extends JoinInvite>({ kind, scope, onClose }: { kind:
             <Card>
               <Text style={[styles.label, { color: palette.mutedForeground }]}>{kind.who === 'teachers' ? 'Teacher Joining Code' : 'Joining Code'}</Text>
               <View style={[styles.codeBox, { backgroundColor: palette.background, borderColor: palette.border }]}>
-                <Text selectable accessibilityLabel={`Joining code ${invite.code!.replace('-', ' ')}`} style={[styles.code, { color: palette.foreground }]}>
+                <Text selectable accessibilityLabel={`Joining code ${invite.code!.replace(/-/g, '').split('').join(' ')}`} style={[styles.code, { color: palette.foreground }]}>
                   {invite.code}
                 </Text>
               </View>
@@ -109,30 +111,6 @@ function InviteCodeSheet<T extends JoinInvite>({ kind, scope, onClose }: { kind:
   );
 }
 
-/** Invite Students: one batch's code. Opened from a batch's details and from People › Students (after picking the batch). */
-export function InviteStudentsSheet({ batchId, onClose }: { batchId: string; onClose: () => void }) {
-  const kind: InviteKind<BatchInvite> = {
-    title: 'Invite Students',
-    who: 'students',
-    load: () => batchInviteApi.get(batchId),
-    change: (input) => batchInviteApi.change(batchId, input),
-    details: (invite) => (
-      <>
-        <InfoRow icon={{ ios: 'person.3', android: 'groups' }} label="Batch" value={invite.batch.name} />
-        <View style={styles.badges}>
-          {invite.batch.standard ? <Badge label={invite.batch.standard} /> : null}
-          {invite.batch.program ? <Badge label={PROGRAM_LABELS[invite.batch.program]} tone={programTone(invite.batch.program)} /> : null}
-        </View>
-      </>
-    ),
-    shareMessage: (invite, code) => `Join ${invite.batch.name} at ${invite.institute} on the PCMB app: create an account, then enter the joining code ${code}.`,
-    help: 'Students create their own account, enter this code and wait for you to approve them under People › Students. Anyone with the code can ask, so share it only with your batch.',
-    audience: 'your batch',
-    where: 'this batch',
-  };
-  return <InviteCodeSheet kind={kind} scope={batchId} onClose={onClose} />;
-}
-
 const TEACHER_KIND: InviteKind<TeacherInvite> = {
   title: 'Invite Teachers',
   who: 'teachers',
@@ -149,11 +127,11 @@ export function InviteTeachersSheet({ onClose }: { onClose: () => void }) {
   return <InviteCodeSheet kind={TEACHER_KIND} scope="teachers" onClose={onClose} />;
 }
 
-const EXPIRY_CHOICES = ['30', '90', '180', 'never'] as const;
-type Expiry = (typeof EXPIRY_CHOICES)[number];
-const EXPIRY_LABELS: Record<Expiry, string> = { '30': '30 days', '90': '90 days', '180': '6 months', never: 'No expiry' };
+export const EXPIRY_CHOICES = ['30', '90', '180', 'never'] as const;
+export type Expiry = (typeof EXPIRY_CHOICES)[number];
+export const EXPIRY_LABELS: Record<Expiry, string> = { '30': '30 days', '90': '90 days', '180': '6 months', never: 'No expiry' };
 
-function expiryText(invite: JoinInvite) {
+export function expiryText(invite: JoinInvite) {
   if (!invite.expiresAt) return 'Never expires.';
   const date = new Date(invite.expiresAt);
   const days = Math.ceil((date.getTime() - Date.now()) / 86_400_000);
@@ -161,7 +139,7 @@ function expiryText(invite: JoinInvite) {
   return days <= 0 ? `Expired on ${when}.` : `Expires ${when} (${days} ${days === 1 ? 'day' : 'days'} left).`;
 }
 
-const statusLabel = { active: 'Active', expired: 'Expired', revoked: 'Turned off' } as const;
+export const statusLabel = { active: 'Active', expired: 'Expired', revoked: 'Turned off' } as const;
 
 /** Regenerate, turn off or change the expiry of a code. */
 function ManageCodeSheet<T extends JoinInvite>({ kind, invite, onClose, onChanged }: { kind: InviteKind<T>; invite: T; onClose: () => void; onChanged: (invite: T, message: string) => void }) {
@@ -237,8 +215,7 @@ function ManageCodeSheet<T extends JoinInvite>({ kind, invite, onClose, onChange
 
 /** People › Students: choose a batch, then invite to it. */
 export function InviteStudentsPicker({ batches, onClose }: { batches: Batch[]; onClose: () => void }) {
-  const [batchId, setBatchId] = useState<string | null>(null);
-  if (batchId) return <InviteStudentsSheet batchId={batchId} onClose={onClose} />;
+  const router = useRouter();
   const open = batches.filter((b) => OFFERED_PROGRAMS.includes(b.program)).sort((a, b) => a.name.localeCompare(b.name));
   return (
     <DetailSheet visible title="Invite Students" onClose={onClose}>
@@ -251,7 +228,10 @@ export function InviteStudentsPicker({ batches, onClose }: { batches: Batch[]; o
               icon={{ ios: 'person.3', android: 'groups' }}
               title={b.name}
               subtitle={[b.standard, PROGRAM_LABELS[b.program]].filter(Boolean).join(' · ')}
-              onPress={() => setBatchId(b.id)}
+              onPress={() => {
+                onClose();
+                router.push(batchHref(b.id, 'invitations'));
+              }}
               last={i === open.length - 1}
             />
           ))}

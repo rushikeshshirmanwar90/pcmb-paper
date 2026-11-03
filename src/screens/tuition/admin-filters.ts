@@ -134,7 +134,7 @@ export function commonTime(schedule: BatchSlot[]): { start: string; end: string 
   return schedule.every((s) => s.start === start && s.end === end) ? { start, end } : null;
 }
 
-/** The batches a teacher leaves if they only teach `nextSubjects` (the server drops those assignments). */
+/** The batches a teacher leaves if they only teach `nextSubjects` (no longer applied: the server keeps batch assignments). */
 export function batchesLost(teacher: Pick<Teacher, 'batches'>, nextSubjects: SchoolSubject[]) {
   return teacher.batches.filter((b) => !nextSubjects.includes(b.subject));
 }

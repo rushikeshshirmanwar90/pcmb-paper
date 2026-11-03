@@ -21,7 +21,7 @@ import {
 } from '@/components/kit';
 import { SCHOOL_SUBJECTS, type SchoolSubject } from '@/constants/school';
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
-import { ALL, batchesLost, filterTeachers, groupTeacherBatches, NO_SUBJECTS, plural, type TeacherFilter } from '@/screens/tuition/admin-filters';
+import { ALL, filterTeachers, groupTeacherBatches, NO_SUBJECTS, plural, type TeacherFilter } from '@/screens/tuition/admin-filters';
 import { ActionRow, Avatar, ClearFilters, FilterRow, FlashNotice, InfoRow, LoginStatus, PanelScroll, PersonHeader, SearchBox, useFlash } from '@/screens/tuition/admin-ui';
 import { InviteTeachersSheet } from '@/screens/tuition/invite-students';
 import { PendingTeachers } from '@/screens/tuition/join-requests';
@@ -336,9 +336,6 @@ function TeacherForm({ visible, onClose, teacher, onSaved }: { visible: boolean;
     }
   }
 
-  // Dropping a subject takes them off the batches they teach it to.
-  const lost = teacher ? batchesLost(teacher, subjects) : [];
-
   const save = async () => {
     if (!name.trim() || !email.trim()) return setError('Enter the name and email.');
     if (!teacher && password.length < 8) return setError('The starting password needs at least 8 characters.');
@@ -376,15 +373,7 @@ function TeacherForm({ visible, onClose, teacher, onSaved }: { visible: boolean;
       <View style={styles.group}>
         <SectionTitle title="Teaching" />
         <SubjectPicker selected={subjects} onChange={setSubjects} />
-        {lost.length ? (
-          <Notice
-            tone="warning"
-            title="Saving takes them off some batches"
-            text={lost.map((b) => `${b.name} (${b.subject})`).join(', ')}
-          />
-        ) : (
-          <Muted>A batch can only give them the subjects ticked here.</Muted>
-        )}
+        <Muted>Their batch assignments are not changed here. Change them from each batch&apos;s Teachers screen.</Muted>
       </View>
       {!teacher ? (
         <View style={styles.group}>

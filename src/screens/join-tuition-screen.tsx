@@ -52,14 +52,13 @@ export function JoinTuitionScreen() {
   };
 
   const typeCode = (value: string) => {
-    const raw = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
-    setCode(raw.length > 4 ? `${raw.slice(0, 4)}-${raw.slice(4)}` : raw);
+    setCode(value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8));
     setError(null);
   };
 
   /** Checks the code and shows where it leads. */
   const check = async () => {
-    if (code.replace('-', '').length !== 8) return setError('The joining code has 8 letters and numbers.');
+    if (code.length !== 8) return setError('The joining code has 8 letters and numbers.');
     setBusy(true);
     setError(null);
     try {
@@ -163,7 +162,7 @@ export function JoinTuitionScreen() {
                     placeholder="8-character joining code"
                     autoCapitalize="characters"
                     autoCorrect={false}
-                    maxLength={9}
+                    maxLength={8}
                     returnKeyType="go"
                     onSubmitEditing={check}
                     style={styles.codeInput}

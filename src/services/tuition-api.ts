@@ -161,8 +161,9 @@ export const tuitionApi = {
     api<{ tuition: TuitionDetails }>('/tuition/profile', { method: 'PATCH', body: changes }).then((r) => r.tuition),
 
   batches: () => api<{ batches: FromServer<Batch>[] }>('/tuition/batches').then((r) => r.batches.map(withBatch)),
-  batch: (id: string) =>
-    api<{ batch: FromServer<Batch & { coverage: Coverage }>; students: FromServer<Student>[] }>(`/tuition/batches/${id}`).then((r) => ({
+  /** `coverage: false` skips the syllabus coverage ({}), which is the slow part. */
+  batch: (id: string, coverage = true) =>
+    api<{ batch: FromServer<Batch & { coverage: Coverage }>; students: FromServer<Student>[] }>(`/tuition/batches/${id}${coverage ? '' : '?coverage=0'}`).then((r) => ({
       batch: withBatch<Batch & { coverage: Coverage }>(r.batch),
       students: r.students.map(withStudent),
     })),
@@ -171,6 +172,12 @@ export const tuitionApi = {
   updateBatch: (id: string, input: BatchInput) =>
     api<{ batch: FromServer<Batch> }>(`/tuition/batches/${id}`, { method: 'PATCH', body: withTrack(input) }).then((r) => withBatch(r.batch)),
   deleteBatch: (id: string) => api(`/tuition/batches/${id}`, { method: 'DELETE' }),
+  /** Sets the subjects one of the tuition's teachers takes in the batch (assigning them if new). */
+  assignTeacher: (id: string, teacherId: string, subjects: SchoolSubject[]) =>
+    api<{ batch: FromServer<Batch> }>(`/tuition/batches/${id}/teachers`, { method: 'PUT', body: { teacherId, subjects } }).then((r) => withBatch(r.batch)),
+  /** Takes the teacher off this batch only; their account and other batches stay. */
+  removeTeacher: (id: string, teacherId: string) =>
+    api<{ batch: FromServer<Batch> }>(`/tuition/batches/${id}/teachers?teacherId=${teacherId}`, { method: 'DELETE' }).then((r) => withBatch(r.batch)),
 
   teachers: () => api<{ teachers: Teacher[] }>('/tuition/teachers').then((r) => r.teachers),
   createTeacher: (input: TeacherInput) => api<{ teacher: Teacher }>('/tuition/teachers', { method: 'POST', body: input }).then((r) => r.teacher),

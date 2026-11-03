@@ -1,22 +1,19 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { confirmAction } from '@/components/account-section';
+import { useRouter } from 'expo-router';
 import {
   Badge,
   Button,
   Card,
   Chips,
-  DetailSheet,
   EmptyView,
   ErrorView,
   Field,
-  FormSheet,
   Icon,
   LoadingView,
   Muted,
   MultiChips,
   Notice,
-  ProgressBar,
   Screen,
   SectionTitle,
   useLoad,
@@ -41,8 +38,6 @@ import {
   type SchoolSubject,
 } from '@/constants/school';
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
-import { useTabNavigation } from '@/context/tab-context';
-import { BatchAnalysisSection } from '@/screens/shared/batch-analysis';
 import {
   ALL,
   countBy,
@@ -52,23 +47,17 @@ import {
   NO_CLASS,
   plural,
   setupOf,
-  suggestBatchName,
   type BatchFilter,
   type SetupStep,
 } from '@/screens/tuition/admin-filters';
-import { InviteStudentsSheet } from '@/screens/tuition/invite-students';
-import { ActionRow, Avatar, ClearFilters, FilterRow, FlashNotice, InfoRow, OptionPicker, programTone, useFlash, type FilterOption, type PickerOption } from '@/screens/tuition/admin-ui';
-import { showStudents } from '@/screens/tuition/people-nav';
-import { BatchSchedule } from './batch-schedule';
-import { TimetableSheet } from '@/screens/tuition/timetable-sheet';
-import { schoolApi } from '@/services/school-api';
+import { ActionRow, ClearFilters, FilterRow, programTone, type FilterOption } from '@/screens/tuition/admin-ui';
+import { batchHref } from '@/screens/tuition/batch-nav';
+import { FormPage, useDiscardGuard, useGoBack } from '@/components/stack-screen';
 import { formatMinutes, tuitionApi, type Batch, type BatchInput } from '@/services/tuition-api';
 
-const STUDENTS_SHOWN = 8;
-
 /** Older batches may be for both classes. */
-const classLabel = (b: Pick<Batch, 'standard'>) => b.standard ?? '11th & 12th';
-const yearLabel = (b: Pick<Batch, 'academicYear'>) => (b.academicYear ? formatAcademicYear(b.academicYear) : null);
+export const classLabel = (b: Pick<Batch, 'standard'>) => b.standard ?? '11th & 12th';
+export const yearLabel = (b: Pick<Batch, 'academicYear'>) => (b.academicYear ? formatAcademicYear(b.academicYear) : null);
 const yearLabels = (years: string[]) => Object.fromEntries(years.map((y) => [y, formatAcademicYear(y)]));
 
 /** "No teacher for Biology · No students yet · No class timings" */
@@ -84,7 +73,7 @@ function stillToDo(batch: Batch) {
 }
 
 /** Which question bank the program's students practise from, in plain words. */
-function bankNote(program: Program) {
+export function bankNote(program: Program) {
   const bank = PROGRAM_INFO[program].questionBank;
   return bank
     ? `Students practise ${bank} past-year questions.`
@@ -95,10 +84,9 @@ function bankNote(program: Program) {
 export function TuitionBatchesScreen() {
   const version = useDataVersion();
   const { data, error, loading, refreshing, refresh, reload } = useLoad(() => tuitionApi.batches(), [version]);
-  const [creating, setCreating] = useState(false);
-  const [open, setOpen] = useState<{ id: string; notice?: string } | null>(null);
+  const router = useRouter();
+  const openBatch = (batchId: string) => router.push(batchHref(batchId));
   const [filter, setFilter] = useState<BatchFilter>(EMPTY_BATCH_FILTER);
-  const { flash, show, clear } = useFlash();
   const list = data ?? [];
   const shown = filterBatches(list, filter);
   const filtered = filter.program !== ALL || filter.standard !== ALL;
@@ -122,8 +110,7 @@ export function TuitionBatchesScreen() {
 
   return (
     <Screen title="Batches" subtitle="Programs, classes, teachers and students" onRefresh={refresh} refreshing={refreshing}>
-      <Button label="Create Batch" icon={{ ios: 'plus', android: 'add' }} onPress={() => setCreating(true)} />
-      <FlashNotice flash={flash} onDismiss={clear} />
+      <Button label="Create Batch" icon={{ ios: 'plus', android: 'add' }} onPress={() => router.push('/batch/new')} />
       {loading ? (
         <LoadingView label="Loading batches…" />
       ) : error && !data ? (
@@ -165,7 +152,7 @@ export function TuitionBatchesScreen() {
             />
           ) : null}
           {shown.length ? (
-            shown.map((batch) => <BatchCard key={batch.id} batch={batch} onPress={() => setOpen({ id: batch.id })} />)
+            shown.map((batch) => <BatchCard key={batch.id} batch={batch} onPress={() => openBatch(batch.id)} />)
           ) : (
             <Card>
               <EmptyView icon={{ ios: 'line.3.horizontal.decrease.circle', android: 'filter_list' }} title="No batches match" text="Try another program or class." />
@@ -173,20 +160,6 @@ export function TuitionBatchesScreen() {
           )}
         </>
       )}
-
-      <NewBatchSheet
-        visible={creating}
-        batches={list}
-        onClose={() => setCreating(false)}
-        onCreated={(b) => show(`${b.name} created.`)}
-        onOpen={(id) => {
-          setCreating(false);
-          setOpen({ id });
-        }}
-      />
-      {open ? (
-        <BatchDetail key={open.id} id={open.id} notice={open.notice} onClose={() => setOpen(null)} onDeleted={(name) => show(`${name} deleted.`)} />
-      ) : null}
     </Screen>
   );
 }
@@ -305,7 +278,7 @@ const SETUP_ACTIONS: Record<SetupStep, { icon: IconName; title: string }> = {
 };
 
 /** The next steps for a batch: teachers, students and timings, each optional. */
-function SetupActions({ batch, steps, onTeachers, onStudents, onTimings }: { batch: Batch; steps: SetupStep[]; onTeachers: () => void; onStudents: () => void; onTimings: () => void }) {
+export function SetupActions({ batch, steps, onTeachers, onStudents, onTimings }: { batch: Batch; steps: SetupStep[]; onTeachers: () => void; onStudents: () => void; onTimings: () => void }) {
   const missing = missingTeachers(batch);
   const subtitle: Record<SetupStep, string> = {
     teachers: missing.length ? `No teacher yet for ${missing.join(', ')}` : `One for each of ${batch.subjects.join(', ')}`,
@@ -324,224 +297,8 @@ function SetupActions({ batch, steps, onTeachers, onStudents, onTimings }: { bat
   );
 }
 
-type FormSection = 'teachers';
-
-function BatchDetail({ id, notice, onClose, onDeleted }: { id: string; notice?: string; onClose: () => void; onDeleted: (name: string) => void }) {
-  const palette = usePalette();
-  const version = useDataVersion();
-  const { goToTab } = useTabNavigation();
-  const { data, error, loading, refreshing, refresh, reload } = useLoad(() => tuitionApi.batch(id), [id, version]);
-  const timetable = useLoad(() => schoolApi.timetable(id), [id, version]);
-  /** null: closed; 'basics': the whole form; or opened at its teachers. */
-  const [editing, setEditing] = useState<FormSection | 'basics' | null>(null);
-  const [timings, setTimings] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [allStudents, setAllStudents] = useState(false);
-  const [inviting, setInviting] = useState(false);
-  const { flash, show, clear } = useFlash(notice);
-
-  const batch = data?.batch;
-  const remove = () => {
-    if (!batch) return;
-    confirmAction(
-      `Delete ${batch.name}?`,
-      'Its students stay enrolled without a batch. Its tests, results and syllabus progress are removed. This cannot be undone.',
-      'Delete',
-      async () => {
-        setDeleting(true);
-        clear();
-        try {
-          await tuitionApi.deleteBatch(id);
-          bumpDataVersion();
-          onDeleted(batch.name);
-          onClose();
-        } catch (e) {
-          show(e instanceof Error ? e.message : "Couldn't delete the batch.", 'danger');
-          setDeleting(false);
-        }
-      }
-    );
-  };
-  const manageStudents = () => {
-    showStudents(id);
-    onClose();
-    goToTab('people');
-  };
-
-  const students = data?.students ?? [];
-  const missing = batch ? missingTeachers(batch) : [];
-  const setup = batch ? setupOf(batch) : null;
-
-  return (
-    <DetailSheet
-      visible
-      title={batch?.name ?? 'Batch'}
-      onClose={onClose}
-      onRefresh={refresh}
-      refreshing={refreshing}
-      footer={
-        batch ? (
-          <View style={styles.footerRow}>
-            <Button label="Delete" variant="danger" icon={{ ios: 'trash', android: 'delete' }} onPress={remove} loading={deleting} style={styles.flex} accessibilityLabel={`Delete ${batch.name}`} />
-            <Button label="Edit batch" icon={{ ios: 'pencil', android: 'edit' }} onPress={() => setEditing('basics')} disabled={deleting} style={styles.flex2} />
-          </View>
-        ) : undefined
-      }
-    >
-      <FlashNotice flash={flash} onDismiss={clear} />
-      {loading ? (
-        <LoadingView label="Loading the batch…" />
-      ) : error && !data ? (
-        <ErrorView message={`Couldn't load the batch. ${error}`} onRetry={reload} />
-      ) : batch && data && setup ? (
-        <>
-          {error ? <Notice tone="danger" text={`Couldn't refresh: ${error}`} /> : null}
-          <SectionTitle title="Weekly Schedule" action={<TextLink label="Edit Schedule" onPress={() => setTimings(true)} />} />
-          {timetable.data ? (
-            <BatchSchedule entries={timetable.data.filter((entry) => entry.batch.id === batch.id)} />
-          ) : timetable.error ? (
-            <Muted>Couldn&apos;t load the schedule. {timetable.error}</Muted>
-          ) : <Muted>Loading the schedule…</Muted>}
-          <Card style={styles.listCard}>
-            <View style={[styles.detailBadges, { borderBottomColor: palette.border }]}>
-              <Badge label={PROGRAM_LABELS[batch.program]} tone={programTone(batch.program)} />
-              <Badge label={classLabel(batch)} />
-              {yearLabel(batch) ? <Badge label={yearLabel(batch)!} /> : null}
-              <Badge label={setup.ready ? 'Ready' : `Setup ${setup.done}/${setup.total}`} tone={setup.ready ? 'success' : missing.length ? 'warning' : 'neutral'} />
-            </View>
-            <InfoRow icon={{ ios: 'graduationcap', android: 'school' }} label="Program" value={PROGRAM_INFO[batch.program].label} />
-            <InfoRow icon={{ ios: 'calendar', android: 'event' }} label="Academic year" value={yearLabel(batch) ?? ''} />
-            <InfoRow icon={{ ios: 'mappin.and.ellipse', android: 'location_on' }} label="Classroom" value={batch.venue} />
-            <InfoRow icon={{ ios: 'person.3', android: 'groups' }} label="Students" value={plural(batch.studentCount, 'student')} />
-            <InfoRow
-              icon={{ ios: 'clock', android: 'schedule' }}
-              label="Class time a week"
-              value={batch.classes.weeklyMinutes ? formatMinutes(batch.classes.weeklyMinutes) : ''}
-              last
-            />
-          </Card>
-          <Muted>{bankNote(batch.program)}</Muted>
-
-          {!setup.ready ? (
-            <>
-              <SectionTitle title="Finish setting up" />
-              <SetupActions batch={batch} steps={setup.missing} onTeachers={() => setEditing('teachers')} onStudents={manageStudents} onTimings={() => setTimings(true)} />
-            </>
-          ) : null}
-
-          <SectionTitle
-            title="Subjects and teachers"
-            action={<TextLink label={missing.length ? 'Assign' : 'Change'} onPress={() => setEditing('teachers')} />}
-          />
-          <Card style={styles.listCard}>
-            {batch.subjects.map((subject, i) => {
-              const teacher = batch.teachers.find((t) => t.subject === subject);
-              return (
-                <View
-                  key={subject}
-                  accessible
-                  accessibilityLabel={`${subject}: ${teacher ? teacher.name : 'no teacher assigned'}`}
-                  style={[styles.teacherRow, i < batch.subjects.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }]}
-                >
-                  {teacher ? (
-                    <Avatar name={teacher.name} size={34} />
-                  ) : (
-                    <View style={[styles.emptyAvatar, { backgroundColor: palette.warningSoft }]}>
-                      <Icon name={{ ios: 'person.fill.questionmark', android: 'person_off' }} color={palette.warning} size={16} />
-                    </View>
-                  )}
-                  <View style={styles.flex}>
-                    <Text style={[styles.subjectLabel, { color: palette.mutedForeground }]}>{subject}</Text>
-                    <Text style={[styles.teacherName, { color: teacher ? palette.foreground : palette.warningInk }]} numberOfLines={1}>
-                      {teacher ? teacher.name : 'No teacher assigned'}
-                    </Text>
-                  </View>
-                </View>
-              );
-            })}
-          </Card>
-
-          {batch.schedule.length ? (
-            <Muted>
-              {plural(batch.schedule.length, 'older class time', 'older class times')} without a subject {batch.schedule.length === 1 ? 'is' : 'are'} kept from before. Open the
-              timetable to see {batch.schedule.length === 1 ? 'it' : 'them'}.
-            </Muted>
-          ) : null}
-
-          <SectionTitle title={`Students (${students.length})`} action={<TextLink label="Manage" onPress={manageStudents} />} />
-          <Button label="Invite Students" variant="tonal" icon={{ ios: 'qrcode', android: 'group_add' }} onPress={() => setInviting(true)} />
-          {students.length ? (
-            <Card style={styles.listCard}>
-              {(allStudents ? students : students.slice(0, STUDENTS_SHOWN)).map((s, i, shown) => (
-                <View
-                  key={s.id}
-                  style={[styles.studentRow, (i < shown.length - 1 || students.length > STUDENTS_SHOWN) && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }]}
-                >
-                  <Avatar name={s.name} size={32} muted={!s.active} />
-                  <View style={styles.flex}>
-                    <Text style={[styles.teacherName, { color: palette.foreground }]} numberOfLines={1}>
-                      {s.name}
-                    </Text>
-                    <Text style={[styles.small, { color: palette.mutedForeground }]} numberOfLines={1}>
-                      {[s.standard, s.program && s.program !== batch.program ? `${PROGRAM_LABELS[s.program]} student` : null, !s.active ? 'Login off' : null, s.email]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-              {students.length > STUDENTS_SHOWN ? (
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setAllStudents((v) => !v)}
-                  style={({ pressed }) => [styles.showAll, pressed && styles.pressed]}
-                >
-                  <Text style={[styles.showAllText, { color: palette.primary }]}>{allStudents ? 'Show fewer' : `Show all ${students.length} students`}</Text>
-                </Pressable>
-              ) : null}
-            </Card>
-          ) : (
-            <Card>
-              <Muted>No students in this batch yet. Tap Manage to add them or move them in from People.</Muted>
-            </Card>
-          )}
-
-          <SectionTitle title="Syllabus covered" />
-          <Card>
-            {batch.subjects.map((subject) => {
-              const c = batch.coverage?.[subject];
-              return (
-                <View key={subject} style={styles.coverage}>
-                  <View style={styles.coverageTop}>
-                    <Text style={[styles.subject, { color: palette.foreground }]}>{subject}</Text>
-                    <Text style={[styles.small, { color: palette.mutedForeground }]}>{c?.total ? `${c.percent}% · ${c.covered}/${c.total} topics` : 'No syllabus found'}</Text>
-                  </View>
-                  <ProgressBar value={c?.percent ?? 0} />
-                </View>
-              );
-            })}
-            <Muted>Teachers mark topics as they cover them.</Muted>
-          </Card>
-
-          <BatchAnalysisSection batchId={batch.id} />
-
-          <BatchForm
-            visible={editing !== null}
-            onClose={() => setEditing(null)}
-            batch={batch}
-            first={editing === 'basics' ? undefined : editing ?? undefined}
-            onSaved={() => show('Batch saved.')}
-          />
-          <TimetableSheet visible={timings} batch={batch} onClose={() => setTimings(false)} />
-          {inviting ? <InviteStudentsSheet batchId={batch.id} onClose={() => setInviting(false)} /> : null}
-        </>
-      ) : null}
-    </DetailSheet>
-  );
-}
-
 /** A small text button beside a section title, e.g. "Assign". */
-function TextLink({ label, onPress }: { label: string; onPress: () => void }) {
+export function TextLink({ label, onPress }: { label: string; onPress: () => void }) {
   const palette = usePalette();
   return (
     <Pressable accessibilityRole="button" onPress={onPress} hitSlop={10} style={({ pressed }) => pressed && styles.pressed}>
@@ -550,184 +307,8 @@ function TextLink({ label, onPress }: { label: string; onPress: () => void }) {
   );
 }
 
-// ─── New batch ─────────────────────────────────────────────────────────────
-
-/**
- * Making a batch in one short form: program, class, academic year, a
- * suggested name and the program's subjects. Teachers, the classroom and
- * timings come after, from the next steps it shows. "Create another batch"
- * keeps the program, class and year and suggests the next name.
- */
-function NewBatchSheet({ visible, batches, onClose, onCreated, onOpen }: {
-  visible: boolean;
-  batches: Batch[];
-  onClose: () => void;
-  onCreated: (b: Batch) => void;
-  onOpen: (id: string) => void;
-}) {
-  const { goToTab } = useTabNavigation();
-  const currentYear = academicYearOf();
-  const years = academicYearChoices(currentYear);
-  const [program, setProgram] = useState<Program | null>(null);
-  const [standard, setStandard] = useState<SchoolStandard | null>(null);
-  const [academicYear, setAcademicYear] = useState(currentYear);
-  /** The name typed; null while the suggestion is used. */
-  const [typedName, setTypedName] = useState<string | null>(null);
-  const [subjects, setSubjects] = useState<SchoolSubject[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  /** The batches made since the sheet opened; the last one shows after creating it. */
-  const [made, setMade] = useState<Batch[]>([]);
-  const [showingMade, setShowingMade] = useState(false);
-  const [editing, setEditing] = useState<FormSection | null>(null);
-  const [timings, setTimings] = useState(false);
-
-  const [openedFor, setOpenedFor] = useState(false);
-  if (visible !== openedFor) {
-    setOpenedFor(visible);
-    if (visible) {
-      setTimings(false);
-      setProgram(null);
-      setStandard(null);
-      setAcademicYear(currentYear);
-      setTypedName(null);
-      setSubjects([]);
-      setError(null);
-      setMade([]);
-      setShowingMade(false);
-      setEditing(null);
-    }
-  }
-
-  const taken = [...batches, ...made].map((b) => b.name);
-  const suggestion = program && standard ? suggestBatchName(`${PROGRAM_INFO[program].label} ${standard}`, taken) : '';
-  const name = typedName ?? suggestion;
-  const problem = program ? subjectProblem(program, subjects) : null;
-  const last = made[made.length - 1];
-
-  const pickProgram = (next: Program) => {
-    setProgram(next);
-    setSubjects([...PROGRAM_INFO[next].subjects]);
-    setError(null);
-  };
-
-  const create = async () => {
-    if (!program) return setError('Choose the program.');
-    if (!standard) return setError('Choose the class: 11th or 12th.');
-    if (!name.trim()) return setError('Enter a batch name.');
-    if (problem) return setError(problem);
-    setSaving(true);
-    setError(null);
-    try {
-      const batch = await tuitionApi.createBatch({ program, standard, academicYear, name: name.trim(), subjects });
-      bumpDataVersion();
-      setMade((m) => [...m, batch]);
-      setShowingMade(true);
-      onCreated(batch);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't create the batch.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Same program, class and year; the next free name; the program's subjects again.
-  const another = () => {
-    setShowingMade(false);
-    setTypedName(null);
-    if (program) setSubjects([...PROGRAM_INFO[program].subjects]);
-    setError(null);
-  };
-
-  const closeDraft = () => {
-    if (saving) return;
-    if (!showingMade && (program || standard || typedName !== null || academicYear !== currentYear)) {
-      confirmAction('Discard batch draft?', 'Your unsaved batch details will be lost.', 'Discard', onClose);
-    } else onClose();
-  };
-
-  return (
-    <FormSheet
-      visible={visible}
-      title={showingMade ? 'Batch created' : 'Create Batch'}
-      onClose={closeDraft}
-      submitLabel={showingMade ? 'Create another batch' : 'Create Batch'}
-      onSubmit={showingMade ? another : () => void create()}
-      submitting={saving}
-      error={showingMade ? null : error}
-      extraAction={showingMade ? <Button label="Done" variant="secondary" onPress={onClose} /> : undefined}
-    >
-      {showingMade && last ? (
-        <>
-          <Notice
-            tone="success"
-            title={`${last.name} created`}
-            text={made.length > 1 ? `${made.length} batches created: ${made.map((b) => b.name).join(', ')}.` : "It's on your Batches list now."}
-            live
-          />
-          <Card style={styles.listCard}>
-            <View style={[styles.detailBadges, { borderBottomColor: 'transparent' }]}>
-              <Badge label={PROGRAM_LABELS[last.program]} tone={programTone(last.program)} />
-              <Badge label={classLabel(last)} />
-              {yearLabel(last) ? <Badge label={yearLabel(last)!} /> : null}
-            </View>
-            <InfoRow icon={{ ios: 'book', android: 'menu_book' }} label="Subjects" value={last.subjects.join(', ')} last />
-          </Card>
-          <SectionTitle title="Next steps, when you're ready" />
-          <SetupActions
-            batch={last}
-            steps={['teachers', 'students', 'timings']}
-            onTeachers={() => setEditing('teachers')}
-            onStudents={() => {
-              showStudents(last.id);
-              onClose();
-              goToTab('people');
-            }}
-            onTimings={() => setTimings(true)}
-          />
-          <Button label="Open the batch" variant="tonal" icon={{ ios: 'square.grid.2x2', android: 'grid_view' }} onPress={() => onOpen(last.id)} />
-          <BatchForm
-            visible={editing !== null}
-            onClose={() => setEditing(null)}
-            batch={last}
-            first={editing ?? undefined}
-            onSaved={(saved) => setMade((m) => m.map((b) => (b.id === saved.id ? saved : b)))}
-          />
-          <TimetableSheet visible={timings} batch={last} onClose={() => setTimings(false)} />
-        </>
-      ) : (
-        <View style={styles.group}>
-          <Muted>Fields marked * are required.</Muted>
-          <Chips label="Program *" choices={OFFERED_PROGRAMS} selected={program} onChange={pickProgram} labels={PROGRAM_LABELS} />
-          {program ? <Muted>{bankNote(program)}</Muted> : null}
-          <Chips label="Class *" choices={SCHOOL_STANDARDS} selected={standard} onChange={setStandard} />
-          <Chips label="Academic year" choices={years} selected={academicYear} onChange={setAcademicYear} labels={yearLabels(years)} />
-          <Field
-            label="Batch name *"
-            value={name}
-            onChangeText={setTypedName}
-            placeholder={program && standard ? suggestion : 'e.g. NEET 11th A'}
-            hint={typedName === null ? (suggestion ? 'Suggested from the program and class. You can change it.' : 'Pick the program and class for a suggested name.') : undefined}
-            maxLength={80}
-          />
-          {typedName !== null && suggestion && typedName !== suggestion ? <TextLink label={`Use “${suggestion}”`} onPress={() => setTypedName(null)} /> : null}
-          {program ? (
-            <>
-              <MultiChips label={`Select Subjects * · ${subjects.length} selected`} choices={PROGRAM_INFO[program].allowed} selected={subjects} onChange={setSubjects} />
-              <SubjectHint program={program} problem={problem} />
-            </>
-          ) : (
-            <Muted>Pick a program to see its subjects.</Muted>
-          )}
-          <Muted>Add teachers, a classroom and sessions after creating the batch.</Muted>
-        </View>
-      )}
-    </FormSheet>
-  );
-}
-
 /** What the subjects must be for the program, or what's wrong with the choice. */
-function SubjectHint({ program, problem }: { program: Program; problem: string | null }) {
+export function SubjectHint({ program, problem }: { program: Program; problem: string | null }) {
   const palette = usePalette();
   if (problem) return <Text style={[styles.small, { color: palette.dangerInk }]}>{problem}</Text>;
   const info = PROGRAM_INFO[program];
@@ -744,44 +325,26 @@ function SubjectHint({ program, problem }: { program: Program; problem: string |
 
 // ─── Editing ───────────────────────────────────────────────────────────────
 
-const NO_TEACHER = 'none';
-
 /**
- * Everything about a batch but its timings: program, class, year, name and
- * subjects, teachers and the classroom. `first` puts teachers at the top when
- * opened for them. The timetable has its own sheet (TimetableSheet) and is left
- * as they are here.
+ * Edits a batch's details: program, class, year, name, subjects and the
+ * classroom. Teachers have their own screens (assigned per batch), and the
+ * timetable has its own too, so neither is touched here.
  */
-function BatchForm({ visible, onClose, batch, first, onSaved }: { visible: boolean; onClose: () => void; batch: Batch; first?: FormSection; onSaved?: (b: Batch) => void }) {
-  const palette = usePalette();
-  const { data: teachers, error: teachersError, reload: reloadTeachers } = useLoad(() => tuitionApi.teachers(), [visible], { enabled: visible });
-  const [name, setName] = useState('');
+export function BatchForm({ batch, onSaved, extraAction }: { batch: Batch; onSaved?: (b: Batch) => void; /** Gets the function that switches off the unsaved-changes question, for leaving on purpose. */ extraAction?: (allowLeave: () => void) => React.ReactNode }) {
+  const goBack = useGoBack();
+  const [name, setName] = useState(batch.name);
   const [program, setProgram] = useState<Program>(batch.program);
-  const [standard, setStandard] = useState<SchoolStandard | null>(null);
-  const [academicYear, setAcademicYear] = useState<string | null>(null);
-  const [subjects, setSubjects] = useState<SchoolSubject[]>([]);
-  const [venue, setVenue] = useState('');
-  const [assigned, setAssigned] = useState<Partial<Record<SchoolSubject, string>>>({});
+  const [standard, setStandard] = useState<SchoolStandard | null>(batch.standard);
+  const [academicYear, setAcademicYear] = useState<string | null>(batch.academicYear);
+  const [subjects, setSubjects] = useState<SchoolSubject[]>(batch.subjects);
+  const [venue, setVenue] = useState(batch.venue);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [openedFor, setOpenedFor] = useState(false);
-  if (visible !== openedFor) {
-    setOpenedFor(visible);
-    if (visible) {
-      setName(batch.name);
-      setProgram(batch.program);
-      setStandard(batch.standard);
-      setAcademicYear(batch.academicYear);
-      setSubjects(batch.subjects);
-      setVenue(batch.venue);
-      setAssigned(Object.fromEntries(batch.teachers.map((t) => [t.subject, t.teacherId])));
-      setError(null);
-    }
-  }
-
   const years = academicYearChoices(academicYearOf(), batch.academicYear);
   const problem = subjectProblem(program, subjects);
+  const changed = name !== batch.name || program !== batch.program || standard !== batch.standard || academicYear !== batch.academicYear || venue !== batch.venue || subjects.join() !== batch.subjects.join();
+  const allowLeave = useDiscardGuard(changed && !saving, 'Discard batch changes?');
 
   const changeProgram = (next: Program) => {
     setProgram(next);
@@ -801,13 +364,13 @@ function BatchForm({ visible, onClose, batch, first, onSaved }: { visible: boole
       ...(academicYear ? { academicYear } : {}),
       subjects,
       venue: venue.trim(),
-      teachers: subjects.flatMap((subject) => (assigned[subject] ? [{ subject, teacherId: assigned[subject]! }] : [])),
     };
     try {
       const saved = await tuitionApi.updateBatch(batch.id, input);
       bumpDataVersion();
-      onClose();
       onSaved?.(saved);
+      allowLeave();
+      goBack();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't save the batch.");
     } finally {
@@ -815,11 +378,10 @@ function BatchForm({ visible, onClose, batch, first, onSaved }: { visible: boole
     }
   };
 
-  const unassigned = subjects.filter((s) => !assigned[s]);
 
-  const groups = {
-    basics: (
-      <FormGroup key="basics" title="Program and class">
+  return (
+    <FormPage title={`Edit ${batch.name}`} onBack={goBack} submitLabel="Save Changes" onSubmit={() => void save()} submitting={saving} error={error} extraAction={extraAction?.(allowLeave)}>
+      <FormGroup title="Program and class">
         <Chips label="Program" choices={programChoices(batch.program)} selected={program} onChange={changeProgram} labels={PROGRAM_LABELS} />
         {!OFFERED_PROGRAMS.includes(batch.program) ? (
           <Muted>{PROGRAM_LABELS[batch.program]} isn&apos;t offered for new batches, but this batch keeps it unless you change it.</Muted>
@@ -834,72 +396,20 @@ function BatchForm({ visible, onClose, batch, first, onSaved }: { visible: boole
           </Muted>
         ) : null}
       </FormGroup>
-    ),
-    subjects: (
-      <FormGroup key="subjects" title="Subjects">
+      <FormGroup title="Subjects">
         <MultiChips choices={PROGRAM_INFO[program].allowed} selected={subjects} onChange={setSubjects} />
         <SubjectHint program={program} problem={problem} />
       </FormGroup>
-    ),
-    timings: (
-      <FormGroup key="timings" title="Classroom (optional)">
+      <FormGroup title="Classroom (optional)">
         <Field label="Classroom" value={venue} onChangeText={setVenue} placeholder="e.g. Room 2, Main branch" maxLength={200} />
-        <Muted>To change session times, open the batch and tap Edit Schedule.</Muted>
+        <Muted>Teachers and session times are managed from the batch&apos;s Teachers and Schedule screens.</Muted>
       </FormGroup>
-    ),
-    teachers: (
-      <FormGroup key="teachers" title="Teachers (optional)">
-        {teachersError && !teachers ? (
-          <View style={styles.teacherError}>
-            <Text style={[styles.small, { color: palette.dangerInk }]}>Couldn&apos;t load the teachers. {teachersError}</Text>
-            <Button label="Try again" variant="secondary" onPress={reloadTeachers} />
-          </View>
-        ) : !teachers ? (
-          <Muted>Loading teachers…</Muted>
-        ) : (
-          subjects.map((subject) => {
-            const able = teachers.filter((t) => t.subjects.includes(subject)).sort((a, b) => a.name.localeCompare(b.name));
-            const options: PickerOption[] = [
-              { value: NO_TEACHER, label: 'No teacher', pinned: true },
-              ...able.map((t) => ({ value: t.id, label: t.name, hint: t.active ? t.email : `${t.email} · login off` })),
-            ];
-            return (
-              <View key={subject} style={styles.teacherPick}>
-                <OptionPicker
-                  label={subject}
-                  options={options}
-                  selected={assigned[subject] ?? NO_TEACHER}
-                  onChange={(teacherId) => setAssigned((prev) => ({ ...prev, [subject]: teacherId === NO_TEACHER ? undefined : teacherId }))}
-                  searchPlaceholder={`Search ${subject} teachers`}
-                />
-                {able.length === 0 ? <Muted>No teacher teaches {subject} yet. Add one in People › Teachers.</Muted> : null}
-              </View>
-            );
-          })
-        )}
-        {teachers && unassigned.length ? <Muted>You can save without a teacher for {unassigned.join(', ')} and assign one later.</Muted> : null}
-      </FormGroup>
-    ),
-  };
-  const order: (keyof typeof groups)[] = first === 'teachers' ? ['teachers', 'basics', 'subjects', 'timings'] : ['basics', 'subjects', 'teachers', 'timings'];
-  const closeDraft = () => {
-    if (saving) return;
-    const changed = name !== batch.name || program !== batch.program || standard !== batch.standard || academicYear !== batch.academicYear || venue !== batch.venue
-      || subjects.join() !== batch.subjects.join()
-      || [...new Set([...batch.subjects, ...subjects])].some((subject) => (assigned[subject] || null) !== (batch.teachers.find((teacher) => teacher.subject === subject)?.teacherId || null));
-    if (changed) confirmAction('Discard batch changes?', 'Your unsaved changes will be lost.', 'Discard', onClose);
-    else onClose();
-  };
-
-  return (
-    <FormSheet visible={visible} title={`Edit ${batch.name}`} onClose={closeDraft} submitLabel="Save Changes" onSubmit={() => void save()} submitting={saving} error={error}>
-      {order.map((key) => groups[key])}
-    </FormSheet>
+    </FormPage>
   );
 }
 
 /** A titled group of fields inside a form. */
-function FormGroup({ title, children }: { title: string; children: React.ReactNode }) {
+export function FormGroup({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View style={styles.group}>
       <SectionTitle title={title} />

@@ -2,6 +2,9 @@ import React, { memo, useEffect, useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
+import AppTabs from '@/components/app-tabs';
+import { useAuth } from '@/context/auth-context';
+import { tabsFor } from '@/navigation/role-tabs';
 import { AppHeader } from '@/components/app-header';
 import { PdfBuilderScreen } from '@/components/pdf-builder-screen';
 import { SideDrawer } from '@/components/side-drawer';
@@ -354,7 +357,13 @@ function DrawerItem({
 }
 
 export const HomeScreen = memo(HomeScreenComponent);
-export default HomeScreen;
+
+
+/** The signed-in app: the role's tabs. Screens pushed over them (e.g. a batch) sit above this route. */
+export default function SignedInTabs() {
+  const { user } = useAuth();
+  return user?.role ? <AppTabs tabs={tabsFor(user.role)} /> : null;
+}
 
 const styles = StyleSheet.create({
   root: { flex: 1 },

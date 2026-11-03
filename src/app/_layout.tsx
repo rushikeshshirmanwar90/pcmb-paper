@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AppearanceProvider } from '@/context/appearance-context';
@@ -10,7 +10,6 @@ import { RoomsProvider } from '@/context/rooms-context';
 import { getPalette } from '@/constants/theme';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
 import { tabsFor } from '@/navigation/role-tabs';
 import { onNotificationTap } from '@/services/notifications';
 import { showStudents } from '@/screens/tuition/people-nav';
@@ -57,7 +56,7 @@ function SignedInGate() {
     <TabProvider key={user.id} tabKeys={tabs.map((t) => t.key)}>
       <RoomsProvider>
         <NotificationTaps />
-        <AppTabs tabs={tabs} />
+        <Stack screenOptions={{ headerShown: false }} />
       </RoomsProvider>
     </TabProvider>
   );

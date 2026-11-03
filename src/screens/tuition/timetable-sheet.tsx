@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { confirmAction } from '@/components/account-section';
+import { PageFrame, useDiscardGuard } from '@/components/stack-screen';
 import { Badge, Button, Card, Chips, DetailSheet, ErrorText, ErrorView, Field, LoadingView, Muted, MultiChips, SectionTitle, useLoad, usePalette } from '@/components/kit';
 import type { SchoolSubject } from '@/constants/school';
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
@@ -36,7 +37,8 @@ const NO_TEACHER = 'none';
  * a preview of what it adds. Classes can't overlap in the batch, and a
  * teacher can't be in two batches at once (the server checks that).
  */
-export function TimetableSheet({ visible, batch, onClose }: { visible: boolean; batch: Batch; onClose: () => void }) {
+export function TimetableSheet({ visible, batch, onClose, page = false }: { visible: boolean; batch: Batch; onClose: () => void; /** Shown as a full screen (the Schedule route) instead of a sheet. */ page?: boolean }) {
+  const Frame = page ? PageFrame : DetailSheet;
   const palette = usePalette();
   const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const showForm = () => requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: 0, animated: true }));
@@ -76,7 +78,8 @@ export function TimetableSheet({ visible, batch, onClose }: { visible: boolean; 
   const classes = sortClasses((timetable.data ?? []).filter((e) => e.batch.id === batch.id));
   const picked = days.map(Number);
   const problem = subject ? classProblem(classes, picked, start, end, editing?.id) : 'Pick the subject.';
-  const batchTeacher = (s: SchoolSubject) => batch.teachers.find((t) => t.subject === s)?.teacherId ?? null;
+  const batchTeachers = (s: SchoolSubject) => batch.teachers.filter((t) => t.subject === s).map((t) => t.teacherId);
+  const batchTeacher = (s: SchoolSubject) => batchTeachers(s)[0] ?? null;
   const teacherName = teacher === NO_TEACHER ? null : teachers.data?.find((t) => t.id === teacher)?.name ?? null;
 
   const pickSubject = (next: SchoolSubject) => {
@@ -161,25 +164,27 @@ export function TimetableSheet({ visible, batch, onClose }: { visible: boolean; 
   const teacherOptions: PickerOption[] = [
     { value: NO_TEACHER, label: 'No teacher yet', pinned: true },
     ...(teachers.data ?? [])
-      .filter((t) => subject && t.subjects.includes(subject))
-      .sort((a, b) => Number(b.id === (subject && batchTeacher(subject))) - Number(a.id === (subject && batchTeacher(subject))) || a.name.localeCompare(b.name))
-      .map((t) => ({ value: t.id, label: t.name, hint: subject && t.id === batchTeacher(subject) ? `Teaches ${subject} to this batch` : t.active ? t.email : `${t.email} · login off` })),
+      .filter((t) => subject && (t.subjects.includes(subject) || batchTeachers(subject).includes(t.id)))
+      .sort((a, b) => Number(!!subject && batchTeachers(subject).includes(b.id)) - Number(!!subject && batchTeachers(subject).includes(a.id)) || a.name.localeCompare(b.name))
+      .map((t) => ({ value: t.id, label: t.name, hint: subject && batchTeachers(subject).includes(t.id) ? `Teaches ${subject} to this batch` : t.active ? t.email : `${t.email} · login off` })),
   ];
   const byDay = WEEK.map((day) => ({ day, list: classes.filter((c) => c.day === day) })).filter((d) => d.list.length);
   const noTeacher = classes.filter((c) => !c.teacher.id).length;
   const timeProblem = endProblem(start, end);
-  const leaveDraft = (next: () => void) => {
-    if (busy) return;
-    const changed = editing
+  const draftChanged = editing
       ? subject !== editing.subject || days.join() !== String(editing.day) || start !== editing.start || end !== editing.end || teacher !== (editing.teacher.id || NO_TEACHER) || note !== editing.note
       : subject !== null || days.length > 0 || start !== retainedTimes[0] || end !== retainedTimes[1] || note !== '';
-    if (changed) confirmAction('Discard session changes?', 'Your unsaved session changes will be lost.', 'Discard', next);
+  // As a page, Back (button, system or swipe) asks through the guard; as a sheet, closing does.
+  useDiscardGuard(page && draftChanged && !busy, 'Discard session changes?', 'Your unsaved session changes will be lost.');
+  const leaveDraft = (next: () => void) => {
+    if (busy) return;
+    if (draftChanged) confirmAction('Discard session changes?', 'Your unsaved session changes will be lost.', 'Discard', next);
     else next();
   };
-  const closeDraft = () => leaveDraft(onClose);
+  const closeDraft = () => (page ? onClose() : leaveDraft(onClose));
 
   return (
-    <DetailSheet visible={visible} title={`Edit Schedule · ${batch.name}`} onClose={closeDraft} scrollRef={scrollRef} footer={<Button label="Done" variant="secondary" onPress={closeDraft} />}>
+    <Frame visible={visible} title={`Edit Schedule · ${batch.name}`} onClose={closeDraft} scrollRef={scrollRef} footer={<Button label="Done" variant="secondary" onPress={closeDraft} />}>
       <FlashNotice flash={flash} onDismiss={clear} />
 
       <Card style={styles.form}>
@@ -321,7 +326,7 @@ export function TimetableSheet({ visible, batch, onClose }: { visible: boolean; 
           <Button label="Clear older class times" variant="secondary" onPress={clearOlder} disabled={busy} />
         </>
       ) : null}
-    </DetailSheet>
+    </Frame>
   );
 }
 
