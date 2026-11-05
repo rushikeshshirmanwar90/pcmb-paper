@@ -1,5 +1,6 @@
 import { useState, useSyncExternalStore } from 'react';
 import { useActiveTabKey } from '@/context/tab-context';
+import { clearLoadCache } from '@/services/load-cache';
 
 // A counter screens use to know the server's data changed elsewhere, e.g. a
 // teacher added on the Teachers tab should show in the Home tab's totals.
@@ -9,6 +10,8 @@ let version = 0;
 const listeners = new Set<() => void>();
 
 export function bumpDataVersion() {
+  // Cached answers predate the change; screens already open reload on their own.
+  clearLoadCache();
   version += 1;
   listeners.forEach((l) => l());
 }

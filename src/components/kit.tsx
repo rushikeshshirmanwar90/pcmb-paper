@@ -24,6 +24,7 @@ import { confirmAction } from '@/components/confirm-action';
 import { KeyboardAwareScrollView, KeyboardSafeView, useKeyboardVisible, useScrollIntoView } from '@/components/keyboard-safe-view';
 import { getPalette, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { cachedLoad, loadShared } from '@/services/load-cache';
 import { useTabBarHeight } from '@/hooks/use-tab-bar-height';
 
 // Building blocks for the tuition, teacher and student screens, so they share
@@ -701,8 +702,13 @@ export function DetailRow({ label, value }: { label: string; value: string }) {
 /**
  * Loads data when the screen shows, when `deps` change and on reload; keeps
  * the last data while reloading, so pull-to-refresh doesn't blank the screen.
+ *
+ * With a `cacheKey` the screen starts from the last answer for that key (if
+ * any, see load-cache.ts) and refreshes it quietly, and a request for the same
+ * key already under way is shared. The key names the request, so it must not
+ * change while the screen is open, and must include everything `deps` does.
  */
-export function useLoad<T>(load: () => Promise<T>, deps: unknown[], { enabled = true }: { enabled?: boolean } = {}) {
+export function useLoad<T>(load: () => Promise<T>, deps: unknown[], { enabled = true, cacheKey }: { enabled?: boolean; cacheKey?: string } = {}) {
   const loadRef = useRef(load);
   useEffect(() => {
     loadRef.current = load;
@@ -711,12 +717,17 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[], { enabled = 
   const [round, setRound] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const key = `${JSON.stringify(deps)}#${round}`;
-  const [result, setResult] = useState<{ key: string; data: T | null; error: string | null }>({ key: '', data: null, error: null });
+  const [result, setResult] = useState<{ key: string; data: T | null; error: string | null }>(() => ({
+    key: '',
+    data: (cacheKey ? cachedLoad<T>(cacheKey) : undefined) ?? null,
+    error: null,
+  }));
 
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
-    loadRef.current().then(
+    // A reload or refresh (round > 0) sends its own request rather than joining one under way.
+    (cacheKey ? loadShared(cacheKey, loadRef.current, { fresh: round > 0 }) : loadRef.current()).then(
       (data) => {
         if (cancelled) return;
         setResult({ key, data, error: null });
@@ -731,7 +742,7 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[], { enabled = 
     return () => {
       cancelled = true;
     };
-  }, [key, enabled]);
+  }, [key, round, enabled, cacheKey]);
 
   const setData = useCallback((update: (prev: T | null) => T | null) => {
     setResult((prev) => ({ ...prev, data: update(prev.data) }));

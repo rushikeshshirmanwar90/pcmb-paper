@@ -83,7 +83,7 @@ export function bankNote(program: Program) {
 /** The tuition's batches: filter by program and class, create, open, edit and delete. */
 export function TuitionBatchesScreen() {
   const version = useDataVersion();
-  const { data, error, loading, refreshing, refresh, reload } = useLoad(() => tuitionApi.batches(), [version]);
+  const { data, error, loading, refreshing, refresh, reload } = useLoad(() => tuitionApi.batches(), [version], { cacheKey: 'batches' });
   const router = useRouter();
   const openBatch = (batchId: string) => router.push(batchHref(batchId));
   const [filter, setFilter] = useState<BatchFilter>(EMPTY_BATCH_FILTER);

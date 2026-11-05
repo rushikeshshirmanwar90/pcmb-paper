@@ -38,9 +38,10 @@ export function tuitionOnly<P extends object>(Screen: ComponentType<P>, scope: '
 }
 
 /** The batch with its students, without the slow syllabus coverage; Batch Details asks for that on its own. */
-export function useBatch(batchId: string) {
+export function useBatch(batchId: string, { cached = true }: { cached?: boolean } = {}) {
   const version = useDataVersion();
-  return useLoad(() => tuitionApi.batch(batchId, false), [batchId, version]);
+  // `cached: false` for a form that starts from the batch's values: it must not start from an older copy.
+  return useLoad(() => tuitionApi.batch(batchId, false), [batchId, version], { cacheKey: cached ? `batch:${batchId}` : undefined });
 }
 
 const subtitleOf = (batch: Batch) => [PROGRAM_LABELS[batch.program], classLabel(batch), yearLabel(batch)].filter(Boolean).join(' · ');
@@ -61,8 +62,9 @@ export const BatchDetailsScreen = tuitionOnly(function BatchDetailsScreen({ batc
   const router = useRouter();
   const version = useDataVersion();
   const { data, error, loading, refreshing, refresh, reload } = useBatch(batchId);
-  const timetable = useLoad(() => schoolApi.timetable(batchId), [batchId, version]);
-  const coverage = useLoad(() => tuitionApi.batch(batchId, true).then((r) => r.batch.coverage), [batchId, version]);
+  const timetable = useLoad(() => schoolApi.timetable(batchId), [batchId, version], { cacheKey: `timetable:${batchId}` });
+  // The syllabus scan is the slow call, so it waits for the batch instead of competing with it.
+  const coverage = useLoad(() => tuitionApi.batchCoverage(batchId), [batchId, version], { enabled: !!data, cacheKey: `coverage:${batchId}` });
   const batch = data?.batch;
   if (!batch || !data) return <BatchState title="Batch" loading={loading} error={error} reload={reload} />;
 
@@ -176,6 +178,7 @@ export const BatchStudentsScreen = tuitionOnly(function BatchStudentsScreen({ ba
   const students = data.students;
   return (
     <StackScreen title="Students" subtitle={batch.name} onRefresh={refresh} refreshing={refreshing}>
+      {error ? <Notice tone="danger" text={`Couldn't refresh: ${error}`} /> : null}
       <PersonNotice kind="student" />
       <View style={styles.buttons}>
         <Button label="Invite Students" variant="tonal" icon={{ ios: 'qrcode', android: 'group_add' }} onPress={() => router.push(batchHref(batchId, 'invitations'))} style={styles.flex} />
@@ -237,6 +240,7 @@ export const BatchTeachersScreen = tuitionOnly(function BatchTeachersScreen({ ba
   const missing = missingTeachers(batch);
   return (
     <StackScreen title="Teachers" subtitle={batch.name} onRefresh={refresh} refreshing={refreshing}>
+      {error ? <Notice tone="danger" text={`Couldn't refresh: ${error}`} /> : null}
       <Button label="Assign Teacher" icon={{ ios: 'plus', android: 'add' }} onPress={() => router.push(batchHref(batchId, 'assign-teacher'))} />
       {missing.length ? <Notice tone="warning" title="Subjects without a teacher" text={missing.join(', ')} /> : null}
       {teachers.length ? (
@@ -274,7 +278,7 @@ const PICK = 'none';
 export const AssignTeacherScreen = tuitionOnly(function AssignTeacherScreen({ batchId, teacherId }: { batchId: string; teacherId?: string }) {
   const goBack = useGoBack();
   const { data, error: loadError, loading, reload } = useBatch(batchId);
-  const teachers = useLoad(() => tuitionApi.teachers(), []);
+  const teachers = useLoad(() => tuitionApi.teachers(), [], { cacheKey: 'teachers' });
   const [picked, setPicked] = useState<string>(teacherId ?? PICK);
   const [subjects, setSubjects] = useState<SchoolSubject[] | null>(null);
   const [saving, setSaving] = useState(false);
@@ -384,7 +388,7 @@ export const AssignTeacherScreen = tuitionOnly(function AssignTeacherScreen({ ba
 
 export const BatchSettingsScreen = tuitionOnly(function BatchSettingsScreen({ batchId }: { batchId: string }) {
   const router = useRouter();
-  const { data, error, loading, reload } = useBatch(batchId);
+  const { data, error, loading, reload } = useBatch(batchId, { cached: false });
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const batch = data?.batch;

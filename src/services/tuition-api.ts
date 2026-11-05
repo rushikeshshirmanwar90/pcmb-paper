@@ -167,6 +167,12 @@ export const tuitionApi = {
       batch: withBatch<Batch & { coverage: Coverage }>(r.batch),
       students: r.students.map(withStudent),
     })),
+  /**
+   * Just the syllabus coverage. A server that knows `coverage=only` skips the
+   * students and the rest; an older one answers in full, which is read the same.
+   */
+  batchCoverage: (id: string) =>
+    api<{ batch: { coverage?: Coverage } }>(`/tuition/batches/${id}?coverage=only`).then((r) => r.batch.coverage ?? {}),
   createBatch: (input: BatchInput) =>
     api<{ batch: FromServer<Batch> }>('/tuition/batches', { method: 'POST', body: withTrack(input) }).then((r) => withBatch(r.batch)),
   updateBatch: (id: string, input: BatchInput) =>

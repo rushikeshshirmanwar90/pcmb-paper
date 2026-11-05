@@ -80,7 +80,7 @@ export function StudentsPanel() {
     return () => clearTimeout(timer);
   }, [filter.search]);
 
-  const batches = useLoad(() => tuitionApi.batches(), [version]);
+  const batches = useLoad(() => tuitionApi.batches(), [version], { cacheKey: 'batches' });
   const { data, error, loading, refreshing, refresh, reload } = useLoad(
     () => tuitionApi.students({ q: query, batchId: filter.batch === ALL ? null : filter.batch }),
     [query, filter.batch, version]
