@@ -1,15 +1,23 @@
-// App configuration. The one place the server address lives: change API_URL
+// App configuration. The one place the server address lives: change LIVE_URL
 // here to point the app at another server (no trailing slash, no /api).
+import Constants from 'expo-constants';
+import * as Device from 'expo-device';
+import { Platform } from 'react-native';
+import { chooseApiUrl, readLocalBackend } from '@/lib/backend-url';
+
+const LIVE_URL = 'https://papers-jet.vercel.app';
 
 /**
- * For local testing only: set EXPO_PUBLIC_API_URL in the shell that starts Expo
- * (e.g. http://10.0.2.2:3000 from the Android emulator). Never put it in a file;
- * unset, or not an http(s) address, the app uses the live server.
+ * The papers server the app talks to: the live one, unless a developer started
+ * Expo with `npm run expo:local` (development builds only, never a release).
  */
-const LOCAL_OVERRIDE = (process.env.EXPO_PUBLIC_API_URL ?? '').trim().replace(/\/+$/, '');
-
-/** The papers server the app talks to. */
-export const API_URL = /^https?:\/\/\S+$/.test(LOCAL_OVERRIDE) ? LOCAL_OVERRIDE : 'https://papers-jet.vercel.app';
+export const API_URL = chooseApiUrl({
+  live: LIVE_URL,
+  dev: __DEV__,
+  local: readLocalBackend(Constants.expoConfig?.extra),
+  os: Platform.OS,
+  isDevice: Device.isDevice,
+});
 
 /** The server's API routes. */
 export const API_BASE_URL = `${API_URL}/api`;
