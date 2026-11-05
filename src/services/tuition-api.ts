@@ -179,6 +179,7 @@ export const tuitionApi = {
   removeTeacher: (id: string, teacherId: string) =>
     api<{ batch: FromServer<Batch> }>(`/tuition/batches/${id}/teachers?teacherId=${teacherId}`, { method: 'DELETE' }).then((r) => withBatch(r.batch)),
 
+  teacher: (id: string) => api<{ teacher: Teacher }>(`/tuition/teachers/${encodeURIComponent(id)}`).then((r) => r.teacher),
   teachers: () => api<{ teachers: Teacher[] }>('/tuition/teachers').then((r) => r.teachers),
   createTeacher: (input: TeacherInput) => api<{ teacher: Teacher }>('/tuition/teachers', { method: 'POST', body: input }).then((r) => r.teacher),
   updateTeacher: (id: string, input: TeacherInput) =>
@@ -186,6 +187,7 @@ export const tuitionApi = {
   deleteTeacher: (id: string) => api(`/tuition/teachers/${id}`, { method: 'DELETE' }),
   resetTeacherPassword: (id: string, password: string) => api(`/tuition/teachers/${id}/password`, { method: 'POST', body: { password } }),
 
+  student: (id: string) => api<{ student: FromServer<Student> }>(`/tuition/students/${encodeURIComponent(id)}`).then((r) => withStudent(r.student)),
   students: (filter: { batchId?: string | null; q?: string } = {}) =>
     api<{ students: FromServer<Student>[] }>(`/tuition/students${q({ batchId: filter.batchId, q: filter.q })}`).then((r) => r.students.map(withStudent)),
   createStudent: (input: StudentInput) =>

@@ -25,7 +25,8 @@ import {
 import { MaxContentWidth } from '@/constants/theme';
 import { useSignedInUser } from '@/context/auth-context';
 import { bumpDataVersion } from '@/context/data-version';
-import { AWAY_LIMIT_MS, cellStatus, createAwayTracker, examCounts, secondsLeft, skewOf, type CellStatus } from '@/screens/student/exam-guard';
+import { AWAY_LIMIT_MS, backAction, cellStatus, createAwayTracker, examCounts, type MultiWindowReading, secondsLeft, skewOf, type CellStatus } from '@/screens/student/exam-guard';
+import { useExamSecurity, useMultiWindow } from '@/screens/student/exam-security';
 import { createAnswerSaver, type AnswerSaver, type SaveState } from '@/screens/student/answer-saver';
 import { RESULT_SECTIONS, numberLabel, percentLabel, resultFigures, type ResultSection } from '@/screens/shared/result-format';
 
@@ -85,6 +86,10 @@ export function TestRunner({ testId, onClose }: { testId: string; onClose: () =>
   // Android's back button during the exam: it can't leave, and says so.
   const blockedBackRef = useRef<(() => void) | null>(null);
   const protectedScreen = useScreenProtection(phase.kind !== 'review');
+  // Android-only extras, on while the test is being answered and off the moment it isn't (see exam-security.ts).
+  useExamSecurity(phase.kind === 'running');
+  // Looked at before the test starts, so it isn't begun in split-screen.
+  const introWindow = useMultiWindow(phase.kind === 'intro');
 
   useEffect(() => {
     let cancelled = false;
@@ -141,7 +146,7 @@ export function TestRunner({ testId, onClose }: { testId: string; onClose: () =>
       visible
       animationType="slide"
       presentationStyle="fullScreen"
-      onRequestClose={phase.kind === 'running' ? () => blockedBackRef.current?.() : close}
+      onRequestClose={backAction(phase.kind) === 'block' ? () => blockedBackRef.current?.() : close}
     >
       {/* A Modal is its own native window, where SafeAreaView reads no insets. It covers the whole
           screen, so the app's own insets are the right ones. */}
@@ -156,7 +161,7 @@ export function TestRunner({ testId, onClose }: { testId: string; onClose: () =>
             </View>
           </View>
         ) : phase.kind === 'intro' ? (
-          <Intro test={phase.test} busy={busy} onStart={() => start(phase.test)} onClose={close} />
+          <Intro test={phase.test} busy={busy} splitScreen={introWindow} onStart={() => start(phase.test)} onClose={close} />
         ) : phase.kind === 'running' ? (
           <Runner
             test={phase.test}
@@ -224,7 +229,7 @@ const column = { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' }
 
 // ─── Before starting ───────────────────────────────────────────────────────
 
-function Intro({ test, busy, onStart, onClose }: { test: TestSummary; busy: boolean; onStart: () => void; onClose: () => void }) {
+function Intro({ test, busy, splitScreen, onStart, onClose }: { test: TestSummary; busy: boolean; splitScreen: MultiWindowReading; onStart: () => void; onClose: () => void }) {
   const palette = usePalette();
   const [now] = useState(() => Date.now());
   const minutesUntilClose = test.closesAt ? Math.floor((new Date(test.closesAt).getTime() - now) / 60_000) : null;
@@ -269,6 +274,16 @@ function Intro({ test, busy, onStart, onClose }: { test: TestSummary; busy: bool
           />
         ) : null}
 
+        {splitScreen.inMultiWindow ? (
+          <Notice
+            tone="warning"
+            icon={{ ios: 'rectangle.split.2x1', android: 'splitscreen' }}
+            title="Return to full screen"
+            text={splitScreen.authoritative ? "The app is in split-screen or a small window. Make it full screen to start; the test can't be taken this way." : 'The app looks like it is in a small window. Make it full screen before you start.'}
+            live
+          />
+        ) : null}
+
         <SectionTitle title="Examination instructions" />
         <Card>
           <Tip icon={{ ios: 'timer', android: 'timer' }} text="The timer starts when you tap the button below and runs on the server's clock. Closing or restarting the app does not pause or reset it." />
@@ -281,14 +296,15 @@ function Intro({ test, busy, onStart, onClose }: { test: TestSummary; busy: bool
         <Card>
           <Tip icon={{ ios: 'lock', android: 'lock' }} text="In-app navigation is disabled during the examination. You can't leave it until you submit or time runs out." />
           <Tip icon={{ ios: 'rectangle.on.rectangle.slash', android: 'block' }} text={`Switching applications is prohibited. If you leave the app for more than ${AWAY_LIMIT_MS / 1000} seconds, your test ends and is submitted with the answers saved so far.`} />
-          <Tip icon={{ ios: 'camera.viewfinder', android: 'screenshot' }} text="Screenshots and screen recording are restricted." />
+          <Tip icon={{ ios: 'rectangle.split.2x1', android: 'splitscreen' }} text={`Split-screen and floating windows aren't allowed. On Android, time spent in split-screen counts as leaving the app (more than ${AWAY_LIMIT_MS / 1000} seconds ends the test), and other apps' floating overlays are hidden where your device supports it.`} />
+          <Tip icon={{ ios: 'camera.viewfinder', android: 'screenshot' }} text="Screenshots and screen recording are blocked while the test is open." />
           <Tip icon={{ ios: 'hourglass', android: 'hourglass_top' }} text="The examination timer continues during interruptions such as calls or a lost connection." />
           <Tip icon={{ ios: 'exclamationmark.shield', android: 'gpp_maybe' }} text="Confirmed security violations may automatically end the attempt. An ended attempt can't be restarted." />
           <Tip icon={{ ios: 'chart.bar', android: 'bar_chart' }} text="Results become available after the test closes." />
         </Card>
       </ScrollView>
       <Footer>
-        <Button label="I Understand — Start Test" icon={{ ios: 'play.fill', android: 'play_arrow' }} onPress={onStart} loading={busy} />
+        <Button label="I Understand — Start Test" icon={{ ios: 'play.fill', android: 'play_arrow' }} onPress={onStart} loading={busy} disabled={splitScreen.inMultiWindow && splitScreen.authoritative} />
       </Footer>
     </View>
   );
@@ -555,6 +571,31 @@ function Runner({
     };
   }, [reportAway]);
 
+  // Split-screen. Android's own answer (native build) blocks the exam and the time spent there is
+  // reported like any other time away, so the same limit applies, also while the student stays in it.
+  // Without the native module it's only a guess from the window size: a notice, never held against them.
+  const split = useMultiWindow(true);
+  const splitBlocked = split.inMultiWindow && split.authoritative;
+  const splitTracker = useRef(createAwayTracker());
+  useEffect(() => {
+    if (!splitBlocked) return;
+    const tracker = splitTracker.current;
+    tracker.background();
+    const overLimit = setTimeout(() => {
+      pendingAway.current = Math.max(pendingAway.current ?? 0, tracker.elapsed() ?? 0);
+      setFrozen(true);
+      void reportAway();
+    }, AWAY_LIMIT_MS + 250);
+    return () => {
+      clearTimeout(overLimit);
+      const ms = tracker.foreground();
+      if (ms === null) return;
+      pendingAway.current = Math.max(pendingAway.current ?? 0, ms);
+      if (ms > AWAY_LIMIT_MS) setFrozen(true);
+      void reportAway();
+    };
+  }, [splitBlocked, reportAway]);
+
   // Android's back button and back gestures can't leave the exam; they say so.
   useEffect(() => {
     blockedBackRef.current = () => setHint('Navigation is disabled during the exam. Submit the test to finish.');
@@ -658,6 +699,12 @@ ${message}`)) void submit();
         />
       ) : null}
 
+      {split.inMultiWindow && !split.authoritative ? (
+        <View style={[styles.warning, column]}>
+          <Notice tone="warning" icon={{ ios: 'rectangle.split.2x1', android: 'splitscreen' }} title="Use full screen" text="The app looks like it is in a small window. Please use the whole screen for the exam." live />
+        </View>
+      ) : null}
+
       {hint ? (
         <View style={[styles.warning, column]}>
           <Notice tone="warning" icon={{ ios: 'lock', android: 'lock' }} title="Exam in progress" text={hint} live />
@@ -726,6 +773,17 @@ ${message}`)) void submit();
         {!last ? <QuietButton label="Submit test" onPress={askSubmit} disabled={submitting} /> : null}
         {timeUp && error ? <QuietButton label="Time is up — exit (saved answers are submitted)" tone="muted" onPress={onExit} /> : null}
       </Footer>
+      {splitBlocked && !frozen ? (
+        <View style={[styles.frozen, { backgroundColor: palette.background }]} accessibilityViewIsModal>
+          <Icon name={{ ios: 'rectangle.split.2x1', android: 'splitscreen' }} color={palette.primary} size={32} />
+          <Text accessibilityRole="header" accessibilityLiveRegion="polite" style={[styles.frozenTitle, { color: palette.foreground }]}>
+            Return to full screen
+          </Text>
+          <Text style={[styles.frozenText, { color: palette.mutedForeground }]}>
+            {`The exam can't be taken in split-screen. Close the other window to continue. Time in split-screen counts as leaving the app: more than ${AWAY_LIMIT_MS / 1000} seconds ends your test. The timer keeps running.`}
+          </Text>
+        </View>
+      ) : null}
       {frozen ? (
         <View style={[styles.frozen, { backgroundColor: palette.background }]} accessibilityViewIsModal>
           <Icon name={{ ios: 'lock.shield', android: 'gpp_maybe' }} color={palette.primary} size={32} />

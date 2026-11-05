@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ComponentRef, type PropsWithChildren, type ReactNode, type Ref } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type KeyboardAvoidingViewProps } from 'react-native';
 import { usePreventRemove, useRouter } from 'expo-router';
 import { confirmAction } from '@/components/account-section';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -56,6 +56,7 @@ export function StackScreen({
   footer,
   scrollRef,
   keyboard = false,
+  keyboardBehavior,
 }: PropsWithChildren<{
   title: string;
   subtitle?: string;
@@ -66,6 +67,7 @@ export function StackScreen({
   footer?: ReactNode;
   scrollRef?: Ref<ComponentRef<typeof ScrollView>>;
   keyboard?: boolean;
+  keyboardBehavior?: KeyboardAvoidingViewProps['behavior'];
 }>) {
   const palette = usePalette();
   const insets = useSafeAreaInsets();
@@ -87,7 +89,7 @@ export function StackScreen({
           ) : null}
         </View>
       </View>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' && keyboard ? 'padding' : undefined} style={styles.flex}>
+      <KeyboardAvoidingView behavior={keyboard ? keyboardBehavior ?? (Platform.OS === 'ios' ? 'padding' : undefined) : undefined} style={styles.flex}>
         <ScrollView
           ref={scrollRef}
           contentContainerStyle={[styles.body, { paddingBottom: footer ? 16 : Math.max(insets.bottom, 16) + 8 }]}
@@ -112,7 +114,7 @@ export function PageFrame({ title, onClose, footer, scrollRef, children }: Props
 }
 
 /** A form as a full screen with its save button pinned under it. */
-export function FormPage({ title, onBack, children, submitLabel, onSubmit, submitting = false, error, extraAction }: PropsWithChildren<{
+export function FormPage({ title, onBack, children, submitLabel, onSubmit, submitting = false, error, extraAction, keyboardBehavior }: PropsWithChildren<{
   title: string;
   onBack: () => void;
   submitLabel: string;
@@ -120,12 +122,14 @@ export function FormPage({ title, onBack, children, submitLabel, onSubmit, submi
   submitting?: boolean;
   error?: string | null;
   extraAction?: ReactNode;
+  keyboardBehavior?: KeyboardAvoidingViewProps['behavior'];
 }>) {
   return (
     <StackScreen
       title={title}
       onBack={onBack}
       keyboard
+      keyboardBehavior={keyboardBehavior}
       footer={
         <>
           <ErrorText message={error} />

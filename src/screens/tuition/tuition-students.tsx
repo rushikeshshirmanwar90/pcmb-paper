@@ -1,4 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, type ReactNode } from 'react';
+import { useRouter } from 'expo-router';
+import { StackScreen } from '@/components/stack-screen';
+import { PersonNotice, usePersonFeedback } from '@/screens/tuition/person-notice';
+import { PersonFormPage } from '@/screens/tuition/person-form-page';
+import { usePersonFormGuard } from '@/screens/tuition/person-form-guard';
+import { studentHref } from '@/screens/tuition/person-nav';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { confirmAction } from '@/components/account-section';
 import {
@@ -6,11 +12,9 @@ import {
   Button,
   Card,
   Chips,
-  DetailSheet,
   EmptyView,
   ErrorView,
   Field,
-  FormSheet,
   Icon,
   ListRow,
   LoadingView,
@@ -33,7 +37,6 @@ import {
   FlashNotice,
   InfoRow,
   LoginStatus,
-  OptionList,
   OptionPicker,
   PanelScroll,
   PersonHeader,
@@ -66,12 +69,8 @@ export function StudentsPanel() {
     setFilter({ ...EMPTY_STUDENT_FILTER, batch: nav.studentBatch.batch });
   }
   const [query, setQuery] = useState('');
-  const [enrolling, setEnrolling] = useState(false);
   const [inviting, setInviting] = useState(false);
-  const [openId, setOpenId] = useState<string | null>(null);
-  // The open student as last seen, so their page stays open if a change
-  // (e.g. a new batch) moves them out of the filtered list.
-  const [snapshot, setSnapshot] = useState<Student | null>(null);
+  const router = useRouter();
   const { flash, show, clear } = useFlash();
   const set = (patch: Partial<StudentFilter>) => setFilter((f) => ({ ...f, ...patch }));
 
@@ -89,8 +88,6 @@ export function StudentsPanel() {
   const batchList = batches.data ?? [];
   const shown = filterStudents(data ?? [], filter);
   const filters = activeFilterCount(filter);
-  const fromList = data?.find((s) => s.id === openId);
-  const open = fromList ?? (snapshot?.id === openId ? snapshot : null);
   // A batch filter for a batch that was deleted falls back to All.
   const batchFilterOk = filter.batch === ALL || filter.batch === NO_BATCH || !batches.data || batchList.some((b) => b.id === filter.batch);
   if (!batchFilterOk) set({ batch: ALL });
@@ -101,10 +98,6 @@ export function StudentsPanel() {
     { value: NO_BATCH, label: 'No batch' },
   ];
 
-  const openStudent = (s: Student) => {
-    setSnapshot(s);
-    setOpenId(s.id);
-  };
 
   return (
     <PanelScroll
@@ -115,8 +108,9 @@ export function StudentsPanel() {
       refreshing={refreshing}
     >
       <Button label="Invite Students" icon={{ ios: 'qrcode', android: 'group_add' }} onPress={() => setInviting(true)} />
-      <Button label="Add student" variant="secondary" icon={{ ios: 'person.badge.plus', android: 'person_add' }} onPress={() => setEnrolling(true)} />
+      <Button label="Add student" variant="secondary" icon={{ ios: 'person.badge.plus', android: 'person_add' }} onPress={() => router.push({ pathname: '/student/new', params: { batchId: filter.batch !== ALL && filter.batch !== NO_BATCH ? filter.batch : '' } })} />
       <FlashNotice flash={flash} onDismiss={clear} />
+      <PersonNotice kind="student" />
       <PendingEnrollments onDone={(message, tone) => show(message, tone)} />
       <SearchBox value={filter.search} onChangeText={(search) => set({ search })} placeholder="Search by name or email" label="Search students" />
       <View style={styles.filters}>
@@ -149,7 +143,7 @@ export function StudentsPanel() {
           ) : (
             <Card style={styles.listCard}>
               {shown.map((s, i) => (
-                <StudentRow key={s.id} student={s} onPress={() => openStudent(s)} last={i === shown.length - 1} />
+                <StudentRow key={s.id} student={s} onPress={() => router.push(studentHref(s.id))} last={i === shown.length - 1} />
               ))}
             </Card>
           )}
@@ -157,22 +151,7 @@ export function StudentsPanel() {
       )}
 
       {inviting ? <InviteStudentsPicker batches={batchList} onClose={() => setInviting(false)} /> : null}
-      <StudentForm
-        visible={enrolling}
-        onClose={() => setEnrolling(false)}
-        batches={batchList}
-        initialBatchId={filter.batch !== ALL && filter.batch !== NO_BATCH ? filter.batch : null}
-        onSaved={(s) => show(`${s.name} added${s.batch ? ` to ${s.batch.name}` : ''}. Share their email and starting password with them.`)}
-      />
-      {open ? (
-        <StudentDetail
-          student={open}
-          batches={batchList}
-          onChanged={setSnapshot}
-          onClose={() => setOpenId(null)}
-          onRemoved={(name) => show(`${name} removed.`)}
-        />
-      ) : null}
+
     </PanelScroll>
   );
 }
@@ -211,24 +190,23 @@ function StudentRow({ student: s, onPress, last }: { student: Student; onPress: 
   );
 }
 
-function StudentDetail({
+export function StudentDetailsContent({
   student,
   batches,
   onChanged,
-  onClose,
-  onRemoved,
+  onClose, feedbackView, onRefresh, refreshing,
 }: {
   student: Student;
+  feedbackView?: ReactNode; onRefresh?: () => void; refreshing?: boolean;
   batches: Batch[];
   onChanged: (s: Student) => void;
   onClose: () => void;
-  onRemoved: (name: string) => void;
 }) {
-  const [editing, setEditing] = useState(false);
+  const router = useRouter();
   const [insight, setInsight] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState(false);
+  const feedback = usePersonFeedback('student', student.id);
   const { flash, show, clear } = useFlash();
 
   const run = async (action: () => Promise<unknown>, success: string, after?: () => void) => {
@@ -261,7 +239,7 @@ function StudentDetail({
       'Remove',
       () =>
       run(() => tuitionApi.deleteStudent(student.id), `${student.name} removed.`, () => {
-        onRemoved(student.name);
+        feedback(`${student.name} removed.`);
         onClose();
       })
     );
@@ -273,8 +251,10 @@ function StudentDetail({
     );
 
   return (
-    <DetailSheet visible title={student.name} onClose={onClose} footer={<Button label="Edit details" icon={{ ios: 'pencil', android: 'edit' }} onPress={() => setEditing(true)} />}>
+    <StackScreen title={student.name} onBack={onClose} onRefresh={onRefresh} refreshing={refreshing} footer={<Button label="Edit details" icon={{ ios: 'pencil', android: 'edit' }} onPress={() => router.push(studentHref(student.id, 'edit'))} />}>
       <FlashNotice flash={flash} onDismiss={clear} />
+      <PersonNotice kind="student" id={student.id} />
+      {feedbackView}
       <Card>
         <PersonHeader
           name={student.name}
@@ -304,12 +284,19 @@ function StudentDetail({
             label={student.batch ? 'Change batch' : 'Add to batch'}
             variant="tonal"
             icon={{ ios: 'arrow.left.arrow.right', android: 'swap_horiz' }}
-            onPress={() => setPicking(true)}
+            onPress={() => router.push(studentHref(student.id, 'batch'))}
             disabled={busy}
             style={styles.flex}
           />
           {student.batch ? <Button label="Take out" variant="secondary" onPress={takeOut} disabled={busy} accessibilityLabel={`Take out of ${student.batch.name}`} /> : null}
         </View>
+      </Card>
+
+      <SectionTitle title="Academic details" />
+      <Card style={styles.listCard}>
+        <InfoRow icon={{ ios: 'book', android: 'school' }} label="Program" value={student.program ? PROGRAM_LABELS[student.program] : 'Not set'} />
+        <InfoRow icon={{ ios: 'book', android: 'school' }} label="Class" value={student.standard ?? 'Not set'} />
+        <InfoRow icon={{ ios: 'book', android: 'school' }} label="Academic year" value={batches.find((b) => b.id === student.batch?.id)?.academicYear ?? 'Not set'} last />
       </Card>
 
       <SectionTitle title="Contact" />
@@ -352,17 +339,6 @@ function StudentDetail({
         />
       </Card>
 
-      <StudentForm visible={editing} onClose={() => setEditing(false)} student={student} batches={batches} onSaved={(s) => { onChanged(s); show('Details saved.'); }} />
-      <BatchPicker
-        visible={picking}
-        student={student}
-        batches={batches}
-        onClose={() => setPicking(false)}
-        onSaved={(s) => {
-          onChanged(s);
-          show(s.batch ? `Moved to ${s.batch.name}.` : 'Batch saved.');
-        }}
-      />
       {insight ? <StudentInsightSheet studentId={student.id} onClose={() => setInsight(false)} /> : null}
       <ResetPasswordSheet
         visible={resetting}
@@ -370,7 +346,7 @@ function StudentDetail({
         onClose={() => setResetting(false)}
         onReset={(password) => tuitionApi.resetStudentPassword(student.id, password)}
       />
-    </DetailSheet>
+    </StackScreen>
   );
 }
 
@@ -382,35 +358,30 @@ const fitting = (batches: Batch[], student: { program: Program | null; standard:
   batches.filter((b) => !fitProblem(student, b)).sort((a, b) => a.name.localeCompare(b.name));
 
 /** Puts the student in one of the tuition's batches of their program and class. */
-function BatchPicker({ visible, student, batches, onClose, onSaved }: { visible: boolean; student: Student; batches: Batch[]; onClose: () => void; onSaved: (s: Student) => void }) {
-  const [batchId, setBatchId] = useState<string>(NO_BATCH);
+export function StudentBatchForm({ student, batches, onClose, onSaved }: { student: Student; batches: Batch[]; onClose: () => void; onSaved: (s: Student) => void }) {
+  const [batchId, setBatchId] = useState<string>(student.batch?.id ?? NO_BATCH);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [openedFor, setOpenedFor] = useState(false);
-  if (visible !== openedFor) {
-    setOpenedFor(visible);
-    if (visible) {
-      setBatchId(student.batch?.id ?? NO_BATCH);
-      setError(null);
-    }
-  }
+  const feedback = usePersonFeedback('student', student.id);
+  const allowLeave = usePersonFormGuard(batchId !== (student.batch?.id ?? NO_BATCH), saving);
 
   const fits = fitting(batches, student);
   const others = batches.length - fits.length;
-  const options: PickerOption[] = fits.map((b) => ({ value: b.id, label: b.name, hint: batchHint(b) }));
-  const kind = [student.program ? PROGRAM_LABELS[student.program] : null, student.standard].filter(Boolean).join(' ');
+  const options: PickerOption[] = [{ value: NO_BATCH, label: 'No batch', pinned: true }, ...fits.map((b) => ({ value: b.id, label: b.name, hint: batchHint(b) }))];
 
   const save = async () => {
-    if (batchId === NO_BATCH) return setError('Pick a batch.');
-    if (batchId === student.batch?.id) return onClose();
+    if (saving) return;
+    if (batchId === (student.batch?.id ?? NO_BATCH)) { allowLeave(); onClose(); return; }
     setSaving(true);
     setError(null);
     try {
-      const saved = await tuitionApi.updateStudent(student.id, { batchId });
+      const saved = await tuitionApi.updateStudent(student.id, { batchId: batchId === NO_BATCH ? null : batchId });
       bumpDataVersion();
-      onClose();
+      allowLeave();
+      feedback(saved.batch ? `Moved to ${saved.batch.name}.` : 'Student taken out of their batch.');
       onSaved(saved);
+      onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't add them to the batch.");
     } finally {
@@ -419,31 +390,25 @@ function BatchPicker({ visible, student, batches, onClose, onSaved }: { visible:
   };
 
   return (
-    <FormSheet
-      visible={visible}
+    <PersonFormPage
       title={student.batch ? `Move ${student.name}` : `Add ${student.name} to a batch`}
-      onClose={onClose}
-      submitLabel={student.batch ? 'Move to batch' : 'Add to batch'}
+      onBack={onClose}
+      submitLabel="Save batch"
       onSubmit={save}
       submitting={saving}
       error={error}
     >
       {student.batch ? <Muted>Now in {student.batch.name}.</Muted> : null}
-      {options.length ? (
-        <>
-          <OptionList label="Batch" options={options} selected={batchId} onChange={setBatchId} searchPlaceholder="Search batches" />
-          <Muted>A student is in one batch at a time. They see its classes, tests and announcements.</Muted>
-        </>
-      ) : (
-        <Muted>{batches.length ? `No ${kind} batch yet. Create one from the Batches tab first.` : 'No batches yet. Create one from the Batches tab first.'}</Muted>
-      )}
-      {others && options.length ? (
+      <OptionPicker label="Batch" options={options} selected={batchId} onChange={setBatchId} chipsUpTo={0} searchPlaceholder="Search batches" />
+      <Muted>A student is in one batch at a time. They see its classes, tests and announcements.</Muted>
+      {!fits.length ? <Notice tone="warning" text="No matching batches available. Create a batch with this student's program and class first." /> : null}
+      {others ? (
         <Muted>
           {plural(others, 'other batch', 'other batches')} {others === 1 ? 'is' : 'are'} for another program or class. To move {student.name} there, change their program or
           class in Edit details first.
         </Muted>
       ) : null}
-    </FormSheet>
+    </PersonFormPage>
   );
 }
 
@@ -455,41 +420,32 @@ type StandardChoice = (typeof STANDARD_CHOICES)[number];
  * is one yet, and a starting password), or editing one. `initialBatchId`
  * starts a new student in that batch, with its program and class.
  */
-function StudentForm({ visible, onClose, student, batches, initialBatchId, onSaved }: {
-  visible: boolean;
+export function StudentForm({ onClose, student, batches, initialBatchId, onSaved }: {
   onClose: () => void;
   student?: Student;
   batches: Batch[];
   initialBatchId?: string | null;
   onSaved?: (s: Student) => void;
 }) {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [parentPhone, setParentPhone] = useState('');
-  const [program, setProgram] = useState<Program>('NEET');
-  const [standard, setStandard] = useState<StandardChoice>('none');
-  const [batchId, setBatchId] = useState<string>(NO_BATCH);
+  const start = !student && initialBatchId ? batches.find((b) => b.id === initialBatchId && programChoices().includes(b.program)) : undefined;
+  const [initial] = useState(() => ({
+    name: student?.name ?? '', email: student?.email ?? '', phone: student?.phone ?? '', parentPhone: student?.parentPhone ?? '',
+    program: student ? student.program ?? undefined : start?.program ?? 'NEET', standard: (student?.standard ?? start?.standard ?? 'none') as StandardChoice,
+    batchId: student?.batch?.id ?? start?.id ?? NO_BATCH, password: '',
+  }));
+  const [name, setName] = useState(initial.name);
+  const [email, setEmail] = useState(initial.email);
+  const [phone, setPhone] = useState(initial.phone);
+  const [parentPhone, setParentPhone] = useState(initial.parentPhone);
+  const [program, setProgram] = useState<Program | undefined>(initial.program);
+  const [standard, setStandard] = useState<StandardChoice>(initial.standard);
+  const [batchId, setBatchId] = useState(initial.batchId);
   const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const [openedFor, setOpenedFor] = useState(false);
-  if (visible !== openedFor) {
-    setOpenedFor(visible);
-    if (visible) {
-      setName(student?.name ?? '');
-      setEmail(student?.email ?? '');
-      setPhone(student?.phone ?? '');
-      setParentPhone(student?.parentPhone ?? '');
-      const start = !student && initialBatchId ? batches.find((b) => b.id === initialBatchId && programChoices().includes(b.program)) : undefined;
-      setProgram(student?.program ?? start?.program ?? 'NEET');
-      setStandard(student?.standard ?? start?.standard ?? 'none');
-      setBatchId(student?.batch?.id ?? start?.id ?? NO_BATCH);
-      setPassword('');
-      setError(null);
-    }
-  }
+  const dirty = JSON.stringify({ name, email, phone, parentPhone, program, standard, batchId, password }) !== JSON.stringify(initial);
+  const feedback = usePersonFeedback('student', student?.id);
+  const allowLeave = usePersonFormGuard(dirty, saving);
 
   // Picking a batch sets the program and class to the batch's; changing
   // them to ones the batch isn't for takes the batch off again.
@@ -498,7 +454,7 @@ function StudentForm({ visible, onClose, student, batches, initialBatchId, onSav
   const programs = programChoices(student?.program);
   // Only an existing student without a class may stay without one.
   const classChoices = student && !student.standard ? STANDARD_CHOICES : SCHOOL_STANDARDS;
-  const fitsChoice = (b: Batch) => !fitProblem({ program, standard: chosenClass }, b);
+  const fitsChoice = (b: Batch) => !fitProblem({ program: program ?? null, standard: chosenClass }, b);
   const batchOptions: PickerOption[] = [
     { value: NO_BATCH, label: 'No batch', pinned: true },
     ...batches
@@ -513,9 +469,9 @@ function StudentForm({ visible, onClose, student, batches, initialBatchId, onSav
     setProgram(b.program);
     if (b.standard) setStandard(b.standard);
   };
-  const keepsBatch = (next: { program: Program; standard: SchoolStandard | null }) => {
+  const keepsBatch = (next: { program: Program | undefined; standard: SchoolStandard | null }) => {
     const b = batches.find((x) => x.id === batchId);
-    if (b && fitProblem(next, b)) setBatchId(NO_BATCH);
+    if (b && fitProblem({ ...next, program: next.program ?? null }, b)) setBatchId(NO_BATCH);
   };
   const pickProgram = (next: Program) => {
     setProgram(next);
@@ -527,6 +483,7 @@ function StudentForm({ visible, onClose, student, batches, initialBatchId, onSav
   };
 
   const save = async () => {
+    if (saving) return;
     if (!name.trim() || !email.trim()) return setError("Enter the student's name and email.");
     if (!student && !chosenClass) return setError("Choose the student's class: 11th or 12th.");
     if (!student && password.length < 8) return setError('The starting password needs at least 8 characters.');
@@ -544,8 +501,10 @@ function StudentForm({ visible, onClose, student, batches, initialBatchId, onSav
     try {
       const saved = student ? await tuitionApi.updateStudent(student.id, input) : await tuitionApi.createStudent({ ...input, password });
       bumpDataVersion();
-      onClose();
+      allowLeave();
+      feedback(student ? 'Student details saved.' : `${saved.name} added. Share their email and starting password with them.`);
       onSaved?.(saved);
+      onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't save the student.");
     } finally {
@@ -554,10 +513,9 @@ function StudentForm({ visible, onClose, student, batches, initialBatchId, onSav
   };
 
   return (
-    <FormSheet
-      visible={visible}
+    <PersonFormPage
       title={student ? `Edit ${student.name}` : 'Add student'}
-      onClose={onClose}
+      onBack={onClose}
       submitLabel={student ? 'Save changes' : 'Add student'}
       onSubmit={save}
       submitting={saving}
@@ -572,9 +530,9 @@ function StudentForm({ visible, onClose, student, batches, initialBatchId, onSav
       </View>
       <View style={styles.group}>
         <SectionTitle title="Studies" />
-        <Chips label="Program" choices={programs} selected={program} onChange={pickProgram} labels={PROGRAM_LABELS} />
+        <Chips label="Program" choices={programs} selected={program ?? null} onChange={pickProgram} labels={PROGRAM_LABELS} />
         <Chips label="Class" choices={classChoices} selected={standard === 'none' && !student ? null : standard} onChange={pickClass} labels={{ none: 'Not set' }} />
-        <OptionPicker label="Batch" options={batchOptions} selected={batchId} onChange={pickBatch} chipsUpTo={6} searchPlaceholder="Search batches" />
+        <OptionPicker label="Batch" options={batchOptions} selected={batchId} onChange={pickBatch} chipsUpTo={0} searchPlaceholder="Search batches" />
         <Muted>Picking a batch sets the program and class to the batch&apos;s.</Muted>
       </View>
       {!student ? (
@@ -583,7 +541,7 @@ function StudentForm({ visible, onClose, student, batches, initialBatchId, onSav
           <PasswordField label="Starting password" value={password} onChangeText={setPassword} hint="At least 8 characters. Share it with them; they can change it." autoComplete="off" />
         </View>
       ) : null}
-    </FormSheet>
+    </PersonFormPage>
   );
 }
 

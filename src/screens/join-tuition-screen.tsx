@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { confirmAction } from '@/components/account-section';
 import { Button, ErrorText, Field, Icon, LoadingView, MultiChips, usePalette, useLoad } from '@/components/kit';
@@ -103,8 +103,8 @@ export function JoinTuitionScreen() {
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView behavior="padding" style={styles.root}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           <View style={styles.header}>
             <View style={styles.flex}>
               <Text style={[styles.hello, { color: palette.mutedForeground }]}>Hi, {user.name.split(' ')[0]}</Text>

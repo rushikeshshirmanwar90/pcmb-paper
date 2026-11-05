@@ -1,5 +1,5 @@
 import React, { useState, type ComponentType } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { confirmAction } from '@/components/account-section';
 import { Badge, Button, Card, EmptyView, ErrorText, ErrorView, LoadingView, Muted, MultiChips, Notice, ProgressBar, SectionTitle, useLoad, usePalette } from '@/components/kit';
@@ -7,13 +7,13 @@ import { FormPage, StackScreen, useDiscardGuard, useGoBack } from '@/components/
 import { PROGRAM_INFO, PROGRAM_LABELS, type SchoolSubject } from '@/constants/school';
 import { useAuth } from '@/context/auth-context';
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
-import { useTabNavigation } from '@/context/tab-context';
 import { BatchAnalysisSection } from '@/screens/shared/batch-analysis';
 import { missingTeachers, plural, setupOf } from '@/screens/tuition/admin-filters';
 import { ActionRow, Avatar, InfoRow, OptionPicker, programTone, type PickerOption } from '@/screens/tuition/admin-ui';
 import { batchHref } from '@/screens/tuition/batch-nav';
 import { BatchSchedule } from '@/screens/tuition/batch-schedule';
-import { showStudents } from '@/screens/tuition/people-nav';
+import { PersonNotice } from '@/screens/tuition/person-notice';
+import { studentHref, teacherHref } from '@/screens/tuition/person-nav';
 import { BatchForm, bankNote, classLabel, yearLabel } from '@/screens/tuition/tuition-batches';
 import { schoolApi } from '@/services/school-api';
 import { formatMinutes, tuitionApi, type Batch } from '@/services/tuition-api';
@@ -23,13 +23,13 @@ import { formatMinutes, tuitionApi, type Batch } from '@/services/tuition-api';
 // tuition admin gets them; the server checks that too, for this tuition's batches.
 
 /** Shows the screen only to a tuition admin. */
-export function tuitionOnly<P extends object>(Screen: ComponentType<P>): ComponentType<P> {
+export function tuitionOnly<P extends object>(Screen: ComponentType<P>, scope: 'Batches' | 'People' = 'Batches'): ComponentType<P> {
   return function TuitionOnly(props: P) {
     const { user } = useAuth();
     if (user?.role !== 'tuition') {
       return (
-        <StackScreen title="Batch">
-          <Notice tone="danger" text="Batches are managed by the tuition admin." />
+        <StackScreen title={scope === 'Batches' ? 'Batch' : 'People'}>
+          <Notice tone="danger" text={`${scope} are managed by the tuition admin.`} />
         </StackScreen>
       );
     }
@@ -169,28 +169,22 @@ export const BatchDetailsScreen = tuitionOnly(function BatchDetailsScreen({ batc
 export const BatchStudentsScreen = tuitionOnly(function BatchStudentsScreen({ batchId }: { batchId: string }) {
   const palette = usePalette();
   const router = useRouter();
-  const { goToTab } = useTabNavigation();
   const { data, error, loading, refreshing, refresh, reload } = useBatch(batchId);
   const batch = data?.batch;
   if (!batch || !data) return <BatchState title="Students" loading={loading} error={error} reload={reload} />;
 
-  // Adding, moving, approving and removing students stay in People.
-  const manage = () => {
-    showStudents(batchId);
-    router.dismissAll();
-    goToTab('people');
-  };
   const students = data.students;
   return (
     <StackScreen title="Students" subtitle={batch.name} onRefresh={refresh} refreshing={refreshing}>
+      <PersonNotice kind="student" />
       <View style={styles.buttons}>
         <Button label="Invite Students" variant="tonal" icon={{ ios: 'qrcode', android: 'group_add' }} onPress={() => router.push(batchHref(batchId, 'invitations'))} style={styles.flex} />
-        <Button label="Manage in People" variant="secondary" icon={{ ios: 'person.3', android: 'groups' }} onPress={manage} style={styles.flex} />
+        <Button label="Add student" variant="secondary" icon={{ ios: 'person.badge.plus', android: 'person_add' }} onPress={() => router.push({ pathname: '/student/new', params: { batchId } })} style={styles.flex} />
       </View>
       {students.length ? (
         <Card style={styles.listCard}>
           {students.map((s, i) => (
-            <View key={s.id} style={[styles.row, i < students.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }]}>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Open ${s.name}, student details`} onPress={() => router.push(studentHref(s.id))} key={s.id} style={[styles.row, i < students.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }]}>
               <Avatar name={s.name} size={32} muted={!s.active} />
               <View style={styles.flex}>
                 <Text style={[styles.name, { color: palette.foreground }]} numberOfLines={1}>
@@ -200,7 +194,7 @@ export const BatchStudentsScreen = tuitionOnly(function BatchStudentsScreen({ ba
                   {[s.standard, s.program && s.program !== batch.program ? `${PROGRAM_LABELS[s.program]} student` : null, !s.active ? 'Login off' : null, s.email].filter(Boolean).join(' · ')}
                 </Text>
               </View>
-            </View>
+            </Pressable>
           ))}
         </Card>
       ) : (
@@ -253,7 +247,7 @@ export const BatchTeachersScreen = tuitionOnly(function BatchTeachersScreen({ ba
               icon={{ ios: 'person.crop.rectangle', android: 'co_present' }}
               title={t.name}
               subtitle={`${t.subjects.join(', ')} · Edit assignment`}
-              onPress={() => router.push(batchHref(batchId, 'assign-teacher', { teacherId: t.teacherId }))}
+              onPress={() => router.push(teacherHref(t.teacherId))}
               last={i === teachers.length - 1}
             />
           ))}
