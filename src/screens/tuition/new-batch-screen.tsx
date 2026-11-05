@@ -169,7 +169,6 @@ function NewBatchForm({ batches }: { batches: Batch[] }) {
     <StackScreen
       title="Create Batch"
       onBack={goBack}
-      keyboard
       footer={
         <>
           <ErrorText message={error} />

@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState, type PropsWithChildren
 import {
   AccessibilityInfo,
   ActivityIndicator,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -15,11 +14,14 @@ import {
   type StyleProp,
   type TextInputInstance,
   type TextInputProps,
+  type ViewInstance,
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView, type AndroidSymbol, type SFSymbol } from 'expo-symbols';
 import { AppHeader } from '@/components/app-header';
+import { confirmAction } from '@/components/confirm-action';
+import { KeyboardAwareScrollView, KeyboardSafeView, useKeyboardVisible, useScrollIntoView } from '@/components/keyboard-safe-view';
 import { getPalette, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTabBarHeight } from '@/hooks/use-tab-bar-height';
@@ -293,15 +295,22 @@ export function ErrorText({ message }: { message: string | null | undefined }) {
 
 type FieldProps = TextInputProps & { label: string; hint?: string; error?: string | null; ref?: React.Ref<TextInputInstance> };
 
-export function Field({ label, hint, error, style, ...input }: FieldProps) {
+export function Field({ label, hint, error, style, onFocus, ...input }: FieldProps) {
   const palette = usePalette();
+  const scrollIntoView = useScrollIntoView();
+  const group = useRef<ViewInstance>(null);
   return (
-    <View style={styles.field}>
+    <View ref={group} style={styles.field}>
       <Text style={[styles.fieldLabel, { color: palette.mutedForeground }]}>{label}</Text>
       <TextInput
         accessibilityLabel={label}
         placeholderTextColor={palette.mutedForeground}
         {...input}
+        onFocus={(event) => {
+          // The whole group (label, input, helper or error), not just the input, is brought into view.
+          scrollIntoView?.(group.current);
+          onFocus?.(event);
+        }}
         style={[
           styles.input,
           { backgroundColor: palette.background, borderColor: error ? palette.danger : palette.border, color: palette.foreground },
@@ -585,6 +594,7 @@ export function FormSheet({
   submitting = false,
   error,
   extraAction,
+  dirty = false,
 }: PropsWithChildren<{
   visible: boolean;
   title: string;
@@ -595,29 +605,33 @@ export function FormSheet({
   error?: string | null;
   /** e.g. a Delete button under the save button. */
   extraAction?: ReactNode;
+  /** There are unsaved changes: closing (the X, Android's Back or the swipe) asks first. */
+  dirty?: boolean;
 }>) {
   const palette = usePalette();
   const insets = useSafeAreaInsets();
+  const keyboardVisible = useKeyboardVisible();
+  const close = () => (dirty && !submitting ? confirmAction('Discard changes?', 'Your unsaved changes will be lost.', 'Discard', onClose) : onClose());
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.flex, { backgroundColor: palette.background }]}>
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={close}>
+      <KeyboardSafeView style={{ backgroundColor: palette.background }}>
         <View style={[styles.sheetHeader, { borderBottomColor: palette.border, backgroundColor: palette.card, paddingTop: Platform.OS === 'ios' ? 12 : insets.top + 8 }]}>
           <Text accessibilityRole="header" style={[styles.sheetTitle, { color: palette.foreground }]} numberOfLines={1}>
             {title}
           </Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} hitSlop={10} style={styles.sheetClose}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={close} hitSlop={10} style={styles.sheetClose}>
             <Icon name={{ ios: 'xmark', android: 'close' }} color={palette.foreground} size={18} />
           </Pressable>
         </View>
-        <ScrollView contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
+        <KeyboardAwareScrollView contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
           {children}
-        </ScrollView>
-        <View style={[styles.sheetFooter, { borderTopColor: palette.border, backgroundColor: palette.card, paddingBottom: Math.max(insets.bottom, 12) }]}>
+        </KeyboardAwareScrollView>
+        <View style={[styles.sheetFooter, { borderTopColor: palette.border, backgroundColor: palette.card, paddingBottom: keyboardVisible ? 12 : Math.max(insets.bottom, 12) }]}>
           <ErrorText message={error} />
           <Button label={submitLabel} onPress={onSubmit} loading={submitting} />
           {extraAction}
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardSafeView>
     </Modal>
   );
 }

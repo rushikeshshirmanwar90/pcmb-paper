@@ -412,8 +412,9 @@ export const BatchSettingsScreen = tuitionOnly(function BatchSettingsScreen({ ba
   return (
     <BatchForm
       batch={batch}
-      extraAction={(allowLeave) => (
+      dangerZone={(allowLeave) => (
         <>
+          <Muted>Deleting this batch can&apos;t be undone. Its students stay enrolled without a batch; its tests, results and syllabus progress are removed.</Muted>
           <ErrorText message={deleteError} />
           <Button label="Delete batch" variant="danger" icon={{ ios: 'trash', android: 'delete' }} onPress={() => remove(allowLeave)} loading={deleting} accessibilityLabel={`Delete ${batch.name}`} />
         </>

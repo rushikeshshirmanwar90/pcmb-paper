@@ -18,6 +18,7 @@ export function ResetPasswordSheet({
   const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
   const [openedFor, setOpenedFor] = useState(false);
@@ -26,12 +27,13 @@ export function ResetPasswordSheet({
     if (visible) {
       setPassword('');
       setError(null);
+      setPasswordError(null);
       setDone(false);
     }
   }
 
   const save = async () => {
-    if (password.length < 8) return setError('The password needs at least 8 characters.');
+    if (password.length < 8) return setPasswordError('The password needs at least 8 characters.');
     setSaving(true);
     setError(null);
     try {
@@ -53,6 +55,7 @@ export function ResetPasswordSheet({
       onSubmit={done ? onClose : save}
       submitting={saving}
       error={error}
+      dirty={!done && password !== ''}
     >
       {done ? (
         <Text style={[styles.text, { color: palette.foreground }]}>
@@ -63,7 +66,17 @@ export function ResetPasswordSheet({
           <Text style={[styles.text, { color: palette.mutedForeground }]}>
             Set a new password for {name}. They will be logged out everywhere and log in with this one.
           </Text>
-          <PasswordField label="New password" value={password} onChangeText={setPassword} hint="At least 8 characters" autoComplete="off" />
+          <PasswordField
+            label="New password"
+            value={password}
+            onChangeText={(t) => {
+              setPassword(t);
+              setPasswordError(null);
+            }}
+            error={passwordError}
+            hint="At least 8 characters"
+            autoComplete="off"
+          />
         </>
       )}
     </FormSheet>

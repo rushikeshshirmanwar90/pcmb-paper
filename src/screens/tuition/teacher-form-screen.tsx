@@ -7,7 +7,7 @@ import { groupTeacherBatches } from '@/screens/tuition/admin-filters';
 import { PersonFormPage } from '@/screens/tuition/person-form-page';
 import { usePersonFormGuard } from '@/screens/tuition/person-form-guard';
 import { usePersonFeedback } from '@/screens/tuition/person-notice';
-import { TeacherProfileFields } from '@/screens/tuition/tuition-teachers';
+import { TeacherProfileFields, teacherFieldErrors, type TeacherFieldErrors } from '@/screens/tuition/tuition-teachers';
 import { tuitionApi, type Teacher } from '@/services/tuition-api';
 
 export const TeacherFormScreen = tuitionOnly(function TeacherFormScreen({ teacherId }: { teacherId: string }) {
@@ -27,6 +27,7 @@ function TeacherEditForm({ teacher }: { teacher: Teacher }) {
   const [subjects, setSubjects] = useState(initial.subjects);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<TeacherFieldErrors>({});
   const dirty = JSON.stringify({ name, email, phone, subjects: [...subjects].sort() }) !== JSON.stringify(initial);
   const feedback = usePersonFeedback('teacher', teacher.id);
   const allowLeave = usePersonFormGuard(dirty, saving);
@@ -34,7 +35,9 @@ function TeacherEditForm({ teacher }: { teacher: Teacher }) {
   const outsideProfile = teacher.batches.some((assignment) => !subjects.includes(assignment.subject));
   const save = async () => {
     if (saving) return;
-    if (!name.trim() || !email.trim()) { setError('Enter the name and email.'); return; }
+    const problems = teacherFieldErrors({ name, email, password: '', needsPassword: false });
+    setFieldErrors(problems ?? {});
+    if (problems) return;
     setSaving(true);
     setError(null);
     try {
@@ -49,8 +52,10 @@ function TeacherEditForm({ teacher }: { teacher: Teacher }) {
     } finally { setSaving(false); }
   };
   return <PersonFormPage title={`Edit ${teacher.name}`} onBack={goBack} submitLabel="Save changes" onSubmit={save} submitting={saving} error={error}>
-    <TeacherProfileFields name={name} email={email} phone={phone} subjects={subjects}
-      setName={setName} setEmail={setEmail} setPhone={setPhone} setSubjects={setSubjects} editing />
+    <TeacherProfileFields name={name} email={email} phone={phone} subjects={subjects} errors={fieldErrors}
+      setName={(v) => { setName(v); setFieldErrors((e) => ({ ...e, name: null })); }}
+      setEmail={(v) => { setEmail(v); setFieldErrors((e) => ({ ...e, email: null })); }}
+      setPhone={setPhone} setSubjects={setSubjects} editing />
     <SectionTitle title="Assigned batches" />
     <Card>
       {batches.length ? batches.map((batch) => <Muted key={batch.id}>{batch.name}: {batch.subjects.join(', ')}</Muted>) : <Muted>No batch assignments yet.</Muted>}

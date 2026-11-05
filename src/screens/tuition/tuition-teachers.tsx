@@ -304,6 +304,21 @@ function SubjectPicker({ selected, onChange }: { selected: SchoolSubject[]; onCh
   );
 }
 
+export interface TeacherFieldErrors {
+  name?: string | null;
+  email?: string | null;
+  password?: string | null;
+}
+
+/** What is wrong with the required teacher fields, if anything, by field. */
+export function teacherFieldErrors({ name, email, password, needsPassword }: { name: string; email: string; password: string; needsPassword: boolean }): TeacherFieldErrors | null {
+  const errors: TeacherFieldErrors = {};
+  if (!name.trim()) errors.name = 'Enter the name.';
+  if (!email.trim()) errors.email = 'Enter the email; they log in with it.';
+  if (needsPassword && password.length < 8) errors.password = 'The starting password needs at least 8 characters.';
+  return Object.keys(errors).length ? errors : null;
+}
+
 function TeacherForm({ visible, onClose, teacher, onSaved }: { visible: boolean; onClose: () => void; teacher?: Teacher; onSaved?: (t: Teacher) => void }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -312,6 +327,7 @@ function TeacherForm({ visible, onClose, teacher, onSaved }: { visible: boolean;
   const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<TeacherFieldErrors>({});
 
   const [openedFor, setOpenedFor] = useState(false);
   if (visible !== openedFor) {
@@ -323,12 +339,21 @@ function TeacherForm({ visible, onClose, teacher, onSaved }: { visible: boolean;
       setSubjects(teacher?.subjects ?? []);
       setPassword('');
       setError(null);
+      setFieldErrors({});
     }
   }
 
+  const dirty =
+    name !== (teacher?.name ?? '') ||
+    email !== (teacher?.email ?? '') ||
+    phone !== (teacher?.phone ?? '') ||
+    [...subjects].sort().join() !== [...(teacher?.subjects ?? [])].sort().join() ||
+    password !== '';
+
   const save = async () => {
-    if (!name.trim() || !email.trim()) return setError('Enter the name and email.');
-    if (!teacher && password.length < 8) return setError('The starting password needs at least 8 characters.');
+    const problems = teacherFieldErrors({ name, email, password, needsPassword: !teacher });
+    setFieldErrors(problems ?? {});
+    if (problems) return;
     setSaving(true);
     setError(null);
     try {
@@ -353,25 +378,32 @@ function TeacherForm({ visible, onClose, teacher, onSaved }: { visible: boolean;
       onSubmit={save}
       submitting={saving}
       error={error}
+      dirty={dirty}
     >
-      <TeacherProfileFields name={name} email={email} phone={phone} subjects={subjects} password={password}
-        setName={setName} setEmail={setEmail} setPhone={setPhone} setSubjects={setSubjects} setPassword={setPassword} editing={!!teacher} />
+      <TeacherProfileFields name={name} email={email} phone={phone} subjects={subjects} password={password} errors={fieldErrors}
+        setName={(v) => { setName(v); setFieldErrors((e) => ({ ...e, name: null })); }}
+        setEmail={(v) => { setEmail(v); setFieldErrors((e) => ({ ...e, email: null })); }}
+        setPhone={setPhone} setSubjects={setSubjects}
+        setPassword={(v) => { setPassword(v); setFieldErrors((e) => ({ ...e, password: null })); }}
+        editing={!!teacher} />
     </FormSheet>
   );
 }
 
 
 /** Shared profile fields for the existing Add Teacher flow and routed Edit Teacher. */
-export function TeacherProfileFields({ name, email, phone, subjects, password = '', setName, setEmail, setPhone, setSubjects, setPassword, editing }: {
+export function TeacherProfileFields({ name, email, phone, subjects, password = '', setName, setEmail, setPhone, setSubjects, setPassword, editing, errors }: {
   name: string; email: string; phone: string; subjects: SchoolSubject[]; password?: string;
   setName: (value: string) => void; setEmail: (value: string) => void; setPhone: (value: string) => void;
   setSubjects: (value: SchoolSubject[]) => void; setPassword?: (value: string) => void; editing: boolean;
+  /** Shown under the field they're about. */
+  errors?: TeacherFieldErrors;
 }) {
   return <>
       <View style={styles.group}>
         <SectionTitle title="Teacher" />
-        <Field label="Name" value={name} onChangeText={setName} autoComplete="name" maxLength={100} />
-        <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" hint="They log in with this email." />
+        <Field label="Name" value={name} onChangeText={setName} error={errors?.name} autoComplete="name" maxLength={100} />
+        <Field label="Email" value={email} onChangeText={setEmail} error={errors?.email} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" hint="They log in with this email." />
         <Field label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" maxLength={20} />
       </View>
       <View style={styles.group}>
@@ -382,7 +414,7 @@ export function TeacherProfileFields({ name, email, phone, subjects, password = 
       {!editing && setPassword ? (
         <View style={styles.group}>
           <SectionTitle title="Login" />
-          <PasswordField label="Starting password" value={password} onChangeText={setPassword} hint="At least 8 characters. Share it with them; they can change it." autoComplete="off" />
+          <PasswordField label="Starting password" value={password} onChangeText={setPassword} error={errors?.password} hint="At least 8 characters. Share it with them; they can change it." autoComplete="off" />
         </View>
       ) : null}
   </>;

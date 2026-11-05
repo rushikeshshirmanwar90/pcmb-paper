@@ -1,8 +1,7 @@
 import type { ComponentProps } from 'react';
-import { Platform } from 'react-native';
 import { FormPage } from '@/components/stack-screen';
 
-/** Native scrolling plus keyboard avoidance keeps the People form and footer within the viewport. */
+/** The People forms (student and teacher): FormPage keeps the form and its footer above the keyboard. */
 export function PersonFormPage(props: ComponentProps<typeof FormPage>) {
-  return <FormPage {...props} keyboardBehavior={Platform.OS === 'ios' ? 'padding' : 'height'} />;
+  return <FormPage {...props} />;
 }

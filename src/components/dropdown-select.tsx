@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SymbolView } from 'expo-symbols';
+import { KeyboardSafeView } from '@/components/keyboard-safe-view';
 import { getPalette } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -160,6 +161,7 @@ export function DropdownSelect({
           setSearchQuery('');
         }}
       >
+        <KeyboardSafeView>
         <Pressable
           style={styles.modalOverlay}
           onPress={() => {
@@ -174,7 +176,8 @@ export function DropdownSelect({
                 width: modalWidth,
                 backgroundColor: palette.card,
                 borderColor: palette.border,
-                maxHeight: height * 0.8,
+                // Of the space the keyboard leaves, so the list stays in view while searching.
+                maxHeight: '90%',
               },
             ]}
             onPress={(e) => e.stopPropagation()}
@@ -239,6 +242,7 @@ export function DropdownSelect({
               contentContainerStyle={styles.listContainer}
               showsVerticalScrollIndicator
               nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
             >
               {allOptions.length === 0 ? (
                 <View style={styles.emptyWrap}>
@@ -298,6 +302,7 @@ export function DropdownSelect({
             </ScrollView>
           </Pressable>
         </Pressable>
+        </KeyboardSafeView>
       </Modal>
     </View>
   );

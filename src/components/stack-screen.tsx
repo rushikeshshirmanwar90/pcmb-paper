@@ -1,9 +1,10 @@
 import { useEffect, useRef, type ComponentRef, type PropsWithChildren, type ReactNode, type Ref } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type KeyboardAvoidingViewProps } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { usePreventRemove, useRouter } from 'expo-router';
 import { confirmAction } from '@/components/account-section';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, ErrorText, Icon, usePalette } from '@/components/kit';
+import { KeyboardAwareScrollView, KeyboardSafeView, useKeyboardVisible } from '@/components/keyboard-safe-view';
 import { MaxContentWidth } from '@/constants/theme';
 
 /** Goes back to the screen this one was opened from; to the tabs when opened with no history (e.g. from a link). */
@@ -55,8 +56,6 @@ export function StackScreen({
   refreshing = false,
   footer,
   scrollRef,
-  keyboard = false,
-  keyboardBehavior,
 }: PropsWithChildren<{
   title: string;
   subtitle?: string;
@@ -66,12 +65,11 @@ export function StackScreen({
   refreshing?: boolean;
   footer?: ReactNode;
   scrollRef?: Ref<ComponentRef<typeof ScrollView>>;
-  keyboard?: boolean;
-  keyboardBehavior?: KeyboardAvoidingViewProps['behavior'];
 }>) {
   const palette = usePalette();
   const insets = useSafeAreaInsets();
   const goBack = useGoBack();
+  const keyboardVisible = useKeyboardVisible();
   return (
     <SafeAreaView edges={['top']} style={[styles.flex, { backgroundColor: palette.background }]}>
       <View style={[styles.header, { backgroundColor: palette.card, borderBottomColor: palette.border }]}>
@@ -89,17 +87,17 @@ export function StackScreen({
           ) : null}
         </View>
       </View>
-      <KeyboardAvoidingView behavior={keyboard ? keyboardBehavior ?? (Platform.OS === 'ios' ? 'padding' : undefined) : undefined} style={styles.flex}>
-        <ScrollView
+      <KeyboardSafeView>
+        <KeyboardAwareScrollView
           ref={scrollRef}
           contentContainerStyle={[styles.body, { paddingBottom: footer ? 16 : Math.max(insets.bottom, 16) + 8 }]}
           keyboardShouldPersistTaps="handled"
           refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.primary} /> : undefined}
         >
           {children}
-        </ScrollView>
-        {footer ? <View style={[styles.footer, { borderTopColor: palette.border, backgroundColor: palette.card, paddingBottom: Math.max(insets.bottom, 12) }]}>{footer}</View> : null}
-      </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
+        {footer ? <View style={[styles.footer, { borderTopColor: palette.border, backgroundColor: palette.card, paddingBottom: keyboardVisible ? 12 : Math.max(insets.bottom, 12) }]}>{footer}</View> : null}
+      </KeyboardSafeView>
     </SafeAreaView>
   );
 }
@@ -114,7 +112,7 @@ export function PageFrame({ title, onClose, footer, scrollRef, children }: Props
 }
 
 /** A form as a full screen with its save button pinned under it. */
-export function FormPage({ title, onBack, children, submitLabel, onSubmit, submitting = false, error, extraAction, keyboardBehavior }: PropsWithChildren<{
+export function FormPage({ title, onBack, children, submitLabel, onSubmit, submitting = false, error, extraAction }: PropsWithChildren<{
   title: string;
   onBack: () => void;
   submitLabel: string;
@@ -122,14 +120,11 @@ export function FormPage({ title, onBack, children, submitLabel, onSubmit, submi
   submitting?: boolean;
   error?: string | null;
   extraAction?: ReactNode;
-  keyboardBehavior?: KeyboardAvoidingViewProps['behavior'];
 }>) {
   return (
     <StackScreen
       title={title}
       onBack={onBack}
-      keyboard
-      keyboardBehavior={keyboardBehavior}
       footer={
         <>
           <ErrorText message={error} />

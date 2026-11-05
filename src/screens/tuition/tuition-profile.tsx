@@ -128,6 +128,7 @@ function TuitionDetailsForm({ visible, onClose, details, onSaved }: { visible: b
   const [form, setForm] = useState(details);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
 
   const [openedFor, setOpenedFor] = useState(false);
   if (visible !== openedFor) {
@@ -135,12 +136,17 @@ function TuitionDetailsForm({ visible, onClose, details, onSaved }: { visible: b
     if (visible) {
       setForm(details);
       setError(null);
+      setNameError(null);
     }
   }
 
-  const set = (key: keyof TuitionDetails) => (value: string) => setForm((f) => ({ ...f, [key]: value }));
+  const set = (key: keyof TuitionDetails) => (value: string) => {
+    setForm((f) => ({ ...f, [key]: value }));
+    if (key === 'name') setNameError(null);
+  };
+  const dirty = (Object.keys(details) as (keyof TuitionDetails)[]).some((key) => form[key] !== details[key]);
   const save = async () => {
-    if (!form.name.trim()) return setError("Enter the institute's name.");
+    if (!form.name.trim()) return setNameError("Enter the institute's name.");
     setSaving(true);
     setError(null);
     try {
@@ -158,9 +164,9 @@ function TuitionDetailsForm({ visible, onClose, details, onSaved }: { visible: b
   };
 
   return (
-    <FormSheet visible={visible} title="Institute details" onClose={onClose} submitLabel="Save details" onSubmit={save} submitting={saving} error={error}>
+    <FormSheet visible={visible} title="Institute details" onClose={onClose} submitLabel="Save details" onSubmit={save} submitting={saving} error={error} dirty={dirty}>
       <Muted>Teachers and students see these on their profile.</Muted>
-      <Field label="Institute name" value={form.name} onChangeText={set('name')} maxLength={120} />
+      <Field label="Institute name" value={form.name} onChangeText={set('name')} error={nameError} maxLength={120} />
       <Field label="Address" value={form.address} onChangeText={set('address')} multiline maxLength={300} placeholder="e.g. 2nd floor, Shanti Plaza, MG Road" />
       <Field label="Phone" value={form.phone} onChangeText={set('phone')} keyboardType="phone-pad" maxLength={20} />
       <Field

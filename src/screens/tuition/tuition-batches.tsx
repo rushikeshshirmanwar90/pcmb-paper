@@ -330,7 +330,7 @@ export function SubjectHint({ program, problem }: { program: Program; problem: s
  * classroom. Teachers have their own screens (assigned per batch), and the
  * timetable has its own too, so neither is touched here.
  */
-export function BatchForm({ batch, onSaved, extraAction }: { batch: Batch; onSaved?: (b: Batch) => void; /** Gets the function that switches off the unsaved-changes question, for leaving on purpose. */ extraAction?: (allowLeave: () => void) => React.ReactNode }) {
+export function BatchForm({ batch, onSaved, dangerZone }: { batch: Batch; onSaved?: (b: Batch) => void; /** Destructive actions, in their own section at the end of the form rather than beside Save. Gets the function that switches off the unsaved-changes question, for leaving on purpose. */ dangerZone?: (allowLeave: () => void) => React.ReactNode }) {
   const goBack = useGoBack();
   const [name, setName] = useState(batch.name);
   const [program, setProgram] = useState<Program>(batch.program);
@@ -380,7 +380,7 @@ export function BatchForm({ batch, onSaved, extraAction }: { batch: Batch; onSav
 
 
   return (
-    <FormPage title={`Edit ${batch.name}`} onBack={goBack} submitLabel="Save Changes" onSubmit={() => void save()} submitting={saving} error={error} extraAction={extraAction?.(allowLeave)}>
+    <FormPage title={`Edit ${batch.name}`} onBack={goBack} submitLabel="Save Changes" onSubmit={() => void save()} submitting={saving} error={error}>
       <FormGroup title="Program and class">
         <Chips label="Program" choices={programChoices(batch.program)} selected={program} onChange={changeProgram} labels={PROGRAM_LABELS} />
         {!OFFERED_PROGRAMS.includes(batch.program) ? (
@@ -404,6 +404,7 @@ export function BatchForm({ batch, onSaved, extraAction }: { batch: Batch; onSav
         <Field label="Classroom" value={venue} onChangeText={setVenue} placeholder="e.g. Room 2, Main branch" maxLength={200} />
         <Muted>Teachers and session times are managed from the batch&apos;s Teachers and Schedule screens.</Muted>
       </FormGroup>
+      {dangerZone ? <FormGroup title="Danger zone">{dangerZone(allowLeave)}</FormGroup> : null}
     </FormPage>
   );
 }

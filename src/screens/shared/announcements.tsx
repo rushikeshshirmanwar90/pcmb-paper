@@ -154,7 +154,11 @@ function AnnouncementForm({
   const [body, setBody] = useState('');
   const [picked, setPicked] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  /** From posting, e.g. a network problem; shown by the button. */
   const [error, setError] = useState<string | null>(null);
+  /** Beside the field they're about. */
+  const [titleError, setTitleError] = useState<string | null>(null);
+  const [audienceError, setAudienceError] = useState<string | null>(null);
 
   const [openedFor, setOpenedFor] = useState(false);
   if (visible !== openedFor) {
@@ -165,6 +169,8 @@ function AnnouncementForm({
       setBody('');
       setPicked(allowAllBatches ? [ALL] : batches.length === 1 ? [batches[0].id] : []);
       setError(null);
+      setTitleError(null);
+      setAudienceError(null);
     }
   }
 
@@ -174,11 +180,15 @@ function AnnouncementForm({
   const onPick = (next: string[]) => {
     const addedAll = next.includes(ALL) && !picked.includes(ALL);
     setPicked(addedAll ? [ALL] : next.filter((v) => v !== ALL));
+    setAudienceError(null);
   };
 
   const save = async () => {
-    if (!title.trim()) return setError('Enter a title.');
-    if (!picked.length) return setError('Pick who it is for.');
+    const missingTitle = !title.trim();
+    const missingAudience = !picked.length;
+    setTitleError(missingTitle ? 'Enter a title.' : null);
+    setAudienceError(missingAudience ? 'Pick who it is for.' : null);
+    if (missingTitle || missingAudience) return;
     setSaving(true);
     setError(null);
     try {
@@ -193,11 +203,22 @@ function AnnouncementForm({
   };
 
   return (
-    <FormSheet visible={visible} title="New announcement" onClose={onClose} submitLabel="Post" onSubmit={save} submitting={saving} error={error}>
+    <FormSheet visible={visible} title="New announcement" onClose={onClose} submitLabel="Post" onSubmit={save} submitting={saving} error={error} dirty={!!title.trim() || !!body.trim()}>
       <Chips label="Type" choices={['update', 'schedule'] as const} selected={kind} onChange={setKind} labels={KIND_LABELS} />
-      <Field label="Title" value={title} onChangeText={setTitle} placeholder={kind === 'schedule' ? 'e.g. No class on Friday' : 'e.g. Test on Monday'} maxLength={120} />
+      <Field
+        label="Title"
+        value={title}
+        onChangeText={(t) => {
+          setTitle(t);
+          setTitleError(null);
+        }}
+        error={titleError}
+        placeholder={kind === 'schedule' ? 'e.g. No class on Friday' : 'e.g. Test on Monday'}
+        maxLength={120}
+      />
       <Field label="Message" value={body} onChangeText={setBody} placeholder="Details (optional)" multiline maxLength={2000} style={styles.multiline} />
       <MultiChips label="Send to" choices={choices} selected={picked} onChange={onPick} labels={labels} />
+      <ErrorText message={audienceError} />
     </FormSheet>
   );
 }

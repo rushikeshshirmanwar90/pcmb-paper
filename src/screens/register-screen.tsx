@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, type TextInputInstance, View } from 'react-native';
+import { KeyboardAvoidingView, Pressable, StyleSheet, Text, type TextInputInstance, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, ErrorText, Field, Icon, PasswordField, usePalette, type IconName } from '@/components/kit';
+import { KeyboardAwareScrollView } from '@/components/keyboard-safe-view';
 import { useAuth } from '@/context/auth-context';
 
 const STEPS: { icon: IconName; text: string }[] = [
@@ -46,7 +47,7 @@ export function RegisterScreen({ onBack }: { onBack: () => void }) {
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
       <KeyboardAvoidingView behavior="padding" style={styles.root}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+        <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           <Pressable accessibilityRole="button" onPress={onBack} hitSlop={8} style={styles.back}>
             <Icon name={{ ios: 'chevron.left', android: 'arrow_back' }} color={palette.primary} size={16} />
             <Text style={[styles.backText, { color: palette.primary }]}>Log in instead</Text>
@@ -101,7 +102,7 @@ export function RegisterScreen({ onBack }: { onBack: () => void }) {
               </View>
             ))}
           </View>
-        </ScrollView>
+        </KeyboardAwareScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

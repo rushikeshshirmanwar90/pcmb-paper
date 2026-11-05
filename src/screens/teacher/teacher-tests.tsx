@@ -1,9 +1,10 @@
 import React, { useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { confirmAction } from '@/components/account-section';
 import { QuestionSetFlow, type QuestionFlowControl } from '@/components/create-exam-modal';
 import { Diagrams } from '@/components/diagrams';
+import { KeyboardAwareScrollView, KeyboardSafeView } from '@/components/keyboard-safe-view';
 import { MathText } from '@/components/math-text';
 import {
   Badge,
@@ -551,15 +552,15 @@ function TestWizard({
 function WizardPage({ children, footer, error }: { children: React.ReactNode; footer: React.ReactNode; error?: string | null }) {
   const palette = usePalette();
   return (
-    <View style={styles.flex}>
-      <ScrollView contentContainerStyle={styles.wizardBody} keyboardShouldPersistTaps="handled">
+    <KeyboardSafeView>
+      <KeyboardAwareScrollView contentContainerStyle={styles.wizardBody} keyboardShouldPersistTaps="handled">
         {children}
-      </ScrollView>
+      </KeyboardAwareScrollView>
       <View style={[styles.wizardFooter, { borderTopColor: palette.border, backgroundColor: palette.card }]}>
         <ErrorText message={error} />
         {footer}
       </View>
-    </View>
+    </KeyboardSafeView>
   );
 }
 

@@ -15,6 +15,7 @@ import { getPalette, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { subjectsFor } from '@/constants/syllabus';
 import { DropdownSelect } from '@/components/dropdown-select';
+import { KeyboardSafeView } from '@/components/keyboard-safe-view';
 import type { DifficultyLevel, ExamCategory, ExamRoom, Standard, Subject } from '@/types/pcmb';
 
 interface EditRoomModalProps {
@@ -121,7 +122,7 @@ function EditRoomModalContent({
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
-      <View style={[styles.mainContainer, { maxWidth: MaxContentWidth }]}>
+      <KeyboardSafeView style={[styles.mainContainer, { maxWidth: MaxContentWidth }]}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: palette.border }]}>
           <View style={styles.headerLeft}>
@@ -139,7 +140,7 @@ function EditRoomModalContent({
           </Pressable>
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {/* Title */}
           <View style={styles.fieldGroup}>
             <Text style={[styles.fieldLabel, { color: palette.mutedForeground }]}>EXAM ROOM TITLE *</Text>
@@ -238,7 +239,7 @@ function EditRoomModalContent({
             </Pressable>
           </View>
         </ScrollView>
-      </View>
+      </KeyboardSafeView>
     </SafeAreaView>
   );
 }

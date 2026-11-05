@@ -18,6 +18,7 @@ import { SymbolView } from 'expo-symbols';
 import { getPalette, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { DropdownSelect } from '@/components/dropdown-select';
+import { KeyboardSafeView } from '@/components/keyboard-safe-view';
 import { MultiSelectDropdown } from '@/components/multi-select-dropdown';
 import { useChapterTopicOptions } from '@/hooks/use-chapter-topic-options';
 import { ALL_STANDARDS, SUBJECTS_BY_TRACK, trackOf } from '@/constants/syllabus';
@@ -1014,7 +1015,7 @@ export function QuestionSetFlow({
   ];
 
   return (
-    <View style={[styles.mainContainer, { maxWidth: MaxContentWidth }]}>
+    <KeyboardSafeView style={[styles.mainContainer, { maxWidth: MaxContentWidth }]}>
       {showHeader && (
         <View style={[styles.header, { borderBottomColor: palette.border }]}>
           <View style={styles.headerLeft}>
@@ -1714,7 +1715,7 @@ export function QuestionSetFlow({
           onCancel={() => setEditingQuestion(null)}
         />
       )}
-    </View>
+    </KeyboardSafeView>
   );
 }
 
@@ -1757,7 +1758,7 @@ function QuestionEditModal({
 
   return (
     <Modal visible animationType="slide" transparent onRequestClose={onCancel}>
-      <View style={styles.editModalOverlay}>
+      <KeyboardSafeView style={styles.editModalOverlay}>
         <View
           style={[
             styles.editModalContent,
@@ -1780,6 +1781,7 @@ function QuestionEditModal({
           <ScrollView
             contentContainerStyle={styles.editModalScroll}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
             {/* Difficulty Dropdown */}
             <DropdownSelect
@@ -1927,7 +1929,7 @@ function QuestionEditModal({
             </Pressable>
           </View>
         </View>
-      </View>
+      </KeyboardSafeView>
     </Modal>
   );
 }
