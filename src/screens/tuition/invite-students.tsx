@@ -1,3 +1,4 @@
+import { clearLoadCache } from '@/services/load-cache';
 import React, { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Share, StyleSheet, Text, View } from 'react-native';
@@ -34,7 +35,7 @@ const cap = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
  */
 function InviteCodeSheet<T extends JoinInvite>({ kind, scope, onClose }: { kind: InviteKind<T>; scope: string; onClose: () => void }) {
   const palette = usePalette();
-  const { data: invite, error, loading, reload, setData } = useLoad(kind.load, [scope]);
+  const { data: invite, error, loading, reload, setData } = useLoad(kind.load, [scope], { cacheKey: `invite:${scope}` });
   const [managing, setManaging] = useState(false);
   const { flash, show, clear } = useFlash();
 
@@ -153,7 +154,9 @@ function ManageCodeSheet<T extends JoinInvite>({ kind, invite, onClose, onChange
     setBusy(true);
     clear();
     try {
-      onChanged(await kind.change(change), message);
+      const next = await kind.change(change);
+      clearLoadCache(); // the cached copy of the code is old now
+      onChanged(next, message);
       onClose();
     } catch (e) {
       show(e instanceof Error ? e.message : "Couldn't change the code.", 'danger');

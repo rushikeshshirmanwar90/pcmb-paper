@@ -388,7 +388,7 @@ export const AssignTeacherScreen = tuitionOnly(function AssignTeacherScreen({ ba
 
 export const BatchSettingsScreen = tuitionOnly(function BatchSettingsScreen({ batchId }: { batchId: string }) {
   const router = useRouter();
-  const { data, error, loading, reload } = useBatch(batchId, { cached: false });
+  const { data, error, loading, reload } = useBatch(batchId); // own edits clear the cache, so the form never starts from a copy older than its own changes
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const batch = data?.batch;
