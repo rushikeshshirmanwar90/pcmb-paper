@@ -14,7 +14,7 @@ import { cleanWatermark } from '@/shared/watermark';
 import { bankSummary, EMPTY_BANK_SCOPE, type BankScope } from '@/screens/teacher/make-pdf/bank-scope';
 import { DoneStep } from '@/screens/teacher/make-pdf/done-step';
 import { DEFAULT_DURATION_MINUTES, dayKey, ExamSettingsStep, startOfToday, type ExamForm } from '@/screens/teacher/make-pdf/exam-settings';
-import { chaptersOf, MARKS_PER_QUESTION, standardsOf, titleFromNames, type PdfKind } from '@/screens/teacher/make-pdf/model';
+import { chaptersOf, marksPerQuestionFor, standardsOf, titleFromNames, type PdfKind } from '@/screens/teacher/make-pdf/model';
 import { OnePageSelect } from '@/screens/teacher/make-pdf/one-page';
 import { StepHeader } from '@/screens/teacher/make-pdf/ui';
 import type { Question } from '@/types/pcmb';
@@ -114,7 +114,7 @@ export function MakePdfFlow({
         {
           title: (form.title ?? titleDefault).trim(),
           questions: selected,
-          marksPerQuestion: MARKS_PER_QUESTION,
+          marksPerQuestion: marksPerQuestionFor(form.standard ?? standardDefault),
           standard: (form.standard ?? standardDefault).trim() || undefined,
           subject,
           paper: {

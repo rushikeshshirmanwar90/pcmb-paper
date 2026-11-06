@@ -12,7 +12,7 @@ import {
 import { PDF_CHOICES, type PdfChoice, type PdfStage } from '@/services/question-pdf';
 import { fetchInstituteLogo } from '@/services/institute-logo';
 import { DateField } from '@/screens/teacher/date-field';
-import { MARKS_PER_QUESTION, questionCount } from '@/screens/teacher/make-pdf/model';
+import { marksPerQuestionFor, questionCount } from '@/screens/teacher/make-pdf/model';
 import { CountField, Group, StepLayout } from '@/screens/teacher/make-pdf/ui';
 
 /** The paper's length, in minutes: 0 leaves the time out of the header. */
@@ -132,7 +132,7 @@ export function ExamSettingsStep({
           <Muted>Institute: {institute || '—'}</Muted>
           <Muted>Subject: {subject || '—'}</Muted>
           <Muted>
-            Total marks: {questionTotal * MARKS_PER_QUESTION} ({MARKS_PER_QUESTION} per question)
+            Total marks: {questionTotal * marksPerQuestionFor(form.standard ?? standardDefault)} ({marksPerQuestionFor(form.standard ?? standardDefault)} per question)
           </Muted>
         </View>
         <Field

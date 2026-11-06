@@ -18,6 +18,12 @@ export const MAX_QUESTIONS = 300;
 /** Marks for each question in an Exam PDF's total, as papers have always had them. */
 export const MARKS_PER_QUESTION = 4;
 
+/** Foundation papers (9th and 10th) give 1 mark a question; every other class keeps 4. `standard` may list classes ("9th, 10th"). */
+export function marksPerQuestionFor(standard: string): number {
+  const classes = standard.split(',').map((name) => name.trim()).filter(Boolean);
+  return classes.length > 0 && classes.every((name) => name === '9th' || name === '10th') ? 1 : MARKS_PER_QUESTION;
+}
+
 // ─── What is being made from: exam → subject → chapters → topics ───────────
 
 export interface Scope {

@@ -111,9 +111,17 @@ describe('manual and random selection plus existing PDF compatibility', () => {
 
   test('the flow keeps the existing PDF generation and settings screens', () => {
     const flow = readFileSync(new URL('../src/screens/teacher/make-pdf/flow.tsx', import.meta.url), 'utf8');
-    for (const used of ['createPdfsFor', 'ExamSettingsStep', 'SmartPdfScreen', 'DoneStep', 'MARKS_PER_QUESTION']) assert.ok(flow.includes(used), used);
+    for (const used of ['createPdfsFor', 'ExamSettingsStep', 'SmartPdfScreen', 'DoneStep', 'marksPerQuestionFor']) assert.ok(flow.includes(used), used);
     const screen = readFileSync(new URL('../src/screens/teacher/make-pdf/one-page.tsx', import.meta.url), 'utf8');
     for (const used of ['MultiSelectDropdown', 'verifyBankQuestions', 'fetchBankRandom', 'fetchBankPage']) assert.ok(screen.includes(used), used);
     assert.ok(!screen.includes('setStep'), 'selection is one screen, with no steps of its own');
+  });
+});
+
+describe('marks per question', () => {
+  test('9th and 10th give 1 mark, other classes 4', async () => {
+    const { marksPerQuestionFor } = await import('../src/screens/teacher/make-pdf/model.ts');
+    for (const standard of ['9th', '10th', '9th, 10th']) assert.equal(marksPerQuestionFor(standard), 1, standard);
+    for (const standard of ['11th', '12th', '10th, 11th', '']) assert.equal(marksPerQuestionFor(standard), 4, standard);
   });
 });

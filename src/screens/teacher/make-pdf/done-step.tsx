@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button, DetailRow, ErrorText, Icon, usePalette } from '@/components/kit';
 import { openPdf, pdfContentLabel, printPdf, sharePdf, type SavedPdf } from '@/services/pdf-library';
-import { MARKS_PER_QUESTION, questionCount, type PdfKind } from '@/screens/teacher/make-pdf/model';
+import { marksPerQuestionFor, questionCount, type PdfKind } from '@/screens/teacher/make-pdf/model';
 import { StepLayout } from '@/screens/teacher/make-pdf/ui';
 import type { Question } from '@/types/pcmb';
 
@@ -44,7 +44,7 @@ export function DoneStep({
     ...(standard ? ([['Class', [standard, subject].filter(Boolean).join(' · ')]] as [string, string][]) : []),
     ['Chapters', `${new Set(questions.map((q) => q.chapter)).size}`],
     ['Questions', `${questions.length}`],
-    ...(smart ? [] : ([['Total marks', `${questions.length * MARKS_PER_QUESTION}`]] as [string, string][])),
+    ...(smart ? [] : ([['Total marks', `${questions.length * marksPerQuestionFor(standard)}`]] as [string, string][])),
     ...(lone
       ? ([
           ...(pdfs[0].pageCount ? [[smart ? 'Slides' : 'Pages', `${pdfs[0].pageCount}`]] : []),
