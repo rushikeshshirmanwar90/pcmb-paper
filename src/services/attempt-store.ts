@@ -1,3 +1,4 @@
+import { decodeVisibility, type VisibilityRecord } from '@/screens/student/exam-visibility';
 import { Platform } from 'react-native';
 import { Directory, File, Paths } from 'expo-file-system';
 import { decodeDraft, draftKey, encodeDraft, isEmptyDraft, type AttemptDraft } from '@/screens/student/attempt-draft';
@@ -14,6 +15,7 @@ const draftFile = (key: string) => new File(draftsDir(), `${key}.json`);
 
 // Writes to one draft happen in order, so an older write never lands last.
 const queues = new Map<string, Promise<void>>();
+const draftVersions = new Map<string, number>();
 
 function enqueue(key: string, write: () => Promise<void> | void): Promise<void> {
   const next = (queues.get(key) ?? Promise.resolve()).then(write, write).catch(() => {});
@@ -59,8 +61,10 @@ export async function loadDraft(userId: string, testId: string, startedAt: strin
 export function saveDraft(userId: string, testId: string, draft: AttemptDraft): Promise<boolean> {
   const key = draftKey(userId, testId);
   let ok = true;
+  const version = draftVersions.get(key) ?? 0;
   return enqueue(key, () => {
     try {
+      if ((draftVersions.get(key) ?? 0) !== version) return;
       write(key, isEmptyDraft(draft) ? null : encodeDraft(draft));
     } catch {
       ok = false;
@@ -71,5 +75,25 @@ export function saveDraft(userId: string, testId: string, draft: AttemptDraft): 
 /** Forgets the draft, e.g. once the test is submitted. */
 export function clearDraft(userId: string, testId: string): Promise<void> {
   const key = draftKey(userId, testId);
-  return enqueue(key, () => write(key, null));
+  draftVersions.set(key, (draftVersions.get(key) ?? 0) + 1);
+  return enqueue(key, () => { write(key, null); write(`${key}.visibility`, null); });
+}
+
+/** Lifecycle callbacks may be the last JS the OS permits. Write synchronously,
+ * and invalidate older queued drafts so they cannot overwrite this snapshot. */
+export function saveDraftImmediate(userId: string, testId: string, draft: AttemptDraft): boolean {
+  const key = draftKey(userId, testId);
+  draftVersions.set(key, (draftVersions.get(key) ?? 0) + 1);
+  try { write(key, isEmptyDraft(draft) ? null : encodeDraft(draft)); return true; }
+  catch { return false; }
+}
+
+export function loadVisibility(userId: string, testId: string): VisibilityRecord | null {
+  try { return decodeVisibility(read(`${draftKey(userId, testId)}.visibility`)); }
+  catch { return null; }
+}
+
+export function saveVisibility(userId: string, testId: string, record: VisibilityRecord): boolean {
+  try { write(`${draftKey(userId, testId)}.visibility`, JSON.stringify(record)); return true; }
+  catch { return false; }
 }

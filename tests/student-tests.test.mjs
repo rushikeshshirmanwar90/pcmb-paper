@@ -380,3 +380,12 @@ describe('test status and labels', () => {
     assert.equal(factsLine(testAt({ questionCount: 1, negativeMarks: 0 })), '1 question · 60 min · 120 marks');
   });
 });
+
+
+test('test access feedback distinguishes restrictions, pending, declined and teacher approval', async () => {
+  const { testAccessLabel } = await import('../src/screens/student/test-format.ts');
+  assert.equal(testAccessLabel({ allowed: false, request: null, canRequest: true }), 'Not allowed to take this test');
+  assert.equal(testAccessLabel({ allowed: false, request: 'pending', canRequest: true }), 'Request pending');
+  assert.equal(testAccessLabel({ allowed: false, request: 'declined', canRequest: true }), 'Access request declined');
+  assert.equal(testAccessLabel({ allowed: true, request: 'approved', canRequest: false }), 'Access allowed');
+});

@@ -48,7 +48,14 @@ export interface TimetableEntry {
 
 export type TestStatus = 'scheduled' | 'open' | 'closed';
 
+export interface TestAccess { allowed: boolean; request: 'pending' | 'approved' | 'declined' | null; canRequest: boolean }
+export interface AccessStudent { student: { id: string; name: string }; batch?: { id: string; name: string }; allowed: boolean; started: boolean; request: TestAccess['request']; eligible: boolean }
 export interface TestSummary {
+  pendingResolution?: boolean;
+  accessVersion?: number;
+  audienceMode?: 'all' | 'selected';
+  access?: TestAccess;
+  batches?: { id: string; name: string }[];
   id: string;
   title: string;
   batch: { id: string; name: string };
@@ -97,9 +104,14 @@ export interface TestMonitorRow {
   submittedAt: string | null;
   /** Seconds left on the server's deadline; only while in progress. */
   remainingSeconds: number | null;
+  deadline?: string | null;
+  suspendedAt?: string | null;
+  resumable?: boolean;
+  events?: { type: string; at: string; awayMs: number; ended: boolean; reason?: string; startedAt?: string; returnedAt?: string | null }[];
 }
 
 export interface TestMonitor {
+  accessStudents?: AccessStudent[];
   status: TestStatus;
   serverTime: string;
   /** total = notStarted + inProgress + submitted; submitted includes the auto-submitted and violation attempts counted again below. */
@@ -257,6 +269,10 @@ export interface TeacherOverview {
 /** A test to set or change. `startNow` opens it at the server's clock; otherwise `opensAt` (in the future) is needed. */
 export type NewTest = {
   batchId: string;
+  batchIds?: string[];
+  audienceMode?: 'all' | 'selected';
+  studentIds?: string[];
+  excludedStudentIds?: string[];
   title: string;
   subject: string;
   standard?: string;
@@ -302,11 +318,14 @@ export const schoolApi = {
   tests: (batchId?: string) => api<{ tests: TestSummary[] }>(`/tests${batchId ? `?batchId=${batchId}` : ''}`).then((r) => r.tests),
   test: (id: string) => api<TestDetail>(`/tests/${id}`),
   /** Who has started, is answering or has finished a test (teachers and the tuition). */
+  controlAttempt: (id: string, body: { studentId: string; action: 'extend' | 'resume' | 'finalize'; requestId: string; minutes?: number; suspendedAt?: string | null }) => api(`/tests/${id}/attempt-control`, { method: 'POST', body }),
   testMonitor: (id: string) => api<TestMonitor>(`/tests/${id}/monitor`),
   /** How a batch did on a test: summary, rankings, question and topic statistics (teachers and the tuition). */
   testResults: (id: string) => api<TestResults>(`/tests/${id}/results`),
   /** One student's attempt, question by question (teachers and the tuition). */
   studentResult: (id: string, studentId: string) => api<StudentPerformance>(`/tests/${id}/results/${studentId}`),
+  testAudience: (batchIds: string[], subject: string) => api<{ students: { id: string; name: string }[] }>('/tests/audience', { method: 'POST', body: { batchIds, subject } }),
+  testAccess: (id: string, studentId: string, action: 'approve' | 'decline' | 'grant' | 'revoke') => api('/tests/' + id + '/access', { method: 'POST', body: { studentId, action } }),
   createTest: (input: NewTest) => api<{ test: TestSummary }>('/tests', { method: 'POST', body: input }).then((r) => r.test),
   /** Edits an upcoming test that nobody has started, or closes an open one early with { closeNow: true }. */
   updateTest: (id: string, input: Partial<Omit<NewTest, 'batchId' | 'subject' | 'standard'>> & { closeNow?: boolean }) =>

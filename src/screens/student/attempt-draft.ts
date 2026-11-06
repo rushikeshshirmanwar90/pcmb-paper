@@ -10,6 +10,8 @@ export interface AttemptDraft {
   startedAt: string;
   marks: number[];
   pending: AnswerUpdate[];
+  current?: number;
+  visited?: number[];
 }
 
 /** One key per user and test; letters, digits, "." and "_" only, so it is also a safe file name. */
@@ -17,7 +19,7 @@ export const draftKey = (userId: string, testId: string) =>
   `pcmb.attempt.${userId.replace(/[^A-Za-z0-9]/g, '')}.${testId.replace(/[^A-Za-z0-9]/g, '')}`;
 
 /** Nothing worth keeping: no marks and nothing waiting to be saved. */
-export const isEmptyDraft = (draft: AttemptDraft) => !draft.marks.length && !draft.pending.length;
+export const isEmptyDraft = (draft: AttemptDraft) => !draft.marks.length && !draft.pending.length && !draft.current && !draft.visited?.length;
 
 export const encodeDraft = (draft: AttemptDraft) => JSON.stringify(draft);
 
@@ -46,5 +48,5 @@ export function decodeDraft(raw: string | null, startedAt: string): AttemptDraft
         .slice(0, MAX_ITEMS)
         .map((p) => ({ index: p.index, selected: p.selected }))
     : [];
-  return { startedAt, marks, pending };
+  return { startedAt, marks, pending, ...(isIndex(v.current) ? { current: v.current } : {}), ...(Array.isArray(v.visited) ? { visited: [...new Set(v.visited.filter(isIndex))].slice(0, MAX_ITEMS) } : {}) };
 }

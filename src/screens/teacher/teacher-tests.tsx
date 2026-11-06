@@ -1,5 +1,9 @@
+import { useRouter, type Href } from 'expo-router';
+import { DropdownSelect } from '@/components/dropdown-select';
+import { BatchMultiSelect } from '@/screens/teacher/batch-multi-select';
+import { AudiencePicker } from '@/screens/teacher/test-access';
 import React, { useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { confirmAction } from '@/components/account-section';
 import { QuestionSetFlow, type QuestionFlowControl } from '@/components/create-exam-modal';
@@ -12,7 +16,6 @@ import {
   Card,
   Chips,
   DetailRow,
-  DetailSheet,
   EmptyView,
   ErrorText,
   ErrorView,
@@ -32,16 +35,11 @@ import { PROGRAM_LABELS, SCHOOL_STANDARDS, programOf, questionBankOf, type Schoo
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
 import { DateField } from '@/screens/teacher/date-field';
 import { pickerQuestions, stepBack } from '@/screens/teacher/test-questions';
-import { TestAnalysisSection } from '@/screens/teacher/test-analysis';
-import { TestResultsSection } from '@/screens/teacher/test-results-section';
-import { LiveMonitorSection, useLiveMonitor } from '@/screens/teacher/test-monitor-section';
-import { monitorModeOf } from '@/screens/teacher/test-monitor';
 import {
   FILTER_LABELS,
   STATUS_FILTER,
   STATUS_WORDS,
   TEST_FILTERS,
-  actionsFor,
   durationProblem,
   filterTests,
   lastStartOf,
@@ -66,36 +64,61 @@ const ALL = 'all';
 
 /** The teacher's Test Room: set tests for batches, and manage upcoming, live and completed ones. */
 export function TeacherTestsScreen() {
+  const palette = usePalette();
   const version = useDataVersion();
   const [batchFilter, setBatchFilter] = useState(ALL);
   const [filter, setFilter] = useState<TestFilter>('all');
   const overview = useLoad(() => schoolApi.teacherOverview(), [version]);
   const { data, error, loading, refreshing, refresh, reload } = useLoad(() => schoolApi.tests(batchFilter === ALL ? undefined : batchFilter), [batchFilter, version]);
   const [wizard, setWizard] = useState<{ kind: 'new' } | { kind: 'edit'; test: TestSummary; questions: TestQuestionCopy[] } | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const router = useRouter();
+  const openTest = (id: string) => router.push({ pathname: '/test/[testId]', params: { testId: id } } as Href);
   const batches = overview.data?.batches ?? [];
 
   const counts = (status: TestFilter) => (data ? filterTests(data, status).length : 0);
   const shown = data ? sortTests(filterTests(data, filter)) : [];
 
   return (
-    <Screen title="Test Room" subtitle="Set tests for your batches and manage them" onRefresh={refresh} refreshing={refreshing}>
+    <Screen title="Tests" subtitle="Create tests, monitor students and manage access" onRefresh={refresh} refreshing={refreshing}>
       <Button label="New test" icon={{ ios: 'plus', android: 'add' }} onPress={() => setWizard({ kind: 'new' })} disabled={!batches.length} />
       {overview.data && !batches.length ? <Muted>You can set tests once your tuition assigns you to a batch.</Muted> : null}
       {batches.length > 1 ? (
-        <Chips
-          choices={[ALL, ...batches.map((b) => b.id)]}
-          selected={batchFilter}
-          onChange={setBatchFilter}
-          labels={Object.fromEntries([[ALL, 'All batches'], ...batches.map((b) => [b.id, b.name])])}
+        <DropdownSelect
+          label="Filter by batch"
+          options={['All batches', ...batches.map(b => b.name)]}
+          selected={batches.find(b => b.id === batchFilter)?.name ?? 'All batches'}
+          onSelect={name => setBatchFilter(batches.find(b => b.name === name)?.id ?? ALL)}
+          required
+          searchable
         />
       ) : null}
-      <Chips
-        choices={TEST_FILTERS}
-        selected={filter}
-        onChange={setFilter}
-        labels={Object.fromEntries(TEST_FILTERS.map((f) => [f, data ? `${FILTER_LABELS[f]} (${counts(f)})` : FILTER_LABELS[f]]))}
-      />
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusScroll} contentContainerStyle={styles.statusFilters}>
+        <View accessibilityRole="tablist" accessibilityLabel="Filter tests by status" style={styles.statusRow}>
+          {TEST_FILTERS.map(value => {
+            const selected = value === filter;
+            const count = data ? counts(value) : undefined;
+            return (
+              <Pressable
+                key={value}
+                accessibilityRole="tab"
+                accessibilityState={{ selected }}
+                accessibilityLabel={count === undefined ? FILTER_LABELS[value] : `${FILTER_LABELS[value]}, ${count}`}
+                onPress={() => setFilter(value)}
+                style={({ pressed }) => [
+                  styles.statusChip,
+                  { backgroundColor: selected ? palette.primarySoft : palette.card, borderColor: selected ? palette.primary : palette.border },
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text style={[styles.statusLabel, { color: selected ? palette.primaryInk : palette.foreground, fontWeight: selected ? '700' : '500' }]}>
+                  {FILTER_LABELS[value]}
+                </Text>
+                {count !== undefined ? <Text style={[styles.statusCount, { color: selected ? palette.primaryInk : palette.mutedForeground }]}>{count}</Text> : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      </ScrollView>
 
       {loading ? (
         <LoadingView />
@@ -112,7 +135,7 @@ export function TeacherTestsScreen() {
       ) : (
         <View style={styles.cards}>
           {shown.map((t) => (
-            <TestCard key={t.id} test={t} onPress={() => setOpenId(t.id)} />
+            <TestCard key={t.id} test={t} onPress={() => openTest(t.id)} />
           ))}
         </View>
       )}
@@ -125,7 +148,7 @@ export function TeacherTestsScreen() {
           onClose={() => setWizard(null)}
           onView={(id) => {
             setWizard(null);
-            setOpenId(id);
+            openTest(id);
           }}
           onManage={(status) => {
             setWizard(null);
@@ -133,21 +156,12 @@ export function TeacherTestsScreen() {
           }}
         />
       ) : null}
-      {openId ? (
-        <TestDetail
-          id={openId}
-          onClose={() => setOpenId(null)}
-          onEdit={(test, questions) => {
-            setOpenId(null);
-            setWizard({ kind: 'edit', test, questions });
-          }}
-        />
-      ) : null}
+
     </Screen>
   );
 }
 
-// ─── The list ──────────────────────────────────────────────────────────────
+// --- The list ---
 
 /** The line of timing that matters for where the test is. */
 function scheduleLine(t: TestSummary) {
@@ -162,18 +176,18 @@ function TestCard({ test: t, onPress }: { test: TestSummary; onPress: () => void
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${t.title}, ${badge.label}. ${t.batch.name}. ${scheduleLine(t)}`}
+      accessibilityLabel={`${t.title}, ${badge.label}. ${(t.batches ?? [t.batch]).map(b => b.name).join(', ')}. ${scheduleLine(t)}`}
       onPress={onPress}
       style={({ pressed }) => [styles.testCard, { backgroundColor: palette.card, borderColor: palette.border }, pressed && styles.pressed]}
     >
       <View style={styles.cardTop}>
-        <Text style={[styles.cardTitle, { color: palette.foreground }]} numberOfLines={1}>
+        <Text style={[styles.cardTitle, { color: palette.foreground }]} numberOfLines={3}>
           {t.title}
         </Text>
         <Badge label={badge.label} tone={badge.tone} />
       </View>
-      <Text style={[styles.cardLine, { color: palette.foreground }]} numberOfLines={1}>
-        {t.batch.name}
+      <Text style={[styles.cardLine, { color: palette.foreground }]} numberOfLines={2}>
+        {(t.batches ?? [t.batch]).map(b => b.name).join(', ')}
         {t.subject ? ` · ${t.subject}` : ''}
       </Text>
       <Text style={[styles.cardLine, { color: palette.mutedForeground }]} numberOfLines={1}>
@@ -186,7 +200,7 @@ function TestCard({ test: t, onPress }: { test: TestSummary; onPress: () => void
   );
 }
 
-// ─── Setting or editing a test: four steps, then a confirmation ────────────
+// --- Setting or editing a test: four steps, then a confirmation ---
 
 type Batch = TeacherOverview['batches'][number];
 type Step = 1 | 2 | 3 | 4 | 5;
@@ -201,7 +215,7 @@ function defaultOpening() {
   return d;
 }
 
-function TestWizard({
+export function TestWizard({
   edit,
   batches,
   onClose,
@@ -220,10 +234,16 @@ function TestWizard({
 
   // Step 1: details
   const [title, setTitle] = useState(edit?.test.title ?? '');
-  const [batchId, setBatchId] = useState<string | null>(edit?.test.batch.id ?? batches[0]?.id ?? null);
+  const [batchIds, setBatchIds] = useState<string[]>(edit?.test.batches?.map(b => b.id) ?? [edit?.test.batch.id ?? batches[0]?.id].filter((id): id is string => !!id));
+  const batchId = batchIds[0];
+  const [audienceMode, setAudienceMode] = useState<'all' | 'selected'>('all');
+  const [studentIds, setStudentIds] = useState<string[]>([]);
+  const [excludedStudentIds, setExcludedStudentIds] = useState<string[]>([]);
+  const [audienceReady, setAudienceReady] = useState(false);
   const batch = batches.find((b) => b.id === batchId) ?? null;
   const [subjectPick, setSubjectPick] = useState<string | null>(edit?.test.subject ?? null);
-  const subject = batch && subjectPick && batch.mySubjects.includes(subjectPick as SchoolSubject) ? subjectPick : batch?.mySubjects.length === 1 ? batch.mySubjects[0] : null;
+  const subjects = batch?.mySubjects.filter(s => batchIds.every(id => batches.find(b => b.id === id)?.mySubjects.includes(s))) ?? [];
+  const subject = subjectPick && subjects.includes(subjectPick as SchoolSubject) ? subjectPick : subjects.length === 1 ? subjects[0] : null;
   const [standardPick, setStandardPick] = useState<SchoolStandard | null>((edit?.test.standard as SchoolStandard) || null);
   const standard = batch?.standard ?? standardPick;
   const bank = batch ? questionBankOf(programOf(batch)) : null;
@@ -272,6 +292,9 @@ function TestWizard({
       if (!batch) return setError('Pick a batch.');
       if (!bank) return setError(`There is no question bank for ${PROGRAM_LABELS[programOf(batch) ?? 'GENERAL']} yet, so a test can't be set for this batch.`);
       if (!subject) return setError('Pick a subject.');
+      if (!audienceReady) return setError('Wait for the student list to load.');
+      if (audienceMode === 'selected' && !studentIds.length) return setError('Select at least one student.');
+      if (batchIds.some(id => !batches.find(b => b.id === id)?.mySubjects.includes(subject as SchoolSubject))) return setError('Choose a subject you teach in every selected batch.');
       if (!standard) return setError('Pick a class.');
     }
     setPickerOpened(true);
@@ -303,7 +326,7 @@ function TestWizard({
       };
       const test = edit
         ? await schoolApi.updateTest(edit.test.id, { title: title.trim(), questions, ...timing })
-        : await schoolApi.createTest({ ...timing, batchId: batch!.id, title: title.trim(), subject: subject!, standard: standard!, questions });
+        : await schoolApi.createTest({ ...timing, batchId: batch!.id, batchIds, audienceMode, ...(audienceMode === 'selected' ? { studentIds } : { excludedStudentIds }), title: title.trim(), subject: subject!, standard: standard!, questions });
       bumpDataVersion();
       setSaved(test);
       setStep(5);
@@ -335,7 +358,7 @@ function TestWizard({
     );
   };
 
-  // The ✕: leaving an edit with unsaved changes asks first; the saved test stays as it was.
+  // Closing an edit with unsaved changes asks first; the saved test stays as it was.
   const leave = () => {
     if (step < 5 && changed()) confirmAction('Discard your changes?', 'The test stays as it was last saved.', 'Discard', onClose);
     else onClose();
@@ -379,16 +402,18 @@ function TestWizard({
             <Field label="Test name" value={title} onChangeText={setTitle} placeholder="e.g. Kinematics weekly test" maxLength={120} returnKeyType="done" />
             {edit ? (
               <Card>
-                <DetailRow label="Batch" value={edit.test.batch.name} />
+                <DetailRow label="Batch" value={(edit.test.batches ?? [edit.test.batch]).map(b => b.name).join(', ')} />
                 <DetailRow label="Subject" value={edit.test.subject} />
               </Card>
             ) : (
               <>
-                <Chips label="Batch" choices={batches.map((b) => b.id)} selected={batchId} onChange={(id) => { setBatchId(id); setSubjectPick(null); setStandardPick(null); }} labels={Object.fromEntries(batches.map((b) => [b.id, b.name]))} />
+                <BatchMultiSelect batches={batches} selected={batchIds} onChange={(ids) => { setBatchIds(ids); setSubjectPick(null); setStandardPick(null); setStudentIds([]); setExcludedStudentIds([]); setAudienceReady(false); }} />
+
                 {batch && !bank ? (
                   <Notice tone="warning" title="No question bank yet" text={`There is no question bank for ${PROGRAM_LABELS[programOf(batch) ?? 'GENERAL']} yet, so tests can't be set for this batch.`} />
                 ) : null}
-                {batch ? <Chips label="Subject" choices={batch.mySubjects} selected={subject as SchoolSubject | null} onChange={setSubjectPick} /> : null}
+                {batch ? <DropdownSelect label="Subject" options={subjects} selected={subject ?? ''} placeholder="Select subject" emptyText="No common authorized subjects" required onSelect={(s) => { setSubjectPick(s); setAudienceReady(false); setStudentIds([]); setExcludedStudentIds([]); }} /> : null}
+                {subject ? <AudiencePicker batchIds={batchIds} subject={subject} mode={audienceMode} onMode={setAudienceMode} selected={audienceMode === 'all' ? excludedStudentIds : studentIds} onChange={audienceMode === 'all' ? setExcludedStudentIds : setStudentIds} onReady={setAudienceReady} /> : null}
                 {batch && !batch.standard ? <Chips label="Class" choices={SCHOOL_STANDARDS} selected={standardPick} onChange={setStandardPick} /> : null}
               </>
             )}
@@ -471,7 +496,7 @@ function TestWizard({
             </View>
             {duration ? (
               <Muted>
-                {closesPick ? '' : 'Suggested: the time limit plus an hour. '}Students can start until {dateTimeLabel(lastStartOf(closesAt, duration).toISOString())}.
+                {closesPick ? '' : 'Suggested: the time limit plus an hour. '}{!edit || edit.test.accessVersion === 1 ? `Approved students can start until closing. Starting after ${dateTimeLabel(lastStartOf(closesAt, duration).toISOString())} gives reduced time.` : `Students can start until ${dateTimeLabel(lastStartOf(closesAt, duration).toISOString())}.`}
               </Muted>
             ) : null}
           </WizardPage>
@@ -494,14 +519,15 @@ function TestWizard({
           >
             <Card>
               <DetailRow label="Title" value={title.trim()} />
-              <DetailRow label="Batch" value={edit?.test.batch.name ?? batch?.name ?? ''} />
+              <DetailRow label="Batch" value={edit ? (edit.test.batches ?? [edit.test.batch]).map(b => b.name).join(', ') : batches.filter(b => batchIds.includes(b.id)).map(b => b.name).join(', ')} />
               <DetailRow label="Subject" value={edit?.test.subject ?? subject ?? ''} />
+              {!edit ? <DetailRow label="Access" value={audienceMode === 'all' ? `All students · ${excludedStudentIds.length} restricted` : `${studentIds.length} selected students`} /> : null}
               <DetailRow label="Questions" value={String(questions.length)} />
               <DetailRow label="Marks" value={`${total} (+${marksPer}${negative ? ` / −${negative}` : ''} each)`} />
               <DetailRow label="Time limit" value={`${duration} min`} />
               <DetailRow label="Opens" value={mode === 'now' ? 'Now' : dateTimeLabel(opens.toISOString())} />
               <DetailRow label="Closes" value={dateTimeLabel(closesAt.toISOString())} />
-              <DetailRow label="Last start" value={dateTimeLabel(lastStartOf(closesAt, duration).toISOString())} />
+              <DetailRow label="Last start" value={!edit || edit.test.accessVersion === 1 ? dateTimeLabel(closesAt.toISOString()) + ' (reduced time for late starts)' : dateTimeLabel(lastStartOf(closesAt, duration).toISOString())} />
             </Card>
             <SectionTitle title="Questions" />
             <QuestionPreview
@@ -534,7 +560,7 @@ function TestWizard({
             </View>
             <Card>
               <DetailRow label="Title" value={saved.title} />
-              <DetailRow label="Batch" value={saved.batch.name} />
+              <DetailRow label="Batch" value={(saved.batches ?? [saved.batch]).map(b => b.name).join(', ')} />
               <DetailRow label="Subject" value={saved.subject} />
               <DetailRow label="Questions" value={String(saved.questionCount)} />
               <DetailRow label="Marks" value={String(saved.maxScore)} />
@@ -608,99 +634,15 @@ function QuestionPreview({ questions, onRemove }: { questions: Question[]; onRem
   );
 }
 
-// ─── A test's details, with what can be done by where it is ────────────────
-
-function TestDetail({ id, onClose, onEdit }: { id: string; onClose: () => void; onEdit: (test: TestSummary, questions: TestQuestionCopy[]) => void }) {
-  const version = useDataVersion();
-  const { data, error, loading, refreshing, refresh, reload } = useLoad(() => schoolApi.test(id), [id, version]);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const test: TestSummary | undefined = data?.test;
-  const can = test ? actionsFor(test) : null;
-  // Live: polled while this sheet is open; completed: read once; upcoming: nothing to watch.
-  // A completed test's participation is part of its results, so it isn't read twice.
-  const monitor = useLiveMonitor(id, test?.status === 'closed' ? 'off' : monitorModeOf(test?.status), reload);
-
-  const act = async (action: () => Promise<unknown>, after?: () => void) => {
-    setActionError(null);
-    try {
-      await action();
-      bumpDataVersion();
-      void monitor.refresh();
-      after?.();
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : 'Something went wrong.');
-    }
-  };
-
-  const closeNow = () =>
-    test && confirmAction('Close this test now?', "Students who haven't submitted can't start or finish it any more.", 'Close test', () => act(() => schoolApi.updateTest(test.id, { closeNow: true })));
-  const cancelTest = () =>
-    test && confirmAction(`Cancel "${test.title}"?`, 'The test is removed before anyone has taken it. Your question bank is not affected.', 'Cancel test', () => act(() => schoolApi.deleteTest(test.id), onClose));
-
-  return (
-    <DetailSheet
-      visible
-      title={test?.title ?? 'Test'}
-      onClose={onClose}
-      onRefresh={() => {
-        refresh();
-        void monitor.refresh();
-      }}
-      refreshing={refreshing}
-      footer={
-        data?.canEdit && test && can && (can.edit || can.closeNow) ? (
-          <View style={styles.row}>
-            {can.cancel ? <Button label="Cancel Test" variant="danger" onPress={cancelTest} style={styles.flex} /> : null}
-            {can.edit ? <Button label="Edit Test" onPress={() => onEdit(test, data.questions)} style={styles.flex2} /> : null}
-            {can.closeNow ? <Button label="Close Now" onPress={closeNow} style={styles.flex} /> : null}
-          </View>
-        ) : undefined
-      }
-    >
-      {loading ? (
-        <LoadingView />
-      ) : error && !data ? (
-        <ErrorView message={error} onRetry={reload} />
-      ) : data && test ? (
-        <>
-          <ErrorText message={actionError} />
-          <Card>
-            <View style={styles.badges}>
-              <Badge label={STATUS_WORDS[test.status].label} tone={STATUS_WORDS[test.status].tone} />
-            </View>
-            <DetailRow label="Subject" value={test.subject || '—'} />
-            <DetailRow label="Batch" value={test.batch.name} />
-            <DetailRow label="Start time" value={dateTimeLabel(test.opensAt)} />
-            <DetailRow label="Closing time" value={dateTimeLabel(test.closesAt)} />
-            {test.lastStartAt ? <DetailRow label="Last start" value={dateTimeLabel(test.lastStartAt)} /> : null}
-            <DetailRow label="Duration" value={`${test.durationMinutes} min`} />
-            <DetailRow label="Total questions" value={String(test.questionCount)} />
-            <DetailRow label="Maximum marks" value={String(test.maxScore)} />
-            <DetailRow label="Marking" value={`+${test.marksPerQuestion}${test.negativeMarks ? ` / −${test.negativeMarks}` : ', no negative marks'}`} />
-            <DetailRow label="Set by" value={test.teacher.name} />
-          </Card>
-
-          {test.status === 'scheduled' ? (
-            <Muted>{"Students can't see this test's questions until it opens. You can edit or cancel it until then."}</Muted>
-          ) : (
-            <>
-              {test.status === 'closed' ? (
-                <TestResultsSection test={test} questions={data.questions} />
-              ) : (
-                <>
-                  <LiveMonitorSection monitor={monitor} live={test.status === 'open'} />
-                  <TestAnalysisSection testId={test.id} submitted={test.submitted} />
-                </>
-              )}
-            </>
-          )}
-        </>
-      ) : null}
-    </DetailSheet>
-  );
-}
+// --- A test's details, with what can be done by where it is ---
 
 const styles = StyleSheet.create({
+  statusScroll: { flexGrow: 0, flexShrink: 0 },
+  statusFilters: { paddingVertical: 2 },
+  statusRow: { flexDirection: 'row', gap: 8 },
+  statusChip: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minWidth: 44, minHeight: 44, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1.2, borderRadius: 999 },
+  statusLabel: { flexShrink: 0, fontSize: 14 },
+  statusCount: { flexShrink: 0, fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'] },
   flex: { flex: 1 },
   flex2: { flex: 2 },
   hidden: { display: 'none' },
