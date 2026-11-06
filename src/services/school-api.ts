@@ -1,3 +1,4 @@
+import type { TestBatch } from '@/screens/teacher/create-test/scope';
 import { api } from '@/services/api-client';
 import type { Program, SchoolStandard, SchoolSubject } from '@/constants/school';
 import type { Batch, Coverage, Student } from '@/services/tuition-api';
@@ -324,6 +325,7 @@ export const schoolApi = {
   testResults: (id: string) => api<TestResults>(`/tests/${id}/results`),
   /** One student's attempt, question by question (teachers and the tuition). */
   studentResult: (id: string, studentId: string) => api<StudentPerformance>(`/tests/${id}/results/${studentId}`),
+  testBatches: () => api<{ batches: TestBatch[] }>('/tests/batches').then((r) => r.batches),
   testAudience: (batchIds: string[], subject: string) => api<{ students: { id: string; name: string }[] }>('/tests/audience', { method: 'POST', body: { batchIds, subject } }),
   testAccess: (id: string, studentId: string, action: 'approve' | 'decline' | 'grant' | 'revoke') => api('/tests/' + id + '/access', { method: 'POST', body: { studentId, action } }),
   createTest: (input: NewTest) => api<{ test: TestSummary }>('/tests', { method: 'POST', body: input }).then((r) => r.test),

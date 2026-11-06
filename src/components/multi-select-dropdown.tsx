@@ -32,6 +32,8 @@ type MultiSelectDropdownProps = {
   allWhenNone?: boolean;
   /** Choices are held while the list is open and applied together when Done is pressed (closing any other way discards them). */
   applyOnDone?: boolean;
+  /** Summarises the picks as e.g. "3 Batches Selected" instead of listing names. */
+  selectedLabel?: (count: number) => string;
 };
 
 const formatCount = (n: number) => n.toLocaleString();
@@ -49,6 +51,7 @@ export function MultiSelectDropdown({
   searchable,
   allWhenNone = false,
   applyOnDone = false,
+  selectedLabel,
 }: MultiSelectDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState<string[]>([]);
@@ -62,9 +65,10 @@ export function MultiSelectDropdown({
 
   const selectionSummary = useMemo(() => {
     if (selected.length === 0) return placeholder;
+    if (selectedLabel) return selectedLabel(selected.length);
     if (selected.length <= 2) return selected.join(', ');
     return `${selected.slice(0, 2).join(', ')} +${selected.length - 2}`;
-  }, [placeholder, selected]);
+  }, [placeholder, selected, selectedLabel]);
 
   // When nothing picked means "all of them", the total covers every option.
   const total = useMemo(() => {

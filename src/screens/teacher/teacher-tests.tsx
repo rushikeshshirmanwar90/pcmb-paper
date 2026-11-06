@@ -80,8 +80,7 @@ export function TeacherTestsScreen() {
 
   return (
     <Screen title="Tests" subtitle="Create tests, monitor students and manage access" onRefresh={refresh} refreshing={refreshing}>
-      <Button label="New test" icon={{ ios: 'plus', android: 'add' }} onPress={() => setWizard({ kind: 'new' })} disabled={!batches.length} />
-      {overview.data && !batches.length ? <Muted>You can set tests once your tuition assigns you to a batch.</Muted> : null}
+      <Button label="Create Test" icon={{ ios: 'plus', android: 'add' }} onPress={() => router.push('/create-test' as Href)} />
       {batches.length > 1 ? (
         <DropdownSelect
           label="Filter by batch"
