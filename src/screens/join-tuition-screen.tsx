@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, Text, View } from 'react-native';
 import { confirmAction } from '@/components/account-section';
-import { Button, ErrorText, Field, Icon, LoadingView, MultiChips, usePalette, useLoad } from '@/components/kit';
+import { Button, ErrorText, Field, LoadingView, MultiChips, Notice, usePalette, useLoad } from '@/components/kit';
 import { useAuth, useSignedInUser } from '@/context/auth-context';
 import { PROGRAM_LABELS, SCHOOL_SUBJECTS, type SchoolSubject } from '@/constants/school';
 import { myJoinApi, timeAgo, type JoinPreview, type MyJoinRequest } from '@/services/tuition-api';
+import { AuthCard, AuthScreen, AuthTitle, AuthTopBar, StepProgress, Strong, TextLink } from '@/screens/auth-ui';
 
 const CHECK_EVERY_MS = 20000;
 
@@ -18,7 +18,6 @@ const CHECK_EVERY_MS = 20000;
  * their account gets a role and the app switches to those screens.
  */
 export function JoinTuitionScreen() {
-  const palette = usePalette();
   const user = useSignedInUser();
   const { signOut, refresh } = useAuth();
   const { data: request, loading, reload, setData } = useLoad(() => myJoinApi.latest(), []);
@@ -99,124 +98,145 @@ export function JoinTuitionScreen() {
       }
     });
 
-  const showForm = !request || request.status !== 'pending' || askAgain;
+  const logOut = () => confirmAction('Log out?', 'You can log in again with your email and password.', 'Log out', () => void signOut());
+
+  const waiting = pending && !askAgain;
+  const firstName = user.name.split(' ')[0];
+
+  let title = 'Join your tuition';
+  let lead: React.ReactNode = `Hi ${firstName}. Enter the joining code your tuition gave you.`;
+  if (waiting) {
+    title = 'Waiting for approval';
+    lead = (
+      <>
+        Hi {firstName}. <Strong>{request!.tuition.name}</Strong> needs to approve you before you can use the app. This screen updates by itself when they do.
+      </>
+    );
+  } else if (preview) {
+    title = 'Is this your tuition?';
+    lead = 'Check the details before you ask to join.';
+  } else if (askAgain) {
+    lead = 'Enter the other joining code.';
+  }
 
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.header}>
-            <View style={styles.flex}>
-              <Text style={[styles.hello, { color: palette.mutedForeground }]}>Hi, {user.name.split(' ')[0]}</Text>
-              <Text accessibilityRole="header" style={[styles.title, { color: palette.foreground }]}>
-                {pending && !askAgain ? 'Waiting for approval' : 'Join tuition'}
-              </Text>
+    <AuthScreen>
+      <AuthTopBar leading={<StepProgress step={waiting ? 4 : 3} />} trailing={<TextLink label="Log out" onPress={logOut} />} />
+      <AuthTitle title={title} lead={loading ? undefined : lead} />
+
+      {loading ? (
+        <LoadingView />
+      ) : waiting ? (
+        <Waiting request={request!} checking={checking} error={error} onCheck={checkNow} onOtherCode={() => setAskAgain(true)} onCancel={cancel} />
+      ) : preview ? (
+        <Confirm
+          preview={preview}
+          subjects={subjects}
+          onSubjects={(next) => {
+            setSubjects(next);
+            setError(null);
+          }}
+          busy={busy}
+          error={error}
+          onConfirm={confirm}
+          onBack={() => {
+            setPreview(null);
+            setError(null);
+          }}
+        />
+      ) : (
+        <>
+          {request?.status === 'rejected' && !askAgain ? (
+            <View style={styles.notice}>
+              <Notice tone="danger" title={`${request.tuition.name} didn't approve your request`} text="Check with them, or enter another joining code." />
             </View>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => confirmAction('Log out?', 'You can log in again with your email and password.', 'Log out', () => void signOut())}
-              hitSlop={8}
-            >
-              <Text style={[styles.link, { color: palette.primary }]}>Log out</Text>
-            </Pressable>
-          </View>
-
-          {loading ? (
-            <LoadingView />
-          ) : pending && !askAgain ? (
-            <Waiting request={request!} checking={checking} onCheck={checkNow} onCancel={cancel} />
           ) : null}
-
-          {!loading && showForm ? (
-            <>
-              {request?.status === 'rejected' && !askAgain ? (
-                <View style={[styles.notice, { backgroundColor: palette.dangerSoft, borderColor: palette.dangerBorder }]}>
-                  <Text style={[styles.noticeText, { color: palette.dangerInk }]}>
-                    {request.tuition.name} didn&apos;t approve your request. Check with them, or enter another joining code.
-                  </Text>
-                </View>
-              ) : null}
-              {preview ? (
-                <Confirm
-                  preview={preview}
-                  subjects={subjects}
-                  onSubjects={(next) => {
-                    setSubjects(next);
-                    setError(null);
-                  }}
-                  busy={busy}
-                  error={error}
-                  onConfirm={confirm}
-                  onBack={() => {
-                    setPreview(null);
-                    setError(null);
-                  }}
-                />
-              ) : (
-                <View style={[styles.card, { backgroundColor: palette.card, borderColor: palette.border }]}>
-                  <Text style={[styles.body, { color: palette.foreground }]}>Enter the joining code provided by your tuition institute.</Text>
-                  <Field
-                    label="Joining code"
-                    value={code}
-                    onChangeText={typeCode}
-                    placeholder="8-character joining code"
-                    autoCapitalize="characters"
-                    autoCorrect={false}
-                    maxLength={8}
-                    returnKeyType="go"
-                    onSubmitEditing={check}
-                    style={styles.codeInput}
-                  />
-                  <ErrorText message={error} />
-                  <Button label="Continue" onPress={check} loading={busy} />
-                  {askAgain ? <Button label="Keep my current request" variant="secondary" onPress={() => setAskAgain(false)} /> : null}
-                </View>
-              )}
-              <Steps step={1} />
-            </>
-          ) : null}
-          {pending && !askAgain ? (
-            <Pressable accessibilityRole="button" onPress={() => setAskAgain(true)} style={styles.center}>
-              <Text style={[styles.link, { color: palette.primary }]}>Wrong code? Use another one</Text>
-            </Pressable>
-          ) : null}
-          <ErrorText message={pending && !askAgain ? error : null} />
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+          <AuthCard>
+            <Field
+              label="Joining code"
+              value={code}
+              onChangeText={typeCode}
+              error={error}
+              hint="8 letters and numbers, from your tuition."
+              autoCapitalize="characters"
+              autoCorrect={false}
+              autoComplete="off"
+              maxLength={8}
+              returnKeyType="go"
+              onSubmitEditing={check}
+              editable={!busy}
+              style={styles.codeInput}
+            />
+            <Button label="Continue" onPress={check} loading={busy} />
+            {askAgain ? <Button label="Keep my current request" variant="secondary" onPress={() => setAskAgain(false)} /> : null}
+          </AuthCard>
+        </>
+      )}
+    </AuthScreen>
   );
 }
 
-function Waiting({ request, checking, onCheck, onCancel }: { request: MyJoinRequest; checking: boolean; onCheck: () => void; onCancel: () => void }) {
+function Waiting({
+  request,
+  checking,
+  error,
+  onCheck,
+  onOtherCode,
+  onCancel,
+}: {
+  request: MyJoinRequest;
+  checking: boolean;
+  error: string | null;
+  onCheck: () => void;
+  onOtherCode: () => void;
+  onCancel: () => void;
+}) {
   const palette = usePalette();
+  const details = [
+    request.batch?.name,
+    request.role === 'teacher' ? `Teacher${request.subjects?.length ? ` · ${request.subjects.join(', ')}` : ''}` : null,
+  ].filter(Boolean);
   return (
     <>
-      <View style={[styles.card, { backgroundColor: palette.card, borderColor: palette.border }]}>
-        <View style={styles.tuitionRow}>
-          <View style={[styles.tuitionIcon, { backgroundColor: palette.warningSoft }]}>
-            <Icon name={{ ios: 'hourglass', android: 'hourglass_top' }} color={palette.warning} size={22} />
-          </View>
-          <View style={styles.flex}>
-            <Text style={[styles.tuitionName, { color: palette.foreground }]}>{request.tuition.name}</Text>
-            {request.batch ? <Text style={[styles.meta, { color: palette.foreground }]}>{request.batch.name}</Text> : null}
-            {request.role === 'teacher' ? <Text style={[styles.meta, { color: palette.foreground }]}>Teacher{request.subjects?.length ? ` · ${request.subjects.join(', ')}` : ''}</Text> : null}
-            <Text style={[styles.meta, { color: palette.warningInk }]}>Status: Pending approval</Text>
-            <Text style={[styles.meta, { color: palette.mutedForeground }]}>Request sent {request.createdAt ? timeAgo(request.createdAt) : 'just now'}</Text>
-          </View>
+      <AuthCard>
+        <View style={styles.tuition}>
+          <Text style={[styles.tuitionName, { color: palette.foreground }]}>{request.tuition.name}</Text>
+          {details.map((line) => (
+            <Text key={line} style={[styles.detail, { color: palette.foreground }]}>
+              {line}
+            </Text>
+          ))}
+          <Text style={[styles.detail, { color: palette.mutedForeground }]}>Asked {request.createdAt ? timeAgo(request.createdAt) : 'just now'}</Text>
         </View>
-        <Text style={[styles.body, { color: palette.foreground }]}>
-          Your tuition needs to approve you before you can use the app. This screen changes by itself when they do.
-        </Text>
-        <Button label="Refresh Status" onPress={onCheck} loading={checking} />
-        <Button label="Cancel request" variant="secondary" onPress={onCancel} />
+        <ErrorText message={error} />
+        <Button label="Check now" variant="secondary" onPress={onCheck} loading={checking} />
+      </AuthCard>
+      <View style={styles.links}>
+        <TextLink label="Used the wrong code? Enter another" onPress={onOtherCode} />
+        <TextLink label="Cancel request" onPress={onCancel} />
       </View>
-      <Steps step={2} />
     </>
   );
 }
 
 /** The institute (and batch) a code leads to, to confirm before asking to join; a teacher code also asks for the subjects. */
-function Confirm({ preview, subjects, onSubjects, busy, error, onConfirm, onBack }: { preview: JoinPreview; subjects: SchoolSubject[]; onSubjects: (next: SchoolSubject[]) => void; busy: boolean; error: string | null; onConfirm: () => void; onBack: () => void }) {
+function Confirm({
+  preview,
+  subjects,
+  onSubjects,
+  busy,
+  error,
+  onConfirm,
+  onBack,
+}: {
+  preview: JoinPreview;
+  subjects: SchoolSubject[];
+  onSubjects: (next: SchoolSubject[]) => void;
+  busy: boolean;
+  error: string | null;
+  onConfirm: () => void;
+  onBack: () => void;
+}) {
   const palette = usePalette();
   const batch = preview.batch;
   const rows: [string, string][] = [['Institute', preview.institute]];
@@ -225,82 +245,38 @@ function Confirm({ preview, subjects, onSubjects, busy, error, onConfirm, onBack
     if (batch.standard) rows.push(['Class', batch.standard]);
     if (batch.program) rows.push(['Program', PROGRAM_LABELS[batch.program]]);
   }
+  if (preview.kind === 'teacher') rows.push(['Joining as', 'Teacher']);
   return (
-    <View style={[styles.card, { backgroundColor: palette.card, borderColor: palette.border }]}>
-      <Text style={[styles.body, { color: palette.foreground }]}>Is this your tuition?</Text>
-      {rows.map(([label, value]) => (
-        <View key={label} style={styles.confirmRow}>
-          <Text style={[styles.meta, { color: palette.mutedForeground }]}>{label}</Text>
-          <Text style={[styles.confirmValue, { color: palette.foreground }]}>{value}</Text>
-        </View>
-      ))}
+    <AuthCard>
+      <View>
+        {rows.map(([label, value], i) => (
+          <View key={label} style={[styles.row, i > 0 && { borderTopColor: palette.border, borderTopWidth: StyleSheet.hairlineWidth }]}>
+            <Text style={[styles.rowLabel, { color: palette.mutedForeground }]}>{label}</Text>
+            <Text style={[styles.rowValue, { color: palette.foreground }]}>{value}</Text>
+          </View>
+        ))}
+      </View>
       {preview.kind === 'teacher' ? (
         <>
-          <MultiChips label="Teaching subjects" choices={SCHOOL_SUBJECTS} selected={subjects} onChange={onSubjects} />
-          <Text style={[styles.meta, { color: palette.mutedForeground }]}>Pick every subject you can teach. Your tuition decides which batches you take.</Text>
+          <MultiChips label="Subjects you teach" choices={SCHOOL_SUBJECTS} selected={subjects} onChange={onSubjects} />
+          <Text style={[styles.detail, { color: palette.mutedForeground }]}>Pick every subject you can teach. Your tuition decides which batches you take.</Text>
         </>
       ) : null}
       <ErrorText message={error} />
-      <Button label="Confirm Join" onPress={onConfirm} loading={busy} />
+      <Button label="Ask to join" onPress={onConfirm} loading={busy} />
       <Button label="Use a different code" variant="secondary" onPress={onBack} disabled={busy} />
-    </View>
-  );
-}
-
-/** Where they are in getting in. */
-function Steps({ step }: { step: 1 | 2 }) {
-  const palette = usePalette();
-  const items = ['Enter your joining code and confirm your institute', 'Your tuition approves you', 'Your classes, tests and syllabus open up'];
-  return (
-    <View style={styles.steps}>
-      {items.map((text, i) => {
-        const done = i < step - 1;
-        const now = i === step - 1;
-        return (
-          <View key={text} style={styles.stepRow}>
-            <View
-              style={[
-                styles.stepDot,
-                { backgroundColor: done ? palette.success : now ? palette.primary : palette.secondary },
-              ]}
-            >
-              {done ? (
-                <Icon name={{ ios: 'checkmark', android: 'check' }} color={palette.onPrimary} size={13} />
-              ) : (
-                <Text style={[styles.stepNum, { color: now ? palette.onPrimary : palette.mutedForeground }]}>{i + 1}</Text>
-              )}
-            </View>
-            <Text style={[styles.stepText, { color: now ? palette.foreground : palette.mutedForeground, fontWeight: now ? '700' : '500' }]}>{text}</Text>
-          </View>
-        );
-      })}
-    </View>
+    </AuthCard>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  flex: { flex: 1 },
-  content: { flexGrow: 1, padding: 24, gap: 14, width: '100%', maxWidth: 480, alignSelf: 'center' },
-  header: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginTop: 8, marginBottom: 4 },
-  hello: { fontSize: 15, fontWeight: '600' },
-  title: { fontSize: 26, fontWeight: '800', marginTop: 2 },
-  link: { fontSize: 15, fontWeight: '700' },
-  center: { alignSelf: 'center', paddingVertical: 8 },
-  card: { borderWidth: 1, borderRadius: 16, padding: 16, gap: 14 },
-  body: { fontSize: 15, lineHeight: 22 },
+  notice: { marginBottom: 14 },
   codeInput: { fontSize: 22, fontWeight: '700', letterSpacing: 3, textAlign: 'center' },
-  notice: { borderWidth: 1, borderRadius: 12, padding: 12 },
-  noticeText: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
-  tuitionRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-  tuitionIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  tuitionName: { fontSize: 18, fontWeight: '800' },
-  meta: { fontSize: 13, marginTop: 1 },
-  steps: { gap: 12, marginTop: 8, paddingHorizontal: 4 },
-  stepRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  stepDot: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  stepNum: { fontSize: 13, fontWeight: '800' },
-  stepText: { fontSize: 14, flex: 1 },
-  confirmRow: { gap: 2 },
-  confirmValue: { fontSize: 17, fontWeight: '700' },
+  tuition: { gap: 3 },
+  tuitionName: { fontSize: 18, fontWeight: '800', marginBottom: 2 },
+  detail: { fontSize: 14, lineHeight: 20 },
+  links: { marginTop: 8 },
+  row: { paddingVertical: 10, gap: 2 },
+  rowLabel: { fontSize: 13 },
+  rowValue: { fontSize: 17, fontWeight: '700' },
 });

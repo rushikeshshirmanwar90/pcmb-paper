@@ -32,3 +32,26 @@ export function nextClass(entries: TimetableEntry[], now: Date): NextClass | nul
   }
   return null;
 }
+
+/** Where a class of today's stands at a moment. */
+export type ClassState = 'done' | 'now' | 'next' | 'later';
+
+/**
+ * Today's classes in start order, each marked: over (done), on now, the first
+ * still to start (next), or after that (later).
+ */
+export function todayStates(entries: TimetableEntry[], now: Date): { entry: TimetableEntry; state: ClassState }[] {
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  let nextGiven = false;
+  return [...entries]
+    .sort((a, b) => minutesOf(a.start) - minutesOf(b.start))
+    .map((entry) => {
+      if (minutesOf(entry.end) <= nowMinutes) return { entry, state: 'done' as const };
+      if (minutesOf(entry.start) <= nowMinutes) return { entry, state: 'now' as const };
+      if (!nextGiven) {
+        nextGiven = true;
+        return { entry, state: 'next' as const };
+      }
+      return { entry, state: 'later' as const };
+    });
+}

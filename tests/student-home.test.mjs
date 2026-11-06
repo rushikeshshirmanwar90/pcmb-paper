@@ -2,7 +2,7 @@
 //   node --experimental-strip-types --test tests/student-home.test.mjs
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { nextClass } from '../src/screens/student/home-next-up.ts';
+import { nextClass, todayStates } from '../src/screens/student/home-next-up.ts';
 
 // Tuesday 27 Oct 2026, 15:00 local time (day 2; Sunday is 0).
 const at = (hh, mm = 0) => new Date(2026, 9, 27, hh, mm);
@@ -46,3 +46,24 @@ describe('next class for Home', () => {
 function pick(next) {
   return next ? [next.entry.id, next.inDays, next.ongoing] : null;
 }
+
+describe("today's classes for Home", () => {
+  const states = (entries, now) => todayStates(entries, now).map((x) => [x.entry.id, x.state]);
+
+  test('sorted by start, marked done, on now, next and later', () => {
+    const day = [cls('evening', 2, '18:00', '19:00'), cls('morning', 2, '09:00', '10:00'), cls('now', 2, '14:30', '15:30'), cls('soon', 2, '16:00', '17:00')];
+    assert.deepEqual(states(day, at(15)), [['morning', 'done'], ['now', 'now'], ['soon', 'next'], ['evening', 'later']]);
+  });
+
+  test('a class ending this minute is done; one starting this minute is on now', () => {
+    assert.deepEqual(states([cls('a', 2, '14:00', '15:00'), cls('b', 2, '15:00', '16:00')], at(15)), [['a', 'done'], ['b', 'now']]);
+  });
+
+  test('before the first class: it is next', () => {
+    assert.deepEqual(states([cls('a', 2, '16:00', '17:00'), cls('b', 2, '18:00', '19:00')], at(15)), [['a', 'next'], ['b', 'later']]);
+  });
+
+  test('no classes: nothing', () => {
+    assert.deepEqual(states([], at(15)), []);
+  });
+});

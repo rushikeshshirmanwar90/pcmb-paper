@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, type TextInputInstance, View } from 'react-native';
 import { Button, CodeInput, ErrorText, Field, Icon, PasswordField, usePalette } from '@/components/kit';
 import { emailApi } from '@/services/email-api';
+import { AuthCard, AuthScreen, AuthTitle, AuthTopBar, BackLink, Bubble, FinePrint, Strong, TextLink } from '@/screens/auth-ui';
 
 type Step = 'email' | 'code' | 'done';
+type Problems = Partial<Record<'email' | 'code' | 'password' | 'confirm', string>>;
 
 /** Forgot password: a code goes to their email, then they choose a new password. */
 export function ForgotPasswordScreen({ initialEmail, onBack }: { initialEmail: string; onBack: (email?: string) => void }) {
@@ -15,8 +16,13 @@ export function ForgotPasswordScreen({ initialEmail, onBack }: { initialEmail: s
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
+  const [problems, setProblems] = useState<Problems>({});
+  /** What the server said, shown above the button. */
   const [error, setError] = useState<string | null>(null);
   const [wait, setWait] = useState(0);
+  const emailRef = useRef<TextInputInstance>(null);
+  const passwordRef = useRef<TextInputInstance>(null);
+  const confirmRef = useRef<TextInputInstance>(null);
 
   useEffect(() => {
     if (wait <= 0) return;
@@ -24,12 +30,23 @@ export function ForgotPasswordScreen({ initialEmail, onBack }: { initialEmail: s
     return () => clearTimeout(timer);
   }, [wait]);
 
-  const sendCode = async () => {
-    if (!email.trim()) return setError('Enter the email you log in with.');
-    setBusy(true);
+  const clear = (field: keyof Problems) => {
+    setProblems((p) => ({ ...p, [field]: undefined }));
     setError(null);
+  };
+
+  const sendCode = async () => {
+    const address = email.trim();
+    const problem = !address ? 'Enter the email you log in with.' : !address.includes('@') ? 'Enter your full email, like name@example.com.' : undefined;
+    setProblems({ email: problem });
+    setError(null);
+    if (problem) {
+      emailRef.current?.focus();
+      return;
+    }
+    setBusy(true);
     try {
-      await emailApi.forgotPassword(email.trim());
+      await emailApi.forgotPassword(address);
       setStep('code');
       setWait(60);
     } catch (e) {
@@ -40,11 +57,16 @@ export function ForgotPasswordScreen({ initialEmail, onBack }: { initialEmail: s
   };
 
   const reset = async () => {
-    if (code.length !== 6) return setError('Enter the 6-digit code from the email.');
-    if (password.length < 8) return setError('Your new password needs at least 8 characters.');
-    if (password !== confirm) return setError("The two passwords don't match.");
-    setBusy(true);
+    const found: Problems = {};
+    if (code.length !== 6) found.code = 'Enter the 6-digit code from the email.';
+    if (password.length < 8) found.password = 'Use at least 8 characters.';
+    else if (password !== confirm) found.confirm = "This doesn't match the password above.";
+    setProblems(found);
     setError(null);
+    if (found.password) passwordRef.current?.focus();
+    else if (found.confirm) confirmRef.current?.focus();
+    if (Object.values(found).some(Boolean)) return;
+    setBusy(true);
     try {
       await emailApi.resetPassword(email.trim(), code, password);
       setStep('done');
@@ -57,91 +79,121 @@ export function ForgotPasswordScreen({ initialEmail, onBack }: { initialEmail: s
 
   if (step === 'done') {
     return (
-      <SafeAreaView style={[styles.root, styles.centered, { backgroundColor: palette.background }]}>
-        <View style={[styles.mark, { backgroundColor: palette.successSoft }]}>
-          <Icon name={{ ios: 'checkmark.shield.fill', android: 'verified_user' }} color={palette.success} size={28} />
+      <AuthScreen centered>
+        <View style={styles.doneMark}>
+          <Bubble size={52} variant="filled" color={palette.success}>
+            <Icon name={{ ios: 'checkmark', android: 'check' }} color={palette.onPrimary} size={24} />
+          </Bubble>
         </View>
-        <Text accessibilityRole="header" style={[styles.title, { color: palette.foreground }]}>
-          Password changed
-        </Text>
-        <Text style={[styles.lead, { color: palette.mutedForeground }]}>Log in with your new password. Your other devices were logged out.</Text>
-        <View style={styles.actions}>
-          <Button label="Log in" onPress={() => onBack(email.trim())} />
-        </View>
-      </SafeAreaView>
+        <AuthTitle title="Password changed" lead="Log in with your new password. Your other devices were logged out." />
+        <Button label="Log in" onPress={() => onBack(email.trim())} />
+      </AuthScreen>
+    );
+  }
+
+  // The tuition may have typed a student's or teacher's email, so the code can't always reach them.
+  const noAccess = 'No access to this email? Your tuition can set a new password for you. Tuitions can ask the PCMB team.';
+
+  if (step === 'email') {
+    return (
+      <AuthScreen>
+        <AuthTopBar leading={<BackLink label="Back to log in" onPress={() => onBack()} />} />
+        <AuthTitle title="Forgot your password?" lead="Enter the email you log in with. A 6-digit code goes to it, so you can choose a new password." />
+        <AuthCard>
+          <Field
+            ref={emailRef}
+            label="Email"
+            value={email}
+            onChangeText={(v) => {
+              setEmail(v);
+              clear('email');
+            }}
+            error={problems.email}
+            placeholder="name@example.com"
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+            autoComplete="email"
+            textContentType="username"
+            returnKeyType="send"
+            onSubmitEditing={sendCode}
+            editable={!busy}
+          />
+          <ErrorText message={error} />
+          <Button label="Send code" onPress={sendCode} loading={busy} />
+        </AuthCard>
+        <FinePrint>{noAccess}</FinePrint>
+      </AuthScreen>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Pressable accessibilityRole="button" onPress={step === 'code' ? () => setStep('email') : () => onBack()} hitSlop={8} style={styles.back}>
-            <Icon name={{ ios: 'chevron.left', android: 'arrow_back' }} color={palette.primary} size={16} />
-            <Text style={[styles.backText, { color: palette.primary }]}>{step === 'code' ? 'Change email' : 'Back to log in'}</Text>
-          </Pressable>
-          <Text accessibilityRole="header" style={[styles.title, styles.left, { color: palette.foreground }]}>
-            {step === 'email' ? 'Forgot your password?' : 'Choose a new password'}
-          </Text>
-          <Text style={[styles.lead, styles.left, { color: palette.mutedForeground }]}>
-            {step === 'email' ? "Enter the email you log in with. We'll send a 6-digit code to reset your password." : `If ${email.trim()} has an account, a 6-digit code is on its way.`}
-          </Text>
-
-          <View style={[styles.card, { backgroundColor: palette.card, borderColor: palette.border }]}>
-            {step === 'email' ? (
-              <>
-                <Field
-                  label="Email"
-                  value={email}
-                  onChangeText={setEmail}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="email-address"
-                  autoComplete="email"
-                  textContentType="username"
-                  returnKeyType="send"
-                  onSubmitEditing={sendCode}
-                />
-                <ErrorText message={error} />
-                <Button label="Send code" onPress={sendCode} loading={busy} />
-              </>
-            ) : (
-              <>
-                <Text style={[styles.label, { color: palette.mutedForeground }]}>Code from the email</Text>
-                <CodeInput value={code} onChange={(c) => { setCode(c); setError(null); }} />
-                <PasswordField label="New password" value={password} onChangeText={setPassword} hint="At least 8 characters." autoComplete="new-password" textContentType="newPassword" />
-                <PasswordField label="New password again" value={confirm} onChangeText={setConfirm} autoComplete="new-password" textContentType="newPassword" returnKeyType="go" onSubmitEditing={reset} />
-                <ErrorText message={error} />
-                <Button label="Change password" onPress={reset} loading={busy} />
-                <Pressable accessibilityRole="button" onPress={sendCode} disabled={wait > 0 || busy} style={styles.center} hitSlop={8}>
-                  <Text style={[styles.link, { color: wait > 0 ? palette.mutedForeground : palette.primary }]}>
-                    {wait > 0 ? `Send a new code in ${wait}s` : 'Send a new code'}
-                  </Text>
-                </Pressable>
-              </>
-            )}
-          </View>
-          {step === 'code' ? <Text style={[styles.small, { color: palette.mutedForeground }]}>Can&apos;t find it? Look in Spam or Promotions. The code works for 10 minutes.</Text> : null}
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+    <AuthScreen>
+      <AuthTopBar leading={<BackLink label="Change email" onPress={() => setStep('email')} />} />
+      <AuthTitle
+        title="Choose a new password"
+        lead={
+          <>
+            If <Strong>{email.trim()}</Strong> has an account, a 6-digit code is on its way.
+          </>
+        }
+      />
+      <AuthCard>
+        <View style={styles.codeField}>
+          <Text style={[styles.label, { color: palette.mutedForeground }]}>Code from the email</Text>
+          <CodeInput
+            value={code}
+            onChange={(c) => {
+              setCode(c);
+              clear('code');
+            }}
+            onComplete={() => passwordRef.current?.focus()}
+          />
+          <ErrorText message={problems.code} />
+        </View>
+        <PasswordField
+          ref={passwordRef}
+          label="New password"
+          value={password}
+          onChangeText={(v) => {
+            setPassword(v);
+            clear('password');
+          }}
+          error={problems.password}
+          hint="At least 8 characters."
+          autoComplete="new-password"
+          textContentType="newPassword"
+          returnKeyType="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => confirmRef.current?.focus()}
+          editable={!busy}
+        />
+        <PasswordField
+          ref={confirmRef}
+          label="New password again"
+          value={confirm}
+          onChangeText={(v) => {
+            setConfirm(v);
+            clear('confirm');
+          }}
+          error={problems.confirm}
+          autoComplete="new-password"
+          textContentType="newPassword"
+          returnKeyType="go"
+          onSubmitEditing={reset}
+          editable={!busy}
+        />
+        <ErrorText message={error} />
+        <Button label="Change password" onPress={reset} loading={busy} />
+        <TextLink label={wait > 0 ? `Send a new code in ${wait}s` : 'Send a new code'} onPress={sendCode} disabled={wait > 0 || busy} align="center" />
+      </AuthCard>
+      <FinePrint>Can&apos;t find it? Look in Spam or Promotions. The code works for 10 minutes. {noAccess}</FinePrint>
+    </AuthScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  centered: { alignItems: 'center', justifyContent: 'center', padding: 24, gap: 10 },
-  content: { flexGrow: 1, padding: 24, gap: 10, width: '100%', maxWidth: 440, alignSelf: 'center' },
-  back: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 6, marginBottom: 8 },
-  backText: { fontSize: 15, fontWeight: '600' },
-  mark: { width: 60, height: 60, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  title: { fontSize: 26, fontWeight: '800', textAlign: 'center' },
-  left: { textAlign: 'left' },
-  lead: { fontSize: 15, lineHeight: 22, textAlign: 'center', marginBottom: 8 },
-  card: { borderWidth: 1, borderRadius: 16, padding: 16, gap: 14 },
+  doneMark: { marginBottom: 24 },
+  codeField: { gap: 8 },
   label: { fontSize: 13, fontWeight: '600' },
-  center: { alignSelf: 'center', paddingVertical: 6 },
-  link: { fontSize: 15, fontWeight: '700' },
-  small: { fontSize: 13, lineHeight: 19 },
-  actions: { alignSelf: 'stretch', maxWidth: 360, width: '100%', marginTop: 12, marginHorizontal: 'auto' },
 });

@@ -6,7 +6,6 @@ import {
   Badge,
   Button,
   Card,
-  Chips,
   DetailRow,
   EmptyView,
   ErrorText,
@@ -44,8 +43,8 @@ type Phase =
   | { kind: 'review'; test: TestSummary; attempt: Attempt | null; questions: TestQuestion[]; analytics?: TestAnalytics | null; justSubmitted: boolean };
 
 const SCREEN_KEY = 'secure-exam';
-const SECTION_KEYS = RESULT_SECTIONS.map((s) => s.value);
-const SECTION_LABELS = Object.fromEntries(RESULT_SECTIONS.map((s) => [s.value, s.label]));
+// Short labels, so the three fit one row of a segmented control.
+const SECTION_OPTIONS = RESULT_SECTIONS.map((s) => ({ value: s.value, label: s.label }));
 
 /**
  * Screenshots and screen recording are blocked while a test is being taken,
@@ -233,9 +232,8 @@ function Intro({ test, busy, onStart, onClose }: { test: TestSummary; busy: bool
 
   return (
     <View style={styles.flex}>
-      <Header title="Secure examination" onClose={onClose} />
+      <Header title="Before you start" onClose={onClose} />
       <ScrollView contentContainerStyle={[styles.body, column]}>
-        <Text style={[styles.eyebrow, { color: palette.primary }]}>SECURE EXAMINATION</Text>
         <View style={styles.hero}>
           <View style={[styles.heroTile, { backgroundColor: palette.primarySoft }]}>
             <Icon name={subjectIcon(test.subject)} color={palette.primary} size={24} />
@@ -269,26 +267,26 @@ function Intro({ test, busy, onStart, onClose }: { test: TestSummary; busy: bool
           />
         ) : null}
 
-        <SectionTitle title="Examination instructions" />
+        <SectionTitle title="How it works" />
         <Card>
-          <Tip icon={{ ios: 'timer', android: 'timer' }} text="The timer starts when you tap the button below and runs on the server's clock. Closing or restarting the app does not pause or reset it." />
+          <Tip icon={{ ios: 'timer', android: 'timer' }} text="The timer starts when you tap Start test. It keeps running through calls, a lost connection or closing the app." />
           <Tip icon={{ ios: 'checkmark.icloud', android: 'cloud_done' }} text="Your answers save as you go. The bar at the top shows when they're saved." />
-          <Tip icon={{ ios: 'bookmark', android: 'bookmark' }} text="Mark questions for review and use the question palette to move around." />
-          <Tip icon={{ ios: 'paperplane', android: 'send' }} text="Submit when you are done. When time runs out, your answers are submitted for you." />
+          <Tip icon={{ ios: 'bookmark', android: 'bookmark' }} text="Mark questions for review, and use the question palette to move around." />
+          <Tip icon={{ ios: 'paperplane', android: 'send' }} text="Submit when you're done. When time runs out, your answers are submitted for you." />
+          <Tip icon={{ ios: 'chart.bar', android: 'bar_chart' }} text="Results show after the test closes." />
         </Card>
 
-        <SectionTitle title="Security restrictions" />
+        <SectionTitle title="Exam rules" />
         <Card>
-          <Tip icon={{ ios: 'lock', android: 'lock' }} text="In-app navigation is disabled during the examination. You can't leave it until you submit or time runs out." />
-          <Tip icon={{ ios: 'rectangle.on.rectangle.slash', android: 'block' }} text={`Switching applications is prohibited. If you leave the app for more than ${AWAY_LIMIT_MS / 1000} seconds, your test ends and is submitted with the answers saved so far.`} />
+          <Tip icon={{ ios: 'lock', android: 'lock' }} text="You can't leave the test until you submit or time runs out." />
+          <Tip icon={{ ios: 'rectangle.on.rectangle.slash', android: 'block' }} text={`Don't switch apps. If you leave the app for more than ${AWAY_LIMIT_MS / 1000} seconds, the test ends and the answers saved so far are submitted.`} />
           <Tip icon={{ ios: 'camera.viewfinder', android: 'screenshot' }} text="Screenshots and screen recording are restricted." />
-          <Tip icon={{ ios: 'hourglass', android: 'hourglass_top' }} text="The examination timer continues during interruptions such as calls or a lost connection." />
-          <Tip icon={{ ios: 'exclamationmark.shield', android: 'gpp_maybe' }} text="Confirmed security violations may automatically end the attempt. An ended attempt can't be restarted." />
-          <Tip icon={{ ios: 'chart.bar', android: 'bar_chart' }} text="Results become available after the test closes." />
+          <Tip icon={{ ios: 'exclamationmark.shield', android: 'gpp_maybe' }} text="Breaking these rules can end your test, and an ended test can't be restarted." />
         </Card>
       </ScrollView>
       <Footer>
-        <Button label="I Understand — Start Test" icon={{ ios: 'play.fill', android: 'play_arrow' }} onPress={onStart} loading={busy} />
+        <Text style={[styles.footerNote, { color: palette.mutedForeground }]}>By starting, you agree to the exam rules.</Text>
+        <Button label="Start test" icon={{ ios: 'play.fill', android: 'play_arrow' }} onPress={onStart} loading={busy} />
       </Footer>
     </View>
   );
@@ -308,7 +306,7 @@ function Tip({ icon, text }: { icon: IconName; text: string }) {
   const palette = usePalette();
   return (
     <View style={styles.tip}>
-      <Icon name={icon} color={palette.primary} size={18} />
+      <Icon name={icon} color={palette.inkSoft} size={18} />
       <Text style={[styles.tipText, { color: palette.foreground }]}>{text}</Text>
     </View>
   );
@@ -930,7 +928,7 @@ function Review({
           <Notice
             tone="success"
             icon={{ ios: 'checkmark.seal', android: 'verified' }}
-            title="✓ TEST SUBMITTED SUCCESSFULLY"
+            title="Test submitted"
             text={result && 'score' in result ? "Your answers are in. Here's how you did." : 'Your answers are in. Your results will be available after the test closes.'}
             live
           />
@@ -942,7 +940,7 @@ function Review({
 
         {result ? (
           <>
-            <Chips label="Result sections" choices={SECTION_KEYS} selected={section} onChange={setSection} labels={SECTION_LABELS} />
+            <Segmented label="Result sections" options={SECTION_OPTIONS} value={section} onChange={setSection} />
             {section === 'overview' ? (
               <>
                 <ScoreCard test={test} result={result} analytics={analytics} />
@@ -1031,7 +1029,7 @@ function Submitted({ test, attempt, total, justSubmitted, onClose }: { test: Tes
             live
           />
         ) : (
-          <Notice tone="success" icon={{ ios: 'checkmark.seal', android: 'verified' }} title="✓ TEST SUBMITTED SUCCESSFULLY" text="Your answers are in." live={justSubmitted} />
+          <Notice tone="success" icon={{ ios: 'checkmark.seal', android: 'verified' }} title="Test submitted" text="Your answers are in." live={justSubmitted} />
         )}
         <Text accessibilityRole="header" style={[styles.reviewTitle, { color: palette.foreground }]}>
           {test.title}
@@ -1058,7 +1056,7 @@ function ScoreCard({ test, result, analytics }: { test: TestSummary; result: Non
   return (
     <Card style={styles.scoreCard}>
       <Text accessibilityRole="header" style={[styles.eyebrow, { color: palette.mutedForeground }]}>
-        YOUR TEST RESULT
+        Your score
       </Text>
       <View style={styles.scoreRow} accessible accessibilityLabel={`Score ${numberLabel(result.score)} out of ${numberLabel(result.maxScore)}, ${percentLabel(figures.percentage)}`}>
         <Text style={[styles.scoreBig, { color: palette.foreground }]}>
@@ -1077,7 +1075,6 @@ function ScoreCard({ test, result, analytics }: { test: TestSummary; result: Non
         {result.skipped ? <View style={{ flex: result.skipped / total, backgroundColor: palette.borderStrong }} /> : null}
       </View>
       <View style={[styles.divider, { backgroundColor: palette.border }]} />
-      <DetailRow label="Percentage" value={percentLabel(figures.percentage)} />
       <DetailRow label="Accuracy" value={figures.accuracy === null ? 'None answered' : `${percentLabel(figures.accuracy)} of answered`} />
       <DetailRow label="Marks" value={`+${numberLabel(result.correct * test.marksPerQuestion)} for correct`} />
       <DetailRow label="Negative marking" value={test.negativeMarks ? (figures.negativeDeducted ? `−${numberLabel(figures.negativeDeducted)} deducted` : 'Nothing deducted') : 'None in this test'} />
@@ -1110,8 +1107,9 @@ const styles = StyleSheet.create({
   body: { padding: 16, gap: 14, paddingBottom: 24 },
   footer: { borderTopWidth: 1 },
   footerInner: { padding: 16, paddingBottom: 12, gap: 6 },
+  footerNote: { fontSize: 13, lineHeight: 18, textAlign: 'center' },
 
-  eyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 1.1 },
+  eyebrow: { fontSize: 13, fontWeight: '700' },
   frozen: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 32 },
   frozenTitle: { fontSize: 20, fontWeight: '800', textAlign: 'center' },
   frozenText: { fontSize: 14, lineHeight: 21, textAlign: 'center', maxWidth: 360 },

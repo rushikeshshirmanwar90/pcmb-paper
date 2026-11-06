@@ -222,6 +222,6 @@ describe("a student's own result", () => {
     assert.equal(resultFigures(exam, { ...result, maxScore: 0 }, undefined).percentage, null);
   });
   test('the three sections of the result screen', () => {
-    assert.deepEqual(RESULT_SECTIONS.map((s) => s.label), ['Overview', 'Question Review', 'Topic Performance']);
+    assert.deepEqual(RESULT_SECTIONS.map((s) => s.label), ['Overview', 'Questions', 'Topics']);
   });
 });

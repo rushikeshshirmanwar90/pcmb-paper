@@ -12,7 +12,8 @@ import { formatTime } from '@/services/tuition-api';
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Monday first
 
 /** One class: time, subject, batch and teacher. */
-export function ClassRow({ entry, showTeacher = true, onPress }: { entry: TimetableEntry; showTeacher?: boolean; onPress?: () => void }) {
+/** `showBatch` false for a student: they're only ever in one batch, so its name is noise. */
+export function ClassRow({ entry, showTeacher = true, showBatch = true, onPress }: { entry: TimetableEntry; showTeacher?: boolean; showBatch?: boolean; onPress?: () => void }) {
   const palette = usePalette();
   const body = (
     <View style={styles.classRow}>
@@ -23,7 +24,7 @@ export function ClassRow({ entry, showTeacher = true, onPress }: { entry: Timeta
       <View style={styles.flex}>
         <Text style={[styles.subject, { color: palette.foreground }]}>{entry.subject}</Text>
         <Text style={[styles.meta, { color: palette.mutedForeground }]} numberOfLines={2}>
-          {[entry.batch.name, entry.batch.venue, showTeacher ? entry.teacher.name : null, entry.note || null].filter(Boolean).join(' · ')}
+          {[showBatch ? entry.batch.name : null, entry.batch.venue, showTeacher ? entry.teacher.name : null, entry.note || null].filter(Boolean).join(' · ')}
         </Text>
       </View>
     </View>
@@ -38,7 +39,19 @@ export function ClassRow({ entry, showTeacher = true, onPress }: { entry: Timeta
 }
 
 /** The week's classes, day by day. Classes the user may change open onEdit. */
-export function WeekTimetable({ entries, onEdit, showTeacher = true, emptyText }: { entries: TimetableEntry[]; onEdit?: (e: TimetableEntry) => void; showTeacher?: boolean; emptyText: string }) {
+export function WeekTimetable({
+  entries,
+  onEdit,
+  showTeacher = true,
+  showBatch = true,
+  emptyText,
+}: {
+  entries: TimetableEntry[];
+  onEdit?: (e: TimetableEntry) => void;
+  showTeacher?: boolean;
+  showBatch?: boolean;
+  emptyText: string;
+}) {
   const palette = usePalette();
   const days = DAY_ORDER.filter((d) => entries.some((e) => e.day === d));
   if (!days.length) return <Muted>{emptyText}</Muted>;
@@ -50,7 +63,7 @@ export function WeekTimetable({ entries, onEdit, showTeacher = true, emptyText }
           {entries
             .filter((e) => e.day === day)
             .map((e) => (
-              <ClassRow key={e.id} entry={e} showTeacher={showTeacher} onPress={onEdit && e.mine ? () => onEdit(e) : undefined} />
+              <ClassRow key={e.id} entry={e} showTeacher={showTeacher} showBatch={showBatch} onPress={onEdit && e.mine ? () => onEdit(e) : undefined} />
             ))}
         </Card>
       ))}

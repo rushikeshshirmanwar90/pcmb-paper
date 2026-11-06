@@ -1,21 +1,18 @@
 import React, { useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, type TextInputInstance, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, ErrorText, Field, Icon, PasswordField, usePalette, type IconName } from '@/components/kit';
+import { type TextInputInstance } from 'react-native';
+import { Button, ErrorText, Field, PasswordField } from '@/components/kit';
 import { useAuth } from '@/context/auth-context';
+import { ApiError } from '@/services/api-client';
+import { AuthCard, AuthScreen, AuthTitle, AuthTopBar, BackLink, StepProgress } from '@/screens/auth-ui';
 
-const STEPS: { icon: IconName; text: string }[] = [
-  { icon: { ios: 'person.badge.plus', android: 'person_add' }, text: 'Create your account' },
-  { icon: { ios: 'number', android: 'pin' }, text: "Enter the joining code from your tuition" },
-  { icon: { ios: 'checkmark.seal', android: 'verified' }, text: 'Your tuition adds you as a student or teacher' },
-];
+type Problems = Partial<Record<'name' | 'email' | 'password' | 'confirm', string>>;
 
 /**
- * Anyone creates an account here. It belongs to no tuition yet: next they ask
- * a tuition to let them in, and it accepts them as a student or teacher.
+ * Anyone creates an account here. It belongs to no tuition yet: next they
+ * verify their email, then ask a tuition to let them in with its joining code,
+ * and it accepts them as a student or teacher.
  */
-export function RegisterScreen({ onBack }: { onBack: () => void }) {
-  const palette = usePalette();
+export function RegisterScreen({ onBack }: { onBack: (email?: string) => void }) {
   const { register } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -23,100 +20,138 @@ export function RegisterScreen({ onBack }: { onBack: () => void }) {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
+  const [problems, setProblems] = useState<Problems>({});
+  /** What the server said, shown above the button. */
   const [error, setError] = useState<string | null>(null);
+  /** The email already has an account: offer to log in with it. */
+  const [taken, setTaken] = useState(false);
+  const nameRef = useRef<TextInputInstance>(null);
   const emailRef = useRef<TextInputInstance>(null);
   const phoneRef = useRef<TextInputInstance>(null);
+  const passwordRef = useRef<TextInputInstance>(null);
+  const confirmRef = useRef<TextInputInstance>(null);
+
+  /** Typing in a field clears its own error. */
+  const edit = (field: keyof Problems | 'phone', set: (v: string) => void) => (v: string) => {
+    set(v);
+    if (field !== 'phone') setProblems((p) => ({ ...p, [field]: undefined }));
+    setTaken(false);
+  };
 
   const submit = async () => {
-    if (!name.trim()) return setError('Enter your name.');
-    if (!email.trim()) return setError('Enter your email; you log in with it.');
-    if (password.length < 8) return setError('Your password needs at least 8 characters.');
-    if (password !== confirm) return setError("The two passwords don't match.");
-    setBusy(true);
+    const address = email.trim();
+    const found: Problems = {};
+    if (!name.trim()) found.name = 'Enter your name.';
+    if (!address) found.email = 'Enter your email.';
+    else if (!address.includes('@')) found.email = 'Enter your full email, like name@example.com.';
+    if (password.length < 8) found.password = 'Use at least 8 characters.';
+    if (!found.password && password !== confirm) found.confirm = "This doesn't match the password above.";
+    setProblems(found);
     setError(null);
+    setTaken(false);
+    // The first field with a problem gets the cursor.
+    const first = found.name ? nameRef : found.email ? emailRef : found.password ? passwordRef : found.confirm ? confirmRef : null;
+    if (first) {
+      first.current?.focus();
+      return;
+    }
+    setBusy(true);
     try {
-      // Logs in on success; the app then shows "Join a tuition".
-      await register({ name: name.trim(), email: email.trim(), phone: phone.trim(), password });
+      // Logs in on success; the app then asks for the code sent to the email.
+      await register({ name: name.trim(), email: address, phone: phone.trim(), password });
     } catch (e) {
+      setTaken(e instanceof ApiError && e.status === 409);
       setError(e instanceof Error ? e.message : "Couldn't create your account. Try again.");
       setBusy(false);
     }
   };
 
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Pressable accessibilityRole="button" onPress={onBack} hitSlop={8} style={styles.back}>
-            <Icon name={{ ios: 'chevron.left', android: 'arrow_back' }} color={palette.primary} size={16} />
-            <Text style={[styles.backText, { color: palette.primary }]}>Log in instead</Text>
-          </Pressable>
+    <AuthScreen>
+      <AuthTopBar leading={<BackLink label="Log in instead" onPress={() => onBack()} />} />
+      <StepProgress step={1} style={{ marginBottom: 16 }} />
+      <AuthTitle
+        title="Create your account"
+        lead="For students and teachers. Next, you verify your email and enter your tuition's joining code."
+      />
 
-          <Text accessibilityRole="header" style={[styles.title, { color: palette.foreground }]}>
-            Create your account
-          </Text>
-          <Text style={[styles.lead, { color: palette.mutedForeground }]}>
-            For students and teachers. After this, you ask your tuition to let you in.
-          </Text>
-
-          <View style={[styles.card, { backgroundColor: palette.card, borderColor: palette.border }]}>
-            <Field
-              label="Your name"
-              value={name}
-              onChangeText={setName}
-              autoComplete="name"
-              textContentType="name"
-              returnKeyType="next"
-              onSubmitEditing={() => emailRef.current?.focus()}
-              maxLength={100}
-            />
-            <Field
-              ref={emailRef}
-              label="Email"
-              value={email}
-              onChangeText={setEmail}
-              hint="You log in with this."
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              autoComplete="email"
-              textContentType="username"
-              returnKeyType="next"
-              onSubmitEditing={() => phoneRef.current?.focus()}
-            />
-            <Field ref={phoneRef} label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" maxLength={20} />
-            <PasswordField label="Password" value={password} onChangeText={setPassword} hint="At least 8 characters." autoComplete="new-password" textContentType="newPassword" />
-            <PasswordField label="Password again" value={confirm} onChangeText={setConfirm} autoComplete="new-password" textContentType="newPassword" returnKeyType="go" onSubmitEditing={submit} />
-            <ErrorText message={error} />
-            <Button label="Create account" onPress={submit} loading={busy} />
-          </View>
-
-          <View style={styles.next}>
-            {STEPS.map(({ icon, text }, i) => (
-              <View key={text} style={styles.nextRow}>
-                <View style={[styles.nextIcon, { backgroundColor: i === 0 ? palette.primary : palette.secondary }]}>
-                  <Icon name={icon} color={i === 0 ? palette.onPrimary : palette.mutedForeground} size={15} />
-                </View>
-                <Text style={[styles.nextText, { color: i === 0 ? palette.foreground : palette.mutedForeground }]}>{text}</Text>
-              </View>
-            ))}
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      <AuthCard>
+        <Field
+          ref={nameRef}
+          label="Your name"
+          value={name}
+          onChangeText={edit('name', setName)}
+          error={problems.name}
+          autoComplete="name"
+          textContentType="name"
+          returnKeyType="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => emailRef.current?.focus()}
+          maxLength={100}
+          editable={!busy}
+        />
+        <Field
+          ref={emailRef}
+          label="Email"
+          value={email}
+          onChangeText={edit('email', setEmail)}
+          error={problems.email}
+          hint="You'll log in with this, and a code goes to it next."
+          placeholder="name@example.com"
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
+          autoComplete="email"
+          textContentType="username"
+          returnKeyType="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => phoneRef.current?.focus()}
+          editable={!busy}
+        />
+        <Field
+          ref={phoneRef}
+          label="Phone (optional)"
+          value={phone}
+          onChangeText={edit('phone', setPhone)}
+          keyboardType="phone-pad"
+          autoComplete="tel"
+          textContentType="telephoneNumber"
+          maxLength={20}
+          returnKeyType="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => passwordRef.current?.focus()}
+          editable={!busy}
+        />
+        <PasswordField
+          ref={passwordRef}
+          label="Password"
+          value={password}
+          onChangeText={edit('password', setPassword)}
+          error={problems.password}
+          hint="At least 8 characters."
+          autoComplete="new-password"
+          textContentType="newPassword"
+          returnKeyType="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => confirmRef.current?.focus()}
+          editable={!busy}
+        />
+        <PasswordField
+          ref={confirmRef}
+          label="Password again"
+          value={confirm}
+          onChangeText={edit('confirm', setConfirm)}
+          error={problems.confirm}
+          autoComplete="new-password"
+          textContentType="newPassword"
+          returnKeyType="go"
+          onSubmitEditing={submit}
+          editable={!busy}
+        />
+        <ErrorText message={error} />
+        {taken ? <Button label="Log in with this email" variant="tonal" onPress={() => onBack(email.trim())} /> : null}
+        <Button label="Create account" onPress={submit} loading={busy} variant={taken ? 'secondary' : 'primary'} />
+      </AuthCard>
+    </AuthScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1 },
-  content: { flexGrow: 1, padding: 24, gap: 10, width: '100%', maxWidth: 480, alignSelf: 'center' },
-  back: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 6, marginBottom: 8 },
-  backText: { fontSize: 15, fontWeight: '600' },
-  title: { fontSize: 26, fontWeight: '800' },
-  lead: { fontSize: 15, lineHeight: 22, marginBottom: 8 },
-  card: { borderWidth: 1, borderRadius: 16, padding: 16, gap: 14 },
-  next: { gap: 10, marginTop: 16, paddingHorizontal: 4 },
-  nextRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  nextIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  nextText: { fontSize: 14, fontWeight: '600', flex: 1 },
-});

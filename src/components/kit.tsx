@@ -281,6 +281,10 @@ export function EmptyView({ icon, title, text, action }: { icon: IconName; title
 
 export function ErrorText({ message }: { message: string | null | undefined }) {
   const palette = usePalette();
+  // Android reads it through the live region; VoiceOver needs telling.
+  useEffect(() => {
+    if (message && Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(message);
+  }, [message]);
   if (!message) return null;
   return (
     <Text accessibilityLiveRegion="polite" style={[styles.errorText, { color: palette.dangerInk }]}>
@@ -291,48 +295,77 @@ export function ErrorText({ message }: { message: string | null | undefined }) {
 
 // ─── Inputs ────────────────────────────────────────────────────────────────
 
-type FieldProps = TextInputProps & { label: string; hint?: string; error?: string | null; ref?: React.Ref<TextInputInstance> };
+type FieldProps = TextInputProps & {
+  label: string;
+  hint?: string;
+  error?: string | null;
+  /** A small control at the trailing end of the box, e.g. show password. */
+  accessory?: ReactNode;
+  ref?: React.Ref<TextInputInstance>;
+};
 
-export function Field({ label, hint, error, style, ...input }: FieldProps) {
+export function Field({ label, hint, error, accessory, style, onFocus, onBlur, ...input }: FieldProps) {
   const palette = usePalette();
+  const [focused, setFocused] = useState(false);
+  const borderColor = error ? palette.danger : focused ? palette.primary : palette.input;
+  const box = (
+    <TextInput
+      accessibilityLabel={label}
+      accessibilityHint={error || hint}
+      placeholderTextColor={palette.mutedForeground}
+      {...input}
+      onFocus={(e) => {
+        setFocused(true);
+        onFocus?.(e);
+      }}
+      onBlur={(e) => {
+        setFocused(false);
+        onBlur?.(e);
+      }}
+      style={[styles.input, { backgroundColor: palette.background, borderColor, color: palette.foreground }, style]}
+    />
+  );
   return (
     <View style={styles.field}>
       <Text style={[styles.fieldLabel, { color: palette.mutedForeground }]}>{label}</Text>
-      <TextInput
-        accessibilityLabel={label}
-        placeholderTextColor={palette.mutedForeground}
-        {...input}
-        style={[
-          styles.input,
-          { backgroundColor: palette.background, borderColor: error ? palette.danger : palette.border, color: palette.foreground },
-          style,
-        ]}
-      />
+      {accessory ? (
+        <View>
+          {box}
+          <View style={styles.accessory}>{accessory}</View>
+        </View>
+      ) : (
+        box
+      )}
       {error ? <ErrorText message={error} /> : hint ? <Text style={[styles.hint, { color: palette.mutedForeground }]}>{hint}</Text> : null}
     </View>
   );
 }
 
-export function PasswordField(props: FieldProps) {
+export function PasswordField({ style, ...props }: FieldProps) {
   const palette = usePalette();
   const [visible, setVisible] = useState(false);
   return (
-    <View>
-      <Field {...props} secureTextEntry={!visible} autoCapitalize="none" autoCorrect={false} style={styles.passwordInput} />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={visible ? 'Hide password' : 'Show password'}
-        onPress={() => setVisible((v) => !v)}
-        hitSlop={8}
-        style={styles.eye}
-      >
-        <Icon
-          name={visible ? { ios: 'eye.slash', android: 'visibility_off' } : { ios: 'eye', android: 'visibility' }}
-          color={palette.mutedForeground}
-          size={18}
-        />
-      </Pressable>
-    </View>
+    <Field
+      {...props}
+      secureTextEntry={!visible}
+      autoCapitalize="none"
+      autoCorrect={false}
+      style={[style, styles.passwordInput]}
+      accessory={
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={visible ? 'Hide password' : 'Show password'}
+          onPress={() => setVisible((v) => !v)}
+          style={({ pressed }) => [styles.eye, pressed && styles.pressed]}
+        >
+          <Icon
+            name={visible ? { ios: 'eye.slash', android: 'visibility_off' } : { ios: 'eye', android: 'visibility' }}
+            color={palette.mutedForeground}
+            size={20}
+          />
+        </Pressable>
+      }
+    />
   );
 }
 
@@ -771,8 +804,10 @@ const styles = StyleSheet.create({
   fieldLabel: { fontSize: 13, fontWeight: '600' },
   hint: { fontSize: 12, lineHeight: 16 },
   input: { borderWidth: 1.2, borderRadius: 10, paddingHorizontal: 14, paddingVertical: Platform.select({ ios: 12, default: 10 }), fontSize: 15, minHeight: 46 },
-  passwordInput: { paddingRight: 44 },
-  eye: { position: 'absolute', right: 12, top: 34, height: 28, justifyContent: 'center' },
+  passwordInput: { paddingRight: 52 },
+  // Centred on the box itself, so it stays put when a larger text size makes the label taller.
+  accessory: { position: 'absolute', top: 0, bottom: 0, right: 4, justifyContent: 'center' },
+  eye: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   button: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 48, borderRadius: 12, borderWidth: 1, paddingHorizontal: 18 },
   buttonText: { fontSize: 15, fontWeight: '700' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -829,7 +864,7 @@ export function CodeInput({ value, onChange, onComplete, autoFocus = true }: { v
             key={i}
             style={[
               codeStyles.box,
-              { borderColor: active ? palette.primary : digits[i] ? palette.borderStrong : palette.border, backgroundColor: palette.card },
+              { borderColor: active ? palette.primary : digits[i] ? palette.borderStrong : palette.input, backgroundColor: palette.card },
             ]}
           >
             <Text style={[codeStyles.digit, { color: palette.foreground }]}>{digits[i] ?? ''}</Text>
@@ -859,8 +894,9 @@ export function CodeInput({ value, onChange, onComplete, autoFocus = true }: { v
 }
 
 const codeStyles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 8, justifyContent: 'center' },
-  box: { width: 46, height: 56, borderWidth: 1.5, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  // The boxes share the width, so six of them fit on the narrowest phones.
+  row: { flexDirection: 'row', gap: 8, justifyContent: 'center', alignSelf: 'stretch' },
+  box: { flex: 1, maxWidth: 52, height: 56, borderWidth: 1.5, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   digit: { fontSize: 24, fontWeight: '800', fontVariant: ['tabular-nums'] },
   hidden: { position: 'absolute', opacity: 0, width: 1, height: 1 },
 });

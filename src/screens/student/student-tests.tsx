@@ -181,7 +181,7 @@ function UpcomingRow({ test, now, last }: { test: ListedTest; now: number; last:
           {test.title}
         </Text>
         <Text style={[styles.meta, { color: palette.mutedForeground }]}>
-          Opens {whenLabel(test.opensAt, now)} · {test.questionCount} Q · {test.durationMinutes} min
+          Opens {whenLabel(test.opensAt, now)} · {test.questionCount} questions · {test.durationMinutes} min
         </Text>
       </View>
       <Text style={[styles.until, { color: palette.mutedForeground }]}>{untilLabel(test.opensAt, now)}</Text>
@@ -213,7 +213,7 @@ function PastRow({ test, kind, onOpen, last }: { test: ListedTest; kind: Kind; o
           {test.title}
         </Text>
         <Text style={[styles.meta, { color: palette.mutedForeground }]} numberOfLines={1}>
-          {test.subject || 'Mixed'} · {dayLabel(test.opensAt)} · {kind === 'missed' ? 'see answers' : 'view results'}
+          {test.subject || 'Mixed'} · {dayLabel(test.opensAt)}
         </Text>
       </View>
       {score !== null && percent !== null ? (

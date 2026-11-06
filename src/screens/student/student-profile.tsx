@@ -35,15 +35,8 @@ export function StudentProfileScreen() {
       }}
       refreshing={overview.refreshing || tuition.refreshing}
     >
-      <ProfileHeader
-        badges={
-          <>
-            {program ? <Badge label={PROGRAM_LABELS[program]} tone="primary" /> : null}
-            {user.standard ? <Badge label={user.standard} /> : null}
-            {batch ? <Badge label={batch.name} tone="violet" /> : null}
-          </>
-        }
-      />
+      {/* Program, class and batch are listed just below, so the header stays name and email. */}
+      <ProfileHeader badges={<></>} />
 
       <SectionTitle title="Academic details" />
       <Card style={styles.listCard}>
@@ -209,8 +202,8 @@ function InfoRow({ icon, label, value, last = false }: { icon: IconName; label: 
 function InfoIcon({ icon }: { icon: IconName }) {
   const palette = usePalette();
   return (
-    <View style={[styles.iconTile, { backgroundColor: palette.primarySoft }]}>
-      <Icon name={icon} color={palette.primary} size={17} />
+    <View style={[styles.iconTile, { backgroundColor: palette.secondary }]}>
+      <Icon name={icon} color={palette.inkSoft} size={17} />
     </View>
   );
 }

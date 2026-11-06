@@ -52,23 +52,31 @@ function ChapterCard({ chapter, open, onToggle, mine }: { chapter: RoadmapChapte
   const whole = chapter.topics.length === 1 && chapter.topics[0].topic === '';
   return (
     <Card>
-      <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={onToggle} style={styles.head}>
-        <View style={styles.flex}>
-          <Text style={[styles.chapter, { color: palette.foreground }]}>{chapter.chapter}</Text>
-          <View style={styles.badges}>
-            <Badge label={chapter.standard} tone={mine ? 'primary' : 'neutral'} />
-            {chapter.marks !== null ? <Badge label={`${chapter.marks} marks`} tone="violet" /> : null}
-            {chapter.level !== 'not-enough' ? <Badge label={`${LEVEL_LABEL[chapter.level]} · ${chapter.accuracy}%`} tone={LEVEL_TONE[chapter.level]} /> : null}
+      {/* The whole summary opens the chapter's topics. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityHint={open ? 'Hides the topics' : 'Shows the topics'}
+        onPress={onToggle}
+        style={({ pressed }) => [styles.summary, pressed && styles.pressed]}
+      >
+        <View style={styles.head}>
+          <View style={styles.flex}>
+            <Text style={[styles.chapter, { color: palette.foreground }]}>{chapter.chapter}</Text>
+            <View style={styles.badges}>
+              {/* Only a chapter from another class needs its class named. */}
+              {!mine ? <Badge label={chapter.standard} /> : null}
+              {chapter.marks !== null ? <Badge label={`${chapter.marks} marks`} tone="violet" /> : null}
+              {chapter.level !== 'not-enough' ? <Badge label={`${LEVEL_LABEL[chapter.level]} · ${chapter.accuracy}%`} tone={LEVEL_TONE[chapter.level]} /> : null}
+            </View>
           </View>
+          <Icon name={open ? { ios: 'chevron.up', android: 'expand_less' } : { ios: 'chevron.down', android: 'expand_more' }} color={palette.mutedForeground} size={16} />
         </View>
-        <Icon name={open ? { ios: 'chevron.up', android: 'expand_less' } : { ios: 'chevron.down', android: 'expand_more' }} color={palette.mutedForeground} size={16} />
+        <Muted>{whole ? (chapter.coveredTopics ? 'Covered in class' : 'Not covered yet') : `Covered ${chapter.coveredTopics} of ${chapter.topics.length} topics`}</Muted>
+        <ProgressBar value={pct} tone="success" />
+        {chapter.strong.length ? <Text style={[styles.line, { color: palette.successInk }]}>Strong: {chapter.strong.join(', ')}</Text> : null}
+        {chapter.weak.length ? <Text style={[styles.line, { color: palette.dangerInk }]}>Weak: {chapter.weak.join(', ')}</Text> : null}
       </Pressable>
-      <View style={styles.coverageTop}>
-        <Muted>{whole ? (chapter.coveredTopics ? 'Covered in class' : 'Not covered yet') : `Covered ${chapter.coveredTopics}/${chapter.topics.length} topics`}</Muted>
-      </View>
-      <ProgressBar value={pct} tone="success" />
-      {chapter.strong.length ? <Text style={[styles.line, { color: palette.successInk }]}>Strong: {chapter.strong.join(', ')}</Text> : null}
-      {chapter.weak.length ? <Text style={[styles.line, { color: palette.dangerInk }]}>Weak: {chapter.weak.join(', ')}</Text> : null}
       {open
         ? chapter.topics.map((t) => (
             <View key={t.topic || 'whole'} style={[styles.topic, { borderTopColor: palette.border }]}>
@@ -93,10 +101,11 @@ function ChapterCard({ chapter, open, onToggle, mine }: { chapter: RoadmapChapte
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  summary: { gap: 10 },
+  pressed: { opacity: 0.7 },
   head: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   chapter: { fontSize: 16, fontWeight: '700' },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
-  coverageTop: { flexDirection: 'row', justifyContent: 'space-between' },
   line: { fontSize: 13, fontWeight: '600' },
   topic: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
   topicName: { fontSize: 14, fontWeight: '600' },

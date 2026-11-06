@@ -7,6 +7,7 @@ import {
   EmptyView,
   ErrorView,
   Icon,
+  ListRow,
   LoadingView,
   Muted,
   Notice,
@@ -58,7 +59,6 @@ const ALL = '__all__';
 const chapterId = (c: { standard: string; chapter: string }) => `${c.standard}|${c.chapter}`;
 /** Earlier results listed on the tab; the rest are a tap away in the full list. */
 const EARLIER_RESULTS = 5;
-const subjectLabel = (s: SchoolSubject) => (s === 'Mathematics' ? 'Maths' : s);
 
 /**
  * The Practice tab: a new self-assessment, the ones to finish, earlier
@@ -478,23 +478,22 @@ function SeeAll({ count, onPress }: { count: number; onPress: () => void }) {
 }
 
 /** Topic practice, kept quiet: one pill per subject, opening its chapters. */
+/** One row per subject, each opening its chapters: a list scans and taps better than wrapping chips. */
 function SubjectChips({ subjects, onOpen }: { subjects: SchoolSubject[]; onOpen: (s: SchoolSubject) => void }) {
-  const palette = usePalette();
   return (
-    <View style={styles.chips}>
-      {subjects.map((s) => (
-        <Pressable
+    <Card style={styles.subjectList}>
+      {subjects.map((s, i) => (
+        <ListRow
           key={s}
-          accessibilityRole="button"
-          accessibilityLabel={`${s}: practise past-year questions by chapter`}
+          icon={subjectIcon(s)}
+          title={s}
+          subtitle="Past-year questions by chapter"
           onPress={() => onOpen(s)}
-          style={({ pressed }) => [styles.chip, { backgroundColor: palette.card, borderColor: palette.border }, pressed && styles.pressed]}
-        >
-          <Icon name={subjectIcon(s)} color={palette.inkSoft} size={16} />
-          <Text style={[styles.chipText, { color: palette.foreground }]}>{subjectLabel(s)}</Text>
-        </Pressable>
+          accessibilityLabel={`${s}: practise past-year questions by chapter`}
+          last={i === subjects.length - 1}
+        />
       ))}
-    </View>
+    </Card>
   );
 }
 
@@ -946,9 +945,7 @@ const styles = StyleSheet.create({
   startText: { fontSize: 15, lineHeight: 21, marginTop: -6 },
   trailingAction: { fontSize: 15, fontWeight: '700' },
   rowStrength: { fontSize: 17, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 16, borderRadius: 999, borderWidth: 1 },
-  chipText: { fontSize: 15, fontWeight: '600' },
+  subjectList: { paddingVertical: 0 },
   seeAll: { minHeight: 32, justifyContent: 'center' },
   seeAllText: { fontSize: 13, fontWeight: '700' },
   inlineLoading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 20 },

@@ -201,8 +201,8 @@ export const weakEvidence = (t: Pick<TopicPerformance, 'accuracy' | 'correct' | 
 export type ResultSection = 'overview' | 'questions' | 'topics';
 export const RESULT_SECTIONS: readonly { value: ResultSection; label: string }[] = [
   { value: 'overview', label: 'Overview' },
-  { value: 'questions', label: 'Question Review' },
-  { value: 'topics', label: 'Topic Performance' },
+  { value: 'questions', label: 'Questions' },
+  { value: 'topics', label: 'Topics' },
 ];
 
 /**
