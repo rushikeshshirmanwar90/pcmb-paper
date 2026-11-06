@@ -29,7 +29,7 @@ interface Loaded {
 
 const EMPTY = (key: string): Loaded => ({ key, items: [], total: 0, nextPage: 1, hasMore: false, loading: true, more: false, error: null });
 
-const PickCard = memo(function PickCard({
+export const PickCard = memo(function PickCard({
   question,
   picked,
   replacing,

@@ -30,6 +30,8 @@ type MultiSelectDropdownProps = {
   searchable?: boolean;
   /** Picking nothing means "all of them" (a filter), rather than a required choice. */
   allWhenNone?: boolean;
+  /** Choices are held while the list is open and applied together when Done is pressed (closing any other way discards them). */
+  applyOnDone?: boolean;
 };
 
 const formatCount = (n: number) => n.toLocaleString();
@@ -37,8 +39,8 @@ const formatCount = (n: number) => n.toLocaleString();
 export function MultiSelectDropdown({
   label,
   options,
-  selected,
-  onSelect,
+  selected: committed,
+  onSelect: commit,
   placeholder,
   icon,
   emptyText,
@@ -46,8 +48,12 @@ export function MultiSelectDropdown({
   sections,
   searchable,
   allWhenNone = false,
+  applyOnDone = false,
 }: MultiSelectDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [draft, setDraft] = useState<string[]>([]);
+  const selected = applyOnDone && isOpen ? draft : committed;
+  const onSelect = applyOnDone ? setDraft : commit;
   const [query, setQuery] = useState('');
   const { width } = useWindowDimensions();
   const palette = getPalette(useColorScheme() === 'dark');
@@ -93,6 +99,11 @@ export function MultiSelectDropdown({
     setQuery('');
   };
 
+  const done = () => {
+    if (applyOnDone && (draft.length !== committed.length || draft.some((item) => !committed.includes(item)))) commit(draft);
+    close();
+  };
+
   return (
     <View style={styles.container}>
       <Text style={[styles.label, { color: palette.mutedForeground }]}>{label}</Text>
@@ -101,7 +112,10 @@ export function MultiSelectDropdown({
         accessibilityLabel={`${label}: ${selected.join(', ') || placeholder}`}
         accessibilityState={{ disabled }}
         disabled={disabled}
-        onPress={() => setIsOpen(true)}
+        onPress={() => {
+          setDraft(committed);
+          setIsOpen(true);
+        }}
         style={({ pressed }) => [
           styles.trigger,
           {
@@ -273,7 +287,7 @@ export function MultiSelectDropdown({
                 ) : null}
                 <Pressable
                   accessibilityRole="button"
-                  onPress={close}
+                  onPress={done}
                   style={({ pressed }) => [styles.doneButton, { backgroundColor: palette.primary }, pressed && styles.pressed]}>
                   <Text style={[styles.doneText, { color: palette.onPrimary }]}>Done</Text>
                 </Pressable>
