@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, type ReactNode } from 'react';
+import { useRouter } from 'expo-router';
+import { StackScreen } from '@/components/stack-screen';
+import { teacherHref } from '@/screens/tuition/person-nav';
+import { batchHref } from '@/screens/tuition/batch-nav';
+import { PersonNotice, usePersonFeedback } from '@/screens/tuition/person-notice';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { confirmAction } from '@/components/account-section';
 import {
   Badge,
   Button,
   Card,
-  DetailSheet,
   EmptyView,
   ErrorView,
   Field,
@@ -40,11 +44,10 @@ export function TeachersPanel() {
   const [filter, setFilter] = useState<TeacherFilter>(EMPTY_FILTER);
   const [adding, setAdding] = useState(false);
   const [inviting, setInviting] = useState(false);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const router = useRouter();
   const { flash, show, clear } = useFlash();
   const all = data ?? [];
   const shown = filterTeachers(all, filter);
-  const open = all.find((t) => t.id === openId) ?? null;
   const filtering = filter.search.trim() !== '' || filter.subject !== ALL;
   const withoutSubjects = all.filter((t) => !t.subjects.length).length;
 
@@ -59,6 +62,7 @@ export function TeachersPanel() {
       <Button label="Invite Teachers" icon={{ ios: 'qrcode', android: 'group_add' }} onPress={() => setInviting(true)} />
       <Button label="Add teacher" variant="secondary" icon={{ ios: 'person.badge.plus', android: 'person_add' }} onPress={() => setAdding(true)} />
       <FlashNotice flash={flash} onDismiss={clear} />
+      <PersonNotice kind="teacher" />
       <PendingTeachers onDone={(message, tone) => show(message, tone)} />
       {loading ? (
         <LoadingView label="Loading teachers…" />
@@ -84,7 +88,7 @@ export function TeachersPanel() {
           {shown.length ? (
             <Card style={styles.listCard}>
               {shown.map((t, i) => (
-                <TeacherRow key={t.id} teacher={t} onPress={() => setOpenId(t.id)} last={i === shown.length - 1} />
+                <TeacherRow key={t.id} teacher={t} onPress={() => router.push(teacherHref(t.id))} last={i === shown.length - 1} />
               ))}
             </Card>
           ) : (
@@ -102,7 +106,6 @@ export function TeachersPanel() {
 
       {inviting ? <InviteTeachersSheet onClose={() => setInviting(false)} /> : null}
       <TeacherForm visible={adding} onClose={() => setAdding(false)} onSaved={(t) => show(`${t.name} added. Share their email and starting password with them.`)} />
-      {open ? <TeacherDetail teacher={open} onClose={() => setOpenId(null)} onRemoved={(name) => show(`${name} removed.`)} /> : null}
     </PanelScroll>
   );
 }
@@ -143,11 +146,11 @@ function TeacherRow({ teacher: t, onPress, last }: { teacher: Teacher; onPress: 
   );
 }
 
-function TeacherDetail({ teacher, onClose, onRemoved }: { teacher: Teacher; onClose: () => void; onRemoved: (name: string) => void }) {
-  const palette = usePalette();
-  const [editing, setEditing] = useState(false);
+export function TeacherDetailsContent({ teacher, onClose, feedbackView, onRefresh, refreshing }: { teacher: Teacher; onClose: () => void; feedbackView?: ReactNode; onRefresh?: () => void; refreshing?: boolean }) {
+  const router = useRouter();
   const [resetting, setResetting] = useState(false);
   const [busy, setBusy] = useState(false);
+  const feedback = usePersonFeedback('teacher', teacher.id);
   const { flash, show, clear } = useFlash();
   const batches = groupTeacherBatches(teacher.batches);
 
@@ -180,14 +183,16 @@ function TeacherDetail({ teacher, onClose, onRemoved }: { teacher: Teacher; onCl
       'Remove',
       () =>
       run(() => tuitionApi.deleteTeacher(teacher.id), `${teacher.name} removed.`, () => {
-        onRemoved(teacher.name);
+        feedback(`${teacher.name} removed.`);
         onClose();
       })
     );
 
   return (
-    <DetailSheet visible title={teacher.name} onClose={onClose} footer={<Button label="Edit teacher" icon={{ ios: 'pencil', android: 'edit' }} onPress={() => setEditing(true)} />}>
+    <StackScreen title={teacher.name} onBack={onClose} onRefresh={onRefresh} refreshing={refreshing} footer={<Button label="Edit teacher" icon={{ ios: 'pencil', android: 'edit' }} onPress={() => router.push(teacherHref(teacher.id, 'edit'))} />}>
       <FlashNotice flash={flash} onDismiss={clear} />
+      <PersonNotice kind="teacher" id={teacher.id} />
+      {feedbackView}
       <Card>
         <PersonHeader name={teacher.name} line={teacher.email} badges={!teacher.active ? <Badge label="Login off" tone="danger" /> : <Badge label="Teacher" tone="primary" />} />
       </Card>
@@ -209,29 +214,15 @@ function TeacherDetail({ teacher, onClose, onRemoved }: { teacher: Teacher; onCl
       {batches.length ? (
         <Card style={styles.listCard}>
           {batches.map((b, i) => (
-            <View
-              key={b.id}
-              accessible
-              accessibilityLabel={`${b.name}: teaches ${b.subjects.join(', ')}`}
-              style={[styles.batchRow, i < batches.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }]}
-            >
-              <View style={[styles.batchIcon, { backgroundColor: palette.primarySoft }]}>
-                <Icon name={{ ios: 'square.grid.2x2', android: 'grid_view' }} color={palette.primary} size={16} />
-              </View>
-              <Text style={[styles.batchName, { color: palette.foreground }]} numberOfLines={1}>
-                {b.name}
-              </Text>
-              <View style={styles.badgeWrapEnd}>
-                {b.subjects.map((s) => (
-                  <Badge key={s} label={SHORT_SUBJECT[s]} tone="violet" />
-                ))}
-              </View>
-            </View>
+            <ActionRow key={b.id} icon={{ ios: 'square.grid.2x2', android: 'grid_view' }}
+              title={b.name} subtitle={`Teaches ${b.subjects.join(', ')} - Edit assignment`}
+              onPress={() => router.push(batchHref(b.id, 'assign-teacher', { teacherId: teacher.id }))}
+              last={i === batches.length - 1} />
           ))}
         </Card>
       ) : (
         <Card>
-          <Muted>Not teaching any batch yet. Assign them from the Batches tab: open a batch and tap Edit batch.</Muted>
+          <Muted>Not teaching any batch yet. Open the Teachers screen of a batch and choose Assign Teacher.</Muted>
         </Card>
       )}
 
@@ -263,14 +254,13 @@ function TeacherDetail({ teacher, onClose, onRemoved }: { teacher: Teacher; onCl
         />
       </Card>
 
-      <TeacherForm visible={editing} onClose={() => setEditing(false)} teacher={teacher} onSaved={() => show('Details saved.')} />
       <ResetPasswordSheet
         visible={resetting}
         name={teacher.name}
         onClose={() => setResetting(false)}
         onReset={(password) => tuitionApi.resetTeacherPassword(teacher.id, password)}
       />
-    </DetailSheet>
+    </StackScreen>
   );
 }
 
@@ -314,6 +304,21 @@ function SubjectPicker({ selected, onChange }: { selected: SchoolSubject[]; onCh
   );
 }
 
+export interface TeacherFieldErrors {
+  name?: string | null;
+  email?: string | null;
+  password?: string | null;
+}
+
+/** What is wrong with the required teacher fields, if anything, by field. */
+export function teacherFieldErrors({ name, email, password, needsPassword }: { name: string; email: string; password: string; needsPassword: boolean }): TeacherFieldErrors | null {
+  const errors: TeacherFieldErrors = {};
+  if (!name.trim()) errors.name = 'Enter the name.';
+  if (!email.trim()) errors.email = 'Enter the email; they log in with it.';
+  if (needsPassword && password.length < 8) errors.password = 'The starting password needs at least 8 characters.';
+  return Object.keys(errors).length ? errors : null;
+}
+
 function TeacherForm({ visible, onClose, teacher, onSaved }: { visible: boolean; onClose: () => void; teacher?: Teacher; onSaved?: (t: Teacher) => void }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -322,6 +327,7 @@ function TeacherForm({ visible, onClose, teacher, onSaved }: { visible: boolean;
   const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<TeacherFieldErrors>({});
 
   const [openedFor, setOpenedFor] = useState(false);
   if (visible !== openedFor) {
@@ -333,12 +339,21 @@ function TeacherForm({ visible, onClose, teacher, onSaved }: { visible: boolean;
       setSubjects(teacher?.subjects ?? []);
       setPassword('');
       setError(null);
+      setFieldErrors({});
     }
   }
 
+  const dirty =
+    name !== (teacher?.name ?? '') ||
+    email !== (teacher?.email ?? '') ||
+    phone !== (teacher?.phone ?? '') ||
+    [...subjects].sort().join() !== [...(teacher?.subjects ?? [])].sort().join() ||
+    password !== '';
+
   const save = async () => {
-    if (!name.trim() || !email.trim()) return setError('Enter the name and email.');
-    if (!teacher && password.length < 8) return setError('The starting password needs at least 8 characters.');
+    const problems = teacherFieldErrors({ name, email, password, needsPassword: !teacher });
+    setFieldErrors(problems ?? {});
+    if (problems) return;
     setSaving(true);
     setError(null);
     try {
@@ -363,11 +378,32 @@ function TeacherForm({ visible, onClose, teacher, onSaved }: { visible: boolean;
       onSubmit={save}
       submitting={saving}
       error={error}
+      dirty={dirty}
     >
+      <TeacherProfileFields name={name} email={email} phone={phone} subjects={subjects} password={password} errors={fieldErrors}
+        setName={(v) => { setName(v); setFieldErrors((e) => ({ ...e, name: null })); }}
+        setEmail={(v) => { setEmail(v); setFieldErrors((e) => ({ ...e, email: null })); }}
+        setPhone={setPhone} setSubjects={setSubjects}
+        setPassword={(v) => { setPassword(v); setFieldErrors((e) => ({ ...e, password: null })); }}
+        editing={!!teacher} />
+    </FormSheet>
+  );
+}
+
+
+/** Shared profile fields for the existing Add Teacher flow and routed Edit Teacher. */
+export function TeacherProfileFields({ name, email, phone, subjects, password = '', setName, setEmail, setPhone, setSubjects, setPassword, editing, errors }: {
+  name: string; email: string; phone: string; subjects: SchoolSubject[]; password?: string;
+  setName: (value: string) => void; setEmail: (value: string) => void; setPhone: (value: string) => void;
+  setSubjects: (value: SchoolSubject[]) => void; setPassword?: (value: string) => void; editing: boolean;
+  /** Shown under the field they're about. */
+  errors?: TeacherFieldErrors;
+}) {
+  return <>
       <View style={styles.group}>
         <SectionTitle title="Teacher" />
-        <Field label="Name" value={name} onChangeText={setName} autoComplete="name" maxLength={100} />
-        <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" hint="They log in with this email." />
+        <Field label="Name" value={name} onChangeText={setName} error={errors?.name} autoComplete="name" maxLength={100} />
+        <Field label="Email" value={email} onChangeText={setEmail} error={errors?.email} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" hint="They log in with this email." />
         <Field label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" maxLength={20} />
       </View>
       <View style={styles.group}>
@@ -375,14 +411,13 @@ function TeacherForm({ visible, onClose, teacher, onSaved }: { visible: boolean;
         <SubjectPicker selected={subjects} onChange={setSubjects} />
         <Muted>Their batch assignments are not changed here. Change them from each batch&apos;s Teachers screen.</Muted>
       </View>
-      {!teacher ? (
+      {!editing && setPassword ? (
         <View style={styles.group}>
           <SectionTitle title="Login" />
-          <PasswordField label="Starting password" value={password} onChangeText={setPassword} hint="At least 8 characters. Share it with them; they can change it." autoComplete="off" />
+          <PasswordField label="Starting password" value={password} onChangeText={setPassword} error={errors?.password} hint="At least 8 characters. Share it with them; they can change it." autoComplete="off" />
         </View>
       ) : null}
-    </FormSheet>
-  );
+  </>;
 }
 
 const styles = StyleSheet.create({
@@ -397,10 +432,6 @@ const styles = StyleSheet.create({
   email: { fontSize: 13, marginTop: 1 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 6 },
   badgeWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  badgeWrapEnd: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, justifyContent: 'flex-end', maxWidth: '50%' },
-  batchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, minHeight: 52 },
-  batchIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  batchName: { flex: 1, fontSize: 15, fontWeight: '600' },
   group: { gap: 12 },
   subjectWrap: { gap: 6 },
   label: { fontSize: 13, fontWeight: '600' },

@@ -1,21 +1,13 @@
 import React, { useState } from 'react';
-import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { confirmAction } from '@/components/confirm-action';
 import { Badge, Card, Field, FormSheet, ListRow, PasswordField, SectionTitle, usePalette } from '@/components/kit';
 import { useAuth, useSignedInUser } from '@/context/auth-context';
 
-const ROLE_LABEL = { tuition: 'Tuition', teacher: 'Teacher', student: 'Student' } as const;
+// Kept here as well, since screens already import it from this file.
+export { confirmAction };
 
-/** Asks before something that can't be taken back, e.g. logging out. */
-export function confirmAction(title: string, message: string, confirmLabel: string, onConfirm: () => void) {
-  if (Platform.OS === 'web') {
-    if (globalThis.confirm?.(`${title}\n\n${message}`)) onConfirm();
-    return;
-  }
-  Alert.alert(title, message, [
-    { text: 'Cancel', style: 'cancel' },
-    { text: confirmLabel, style: 'destructive', onPress: onConfirm },
-  ]);
-}
+const ROLE_LABEL = { tuition: 'Tuition', teacher: 'Teacher', student: 'Student' } as const;
 
 /**
  * The signed-in user's account, for every role's profile page: who they are,
@@ -138,7 +130,16 @@ function EditDetailsSheet({ visible, onClose }: { visible: boolean; onClose: () 
   };
 
   return (
-    <FormSheet visible={visible} title="Your details" onClose={onClose} submitLabel="Save" onSubmit={save} submitting={saving} error={error}>
+    <FormSheet
+      visible={visible}
+      title="Your details"
+      onClose={onClose}
+      submitLabel="Save"
+      onSubmit={save}
+      submitting={saving}
+      error={error}
+      dirty={name !== user.name || phone !== user.phone || (user.role === 'student' && parentPhone !== user.parentPhone)}
+    >
       <Field label="Name" value={name} onChangeText={setName} autoComplete="name" textContentType="name" />
       <Field label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" />
       {user.role === 'student' ? (
@@ -157,6 +158,9 @@ function ChangePasswordSheet({ visible, onClose }: { visible: boolean; onClose: 
   const [confirm, setConfirm] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Beside the password fields they're about. */
+  const [nextError, setNextError] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
   const [openedFor, setOpenedFor] = useState(false);
@@ -167,13 +171,18 @@ function ChangePasswordSheet({ visible, onClose }: { visible: boolean; onClose: 
       setNext('');
       setConfirm('');
       setError(null);
+      setNextError(null);
+      setConfirmError(null);
       setDone(false);
     }
   }
 
   const save = async () => {
-    if (next.length < 8) return setError('The new password needs at least 8 characters.');
-    if (next !== confirm) return setError("The new passwords don't match.");
+    const tooShort = next.length < 8;
+    const mismatch = !tooShort && next !== confirm;
+    setNextError(tooShort ? 'The new password needs at least 8 characters.' : null);
+    setConfirmError(mismatch ? "The new passwords don't match." : null);
+    if (tooShort || mismatch) return;
     setSaving(true);
     setError(null);
     try {
@@ -195,14 +204,36 @@ function ChangePasswordSheet({ visible, onClose }: { visible: boolean; onClose: 
       onSubmit={done ? onClose : save}
       submitting={saving}
       error={error}
+      dirty={!done && !!(current || next || confirm)}
     >
       {done ? (
         <Text style={[styles.done, { color: palette.foreground }]}>Your password is changed. You stay logged in here; other devices need the new password.</Text>
       ) : (
         <>
           <PasswordField label="Current password" value={current} onChangeText={setCurrent} autoComplete="current-password" textContentType="password" />
-          <PasswordField label="New password" value={next} onChangeText={setNext} hint="At least 8 characters" autoComplete="new-password" textContentType="newPassword" />
-          <PasswordField label="New password again" value={confirm} onChangeText={setConfirm} autoComplete="new-password" textContentType="newPassword" />
+          <PasswordField
+            label="New password"
+            value={next}
+            onChangeText={(t) => {
+              setNext(t);
+              setNextError(null);
+            }}
+            error={nextError}
+            hint="At least 8 characters"
+            autoComplete="new-password"
+            textContentType="newPassword"
+          />
+          <PasswordField
+            label="New password again"
+            value={confirm}
+            onChangeText={(t) => {
+              setConfirm(t);
+              setConfirmError(null);
+            }}
+            error={confirmError}
+            autoComplete="new-password"
+            textContentType="newPassword"
+          />
         </>
       )}
     </FormSheet>

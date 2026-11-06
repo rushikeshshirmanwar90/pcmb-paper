@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SymbolView } from 'expo-symbols';
+import { KeyboardSafeView } from '@/components/keyboard-safe-view';
 import { getPalette } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -48,7 +49,7 @@ export function MultiSelectDropdown({
 }: MultiSelectDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const palette = getPalette(useColorScheme() === 'dark');
   const disabled = options.length === 0;
   const showSearch = searchable ?? options.length > 8;
@@ -133,13 +134,15 @@ export function MultiSelectDropdown({
         transparent
         animationType="fade"
         onRequestClose={close}>
+        <KeyboardSafeView>
         <Pressable style={styles.overlay} onPress={close}>
           <Pressable
             style={[
               styles.modal,
               {
                 width: Math.min(width - 32, 480),
-                maxHeight: height * 0.8,
+                // Of the space the keyboard leaves, so the list and Done stay in view while searching.
+                maxHeight: '90%',
                 backgroundColor: palette.card,
                 borderColor: palette.border,
               },
@@ -278,6 +281,7 @@ export function MultiSelectDropdown({
             </View>
           </Pressable>
         </Pressable>
+        </KeyboardSafeView>
       </Modal>
     </View>
   );

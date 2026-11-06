@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Button, Chips, Icon, usePalette } from '@/components/kit';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Button, Chips, Field, Icon, usePalette } from '@/components/kit';
+import { KeyboardAwareScrollView } from '@/components/keyboard-safe-view';
 import { useAuth } from '@/context/auth-context';
 import { createSmartPdf, PdfRequestError, type PdfStage } from '@/services/question-pdf';
 import type { SavedPdf } from '@/services/pdf-library';
@@ -8,6 +9,7 @@ import { loadSmartSlideSettings, saveSmartSlideSettings } from '@/services/smart
 import {
   chooseMcqLayout,
   DEFAULT_SMART_SLIDE_SETTINGS,
+  FONT_FAMILY_CHOICES,
   FONT_SIZE_CHOICES,
   MCQ_LAYOUT_CHOICES,
   QUESTION_AREA_RANGE,
@@ -111,6 +113,16 @@ function SamplePreview({ settings, title, institute }: { settings: SmartSlideSet
           </View>
         </View>
       ) : null}
+      {width > 0 ? (
+        <View
+          pointerEvents="none"
+          style={[styles.writing, { top: g.regionHeight * scale, borderTopColor: colors.muted, height: (SLIDE.height - g.regionHeight) * scale }]}
+        >
+          <Text allowFontScaling={false} style={{ fontSize: SLIDE.headerFont * scale * 1.2, color: colors.muted }}>
+            Writing space
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -123,7 +135,7 @@ export function SmartPdfScreen({
   onMade,
   bottomInset = 0,
 }: {
-  /** The current paper's title and picked questions; nothing of an earlier paper is kept. */
+  /** The title printed on every slide and used as the PDF's name, unless the teacher types their own; nothing of an earlier paper is kept. */
   title: string;
   questions: Question[];
   standard?: string;
@@ -142,6 +154,9 @@ export function SmartPdfScreen({
   const [editing, setEditing] = useState(false);
   const [stage, setStage] = useState<PdfStage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The optional presentation title; empty means the paper's own title.
+  const [typedTitle, setTypedTitle] = useState('');
+  const presentationTitle = typedTitle.trim() || title;
 
   useEffect(() => {
     let cancelled = false;
@@ -167,7 +182,7 @@ export function SmartPdfScreen({
     setError(null);
     setStage('making');
     try {
-      const pdf = await createSmartPdf({ title, questions, standard, subject }, settings, setStage);
+      const pdf = await createSmartPdf({ title: presentationTitle, questions, standard, subject }, settings, setStage);
       onMade(pdf);
     } catch (e) {
       setError(e instanceof PdfRequestError ? e.message : 'Could not make the PDF. Try again.');
@@ -181,7 +196,7 @@ export function SmartPdfScreen({
   const summary = [
     labelOf(THEME_CHOICES, settings.theme),
     `${area}% question area`,
-    `${labelOf(FONT_SIZE_CHOICES, settings.fontSize)} text`,
+    `${labelOf(FONT_FAMILY_CHOICES, settings.fontFamily)} ${labelOf(FONT_SIZE_CHOICES, settings.fontSize).toLowerCase()} text`,
     `${labelOf(MCQ_LAYOUT_CHOICES, settings.mcqLayout)} options`,
     settings.showInstitute ? 'Institute name shown' : 'Institute name hidden',
   ].join(' · ');
@@ -195,20 +210,29 @@ export function SmartPdfScreen({
   }
 
   return (
-    <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 32 + bottomInset }]} showsVerticalScrollIndicator={false}>
+    <KeyboardAwareScrollView contentContainerStyle={[styles.content, { paddingBottom: 32 + bottomInset }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <View style={styles.intro}>
-        <Text style={[styles.title, { color: palette.foreground }]} numberOfLines={2}>
-          {title}
+        <Text accessibilityRole="header" style={[styles.title, { color: palette.foreground }]} numberOfLines={2}>
+          Smart PDF
         </Text>
         <Text style={[styles.meta, { color: palette.mutedForeground }]}>
-          {questions.length} question{questions.length === 1 ? '' : 's'} · one per 16:9 slide · no answers or solutions
+          {questions.length} question{questions.length === 1 ? '' : 's'} · one complete question per 16:9 slide · no answers or solutions
         </Text>
       </View>
 
-      <SamplePreview settings={settings} title={title} institute={institute} />
+      <Field
+        label="Presentation title (optional)"
+        value={typedTitle}
+        onChangeText={(text) => setTypedTitle(text.slice(0, 200))}
+        placeholder={title}
+        hint="Shown at the top of every slide, and the name of the PDF."
+        returnKeyType="done"
+      />
+
+      <SamplePreview settings={settings} title={presentationTitle} institute={institute} />
       <Text style={[styles.meta, { color: palette.mutedForeground }]}>
-        Sample question. Your {questions.length} question{questions.length === 1 ? '' : 's'} go in the top {area}%; the bottom {100 - area}% stays blank
-        for writing. A long question continues on the next slide.
+        Sample question. Each question goes in the top {area}% of its slide with all its options; the bottom {100 - area}% stays blank for writing. A long
+        question gets a taller area, smaller text, or the whole slide followed by a blank slide to solve it on. It is never split across slides.
       </Text>
 
       {editing ? (
@@ -259,6 +283,13 @@ export function SmartPdfScreen({
             onChange={(fontSize) => update({ fontSize })}
           />
           <Chips
+            label="Font"
+            choices={FONT_FAMILY_CHOICES.map((c) => c.value)}
+            labels={labelsOf(FONT_FAMILY_CHOICES)}
+            selected={settings.fontFamily}
+            onChange={(fontFamily) => update({ fontFamily })}
+          />
+          <Chips
             label="Options layout"
             choices={MCQ_LAYOUT_CHOICES.map((c) => c.value)}
             labels={labelsOf(MCQ_LAYOUT_CHOICES)}
@@ -271,12 +302,6 @@ export function SmartPdfScreen({
             labels={{ show: 'Show', hide: 'Hide' }}
             selected={settings.showInstitute ? 'show' : 'hide'}
             onChange={(value) => update({ showInstitute: value === 'show' })}
-          />
-          <Button
-            label="Reset to Default"
-            variant="secondary"
-            icon={{ ios: 'arrow.counterclockwise', android: 'restart_alt' }}
-            onPress={() => change(DEFAULT_SMART_SLIDE_SETTINGS)}
           />
         </View>
       ) : (
@@ -299,7 +324,7 @@ export function SmartPdfScreen({
       ) : (
         <View style={styles.actions}>
           <Button
-            label={`Generate PDF · ${questions.length} question${questions.length === 1 ? '' : 's'}`}
+            label={`Generate Smart PDF · ${questions.length} question${questions.length === 1 ? '' : 's'}`}
             icon={{ ios: 'doc.richtext', android: 'picture_as_pdf' }}
             onPress={generate}
             disabled={questions.length === 0}
@@ -310,9 +335,15 @@ export function SmartPdfScreen({
             icon={editing ? { ios: 'checkmark', android: 'check' } : { ios: 'slider.horizontal.3', android: 'tune' }}
             onPress={() => setEditing(!editing)}
           />
+          <Button
+            label="Reset to Default"
+            variant="secondary"
+            icon={{ ios: 'arrow.counterclockwise', android: 'restart_alt' }}
+            onPress={() => change(DEFAULT_SMART_SLIDE_SETTINGS)}
+          />
         </View>
       )}
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 }
 
@@ -324,6 +355,7 @@ const styles = StyleSheet.create({
   meta: { fontSize: 12, lineHeight: 17 },
   board: { width: '100%', aspectRatio: 16 / 9, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
   head: { flexDirection: 'row', alignItems: 'center' },
+  writing: { position: 'absolute', left: 0, right: 0, borderTopWidth: StyleSheet.hairlineWidth, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', opacity: 0.7 },
   headTitle: { flexShrink: 1 },
   headInstitute: { marginLeft: 'auto', fontWeight: '700', maxWidth: '50%' },
   options: { flexDirection: 'row', flexWrap: 'wrap' },

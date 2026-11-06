@@ -35,7 +35,7 @@ describe('shared layout rules', () => {
 
 describe('saved layout', () => {
   test('a saved layout restores exactly', () => {
-    const saved = { theme: 'white', questionAreaPct: 45, fontSize: 'small', mcqLayout: 'grid', showInstitute: false };
+    const saved = { theme: 'white', questionAreaPct: 45, fontSize: 'small', mcqLayout: 'grid', showInstitute: false, fontFamily: 'noto-serif' };
     assert.deepEqual(normalizeSlideSettings(JSON.parse(JSON.stringify(saved))), saved);
   });
 
@@ -46,7 +46,7 @@ describe('saved layout', () => {
 
   test('only the layout is kept: question or title fields are dropped', () => {
     const kept = normalizeSlideSettings({ ...DEFAULT_SMART_SLIDE_SETTINGS, title: 'Old paper', questions: [1, 2] });
-    assert.deepEqual(Object.keys(kept).sort(), ['fontSize', 'mcqLayout', 'questionAreaPct', 'showInstitute', 'theme']);
+    assert.deepEqual(Object.keys(kept).sort(), ['fontFamily', 'fontSize', 'mcqLayout', 'questionAreaPct', 'showInstitute', 'theme']);
   });
 
   test('each teacher has their own key, valid for SecureStore', () => {

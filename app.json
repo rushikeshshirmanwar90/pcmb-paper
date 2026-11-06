@@ -40,6 +40,14 @@
         }
       ],
       "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow PCMB Practice to use a photo as your institute's logo on its question papers.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
       "expo-secure-store",
       "expo-font",
       "expo-image",

@@ -1,9 +1,10 @@
-import { useEffect, useRef, type ComponentRef, type PropsWithChildren, type ReactNode, type Ref } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState, type ComponentRef, type PropsWithChildren, type ReactNode, type Ref } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { usePreventRemove, useRouter } from 'expo-router';
 import { confirmAction } from '@/components/account-section';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, ErrorText, Icon, usePalette } from '@/components/kit';
+import { KeyboardAwareScrollView, KeyboardSafeView, useKeyboardVisible } from '@/components/keyboard-safe-view';
 import { MaxContentWidth } from '@/constants/theme';
 
 /** Goes back to the screen this one was opened from; to the tabs when opened with no history (e.g. from a link). */
@@ -21,7 +22,15 @@ export function useDiscardGuard(dirty: boolean, title = 'Discard changes?', mess
   const allowRef = useRef<() => void>(() => {});
   // Set when leaving on purpose: a re-render before the navigation lands must not bring the question back.
   const leaving = useRef(false);
-  const allowLeave = usePreventRemove(dirty, ({ repeat }) => {
+  // Mirrors the hook's internal state once prevention is disabled, so `preventRemove` stays in sync with it.
+  const [released, setReleased] = useState(false);
+  // A change in the dirty state arms the guard again.
+  const [seenDirty, setSeenDirty] = useState(dirty);
+  if (seenDirty !== dirty) {
+    setSeenDirty(dirty);
+    setReleased(false);
+  }
+  const allowLeave = usePreventRemove(dirty && !released, ({ repeat }) => {
     if (leaving.current) {
       allowRef.current();
       repeat();
@@ -33,11 +42,14 @@ export function useDiscardGuard(dirty: boolean, title = 'Discard changes?', mess
     });
   });
   useEffect(() => {
-    allowRef.current = allowLeave;
+    allowRef.current = () => {
+      setReleased(true);
+      allowLeave();
+    };
   });
   return () => {
     leaving.current = true;
-    allowLeave();
+    allowRef.current();
   };
 }
 
@@ -55,7 +67,6 @@ export function StackScreen({
   refreshing = false,
   footer,
   scrollRef,
-  keyboard = false,
 }: PropsWithChildren<{
   title: string;
   subtitle?: string;
@@ -65,11 +76,11 @@ export function StackScreen({
   refreshing?: boolean;
   footer?: ReactNode;
   scrollRef?: Ref<ComponentRef<typeof ScrollView>>;
-  keyboard?: boolean;
 }>) {
   const palette = usePalette();
   const insets = useSafeAreaInsets();
   const goBack = useGoBack();
+  const keyboardVisible = useKeyboardVisible();
   return (
     <SafeAreaView edges={['top']} style={[styles.flex, { backgroundColor: palette.background }]}>
       <View style={[styles.header, { backgroundColor: palette.card, borderBottomColor: palette.border }]}>
@@ -87,17 +98,17 @@ export function StackScreen({
           ) : null}
         </View>
       </View>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' && keyboard ? 'padding' : undefined} style={styles.flex}>
-        <ScrollView
+      <KeyboardSafeView>
+        <KeyboardAwareScrollView
           ref={scrollRef}
           contentContainerStyle={[styles.body, { paddingBottom: footer ? 16 : Math.max(insets.bottom, 16) + 8 }]}
           keyboardShouldPersistTaps="handled"
           refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.primary} /> : undefined}
         >
           {children}
-        </ScrollView>
-        {footer ? <View style={[styles.footer, { borderTopColor: palette.border, backgroundColor: palette.card, paddingBottom: Math.max(insets.bottom, 12) }]}>{footer}</View> : null}
-      </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
+        {footer ? <View style={[styles.footer, { borderTopColor: palette.border, backgroundColor: palette.card, paddingBottom: keyboardVisible ? 12 : Math.max(insets.bottom, 12) }]}>{footer}</View> : null}
+      </KeyboardSafeView>
     </SafeAreaView>
   );
 }
@@ -125,7 +136,6 @@ export function FormPage({ title, onBack, children, submitLabel, onSubmit, submi
     <StackScreen
       title={title}
       onBack={onBack}
-      keyboard
       footer={
         <>
           <ErrorText message={error} />

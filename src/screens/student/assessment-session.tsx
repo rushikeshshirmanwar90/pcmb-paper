@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, type ScrollViewInstance, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, ActivityIndicator, FlatList, KeyboardAvoidingView, Pressable, ScrollView, type ScrollViewInstance, StyleSheet, Text, View } from 'react-native';
 import { confirmAction } from '@/components/account-section';
 import {
   Badge,
@@ -526,7 +526,7 @@ function Runner({
     remaining === null ? null : remaining <= 60 ? [palette.dangerSoft, palette.dangerInk] : remaining <= 300 ? [palette.warningSoft, palette.warningInk] : [palette.secondary, palette.foreground];
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={styles.flex} behavior="padding">
       <SheetHeader
         title={a.title}
         onBack={askLeave}

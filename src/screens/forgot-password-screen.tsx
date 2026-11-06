@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, CodeInput, ErrorText, Field, Icon, PasswordField, usePalette } from '@/components/kit';
+import { KeyboardAwareScrollView } from '@/components/keyboard-safe-view';
 import { emailApi } from '@/services/email-api';
 
 type Step = 'email' | 'code' | 'done';
@@ -74,8 +75,8 @@ export function ForgotPasswordScreen({ initialEmail, onBack }: { initialEmail: s
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView behavior="padding" style={styles.root}>
+        <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           <Pressable accessibilityRole="button" onPress={step === 'code' ? () => setStep('email') : () => onBack()} hitSlop={8} style={styles.back}>
             <Icon name={{ ios: 'chevron.left', android: 'arrow_back' }} color={palette.primary} size={16} />
             <Text style={[styles.backText, { color: palette.primary }]}>{step === 'code' ? 'Change email' : 'Back to log in'}</Text>
@@ -122,7 +123,7 @@ export function ForgotPasswordScreen({ initialEmail, onBack }: { initialEmail: s
             )}
           </View>
           {step === 'code' ? <Text style={[styles.small, { color: palette.mutedForeground }]}>Can&apos;t find it? Look in Spam or Promotions. The code works for 10 minutes.</Text> : null}
-        </ScrollView>
+        </KeyboardAwareScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

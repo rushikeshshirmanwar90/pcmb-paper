@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SymbolView } from 'expo-symbols';
+import { KeyboardSafeView } from '@/components/keyboard-safe-view';
 import { getPalette } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -25,6 +26,8 @@ export interface DropdownSelectProps {
   emptyText?: string;
   /** How many questions each option holds, shown beside it; "All" shows the total. */
   counts?: Record<string, number>;
+  /** A real choice, not a filter: no "All" row and no clear button, so exactly one option is picked. */
+  required?: boolean;
 }
 
 const formatCount = (n: number) => n.toLocaleString();
@@ -39,6 +42,7 @@ export function DropdownSelect({
   searchable = false,
   emptyText,
   counts,
+  required = false,
 }: DropdownSelectProps) {
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
@@ -61,11 +65,11 @@ export function DropdownSelect({
 
   // All options including 'All'
   const allOptions = useMemo(() => {
-    const opts = ['All', ...options.filter((o) => o !== 'All')];
+    const opts = required ? options.filter((o) => o !== 'All') : ['All', ...options.filter((o) => o !== 'All')];
     if (!searchQuery.trim()) return opts;
     const q = searchQuery.toLowerCase();
     return opts.filter((o) => o.toLowerCase().includes(q));
-  }, [options, searchQuery]);
+  }, [options, required, searchQuery]);
 
   const handleSelect = (val: string) => {
     onSelect(val);
@@ -129,7 +133,7 @@ export function DropdownSelect({
           {!isEmpty && selectedCount !== undefined && (
             <Text style={[styles.countText, { color: palette.mutedForeground }]}>{formatCount(selectedCount)}</Text>
           )}
-          {isSelected && (
+          {isSelected && !required && (
             <Pressable
               onPress={handleClear}
               hitSlop={8}
@@ -160,6 +164,7 @@ export function DropdownSelect({
           setSearchQuery('');
         }}
       >
+        <KeyboardSafeView>
         <Pressable
           style={styles.modalOverlay}
           onPress={() => {
@@ -174,7 +179,8 @@ export function DropdownSelect({
                 width: modalWidth,
                 backgroundColor: palette.card,
                 borderColor: palette.border,
-                maxHeight: height * 0.8,
+                // Of the space the keyboard leaves, so the list stays in view while searching.
+                maxHeight: '90%',
               },
             ]}
             onPress={(e) => e.stopPropagation()}
@@ -239,6 +245,7 @@ export function DropdownSelect({
               contentContainerStyle={styles.listContainer}
               showsVerticalScrollIndicator
               nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
             >
               {allOptions.length === 0 ? (
                 <View style={styles.emptyWrap}>
@@ -248,7 +255,7 @@ export function DropdownSelect({
                 </View>
               ) : (
                 allOptions.map((opt) => {
-                  const active = selected === opt || (!selected && opt === 'All');
+                  const active = selected === opt || (!required && !selected && opt === 'All');
                   return (
                     <Pressable
                       key={opt}
@@ -298,6 +305,7 @@ export function DropdownSelect({
             </ScrollView>
           </Pressable>
         </Pressable>
+        </KeyboardSafeView>
       </Modal>
     </View>
   );

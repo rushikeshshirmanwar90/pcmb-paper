@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { confirmAction } from '@/components/account-section';
 import { Button, CodeInput, ErrorText, Icon, usePalette } from '@/components/kit';
+import { KeyboardAwareScrollView } from '@/components/keyboard-safe-view';
 import { useAuth, useSignedInUser } from '@/context/auth-context';
 import { emailApi } from '@/services/email-api';
 
@@ -59,8 +60,8 @@ export function VerifyEmailScreen() {
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView behavior="padding" style={styles.root}>
+        <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           <View style={[styles.mark, { backgroundColor: palette.primarySoft }]}>
             <Icon name={{ ios: 'envelope.badge', android: 'mark_email_unread' }} color={palette.primary} size={28} />
           </View>
@@ -92,7 +93,7 @@ export function VerifyEmailScreen() {
           >
             <Text style={[styles.link, { color: palette.primary }]}>Wrong email? Log out</Text>
           </Pressable>
-        </ScrollView>
+        </KeyboardAwareScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

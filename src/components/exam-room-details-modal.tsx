@@ -15,6 +15,7 @@ import { SymbolView } from 'expo-symbols';
 import { MathText } from '@/components/math-text';
 import { Explanation } from '@/components/explanation';
 import { DropdownSelect } from '@/components/dropdown-select';
+import { KeyboardSafeView } from '@/components/keyboard-safe-view';
 import { getPalette, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { DifficultyLevel, ExamRoom, Question } from '@/types/pcmb';
@@ -339,7 +340,7 @@ function QuestionEditorSheet({
 
   return (
     <Modal visible animationType="slide" transparent onRequestClose={onCancel}>
-      <View style={styles.editModalOverlay}>
+      <KeyboardSafeView style={styles.editModalOverlay}>
         <View style={[styles.editModalContent, { backgroundColor: palette.card, borderColor: palette.border }]}>
           <View style={styles.editModalHeader}>
             <Text style={[styles.editModalTitle, { color: palette.foreground }]}>Edit Room Question</Text>
@@ -348,7 +349,7 @@ function QuestionEditorSheet({
             </Pressable>
           </View>
 
-          <ScrollView contentContainerStyle={styles.editModalScroll} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={styles.editModalScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {/* Difficulty Selector */}
             <DropdownSelect
               label="DIFFICULTY LEVEL"
@@ -438,7 +439,7 @@ function QuestionEditorSheet({
             </Pressable>
           </View>
         </View>
-      </View>
+      </KeyboardSafeView>
     </Modal>
   );
 }

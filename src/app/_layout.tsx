@@ -15,6 +15,7 @@ import { onNotificationTap } from '@/services/notifications';
 import { showStudents } from '@/screens/tuition/people-nav';
 import { JoinTuitionScreen } from '@/screens/join-tuition-screen';
 import { VerifyEmailScreen } from '@/screens/verify-email-screen';
+import { ForcePasswordChangeScreen } from '@/screens/force-password-change';
 import { LoginScreen, UnreachableScreen } from '@/screens/login-screen';
 
 SplashScreen.preventAutoHideAsync();
@@ -49,6 +50,8 @@ function SignedInGate() {
   if (!user) return <LoginScreen />;
   // Registered, but not yet in a tuition: first verify the email, then join.
   if (!user.role) return user.emailVerified ? <JoinTuitionScreen /> : <VerifyEmailScreen />;
+  // Admin-created students must change their password before using the app.
+  if (user.mustChangePassword && user.role === 'student') return <ForcePasswordChangeScreen />;
 
   // Keyed by the user, so logging in as someone else starts on a fresh first tab.
   const tabs = tabsFor(user.role);

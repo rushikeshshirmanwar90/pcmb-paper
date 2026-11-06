@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, type TextInputInstance, View } from 'react-native';
+import { KeyboardAvoidingView, Pressable, StyleSheet, Text, type TextInputInstance, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, ErrorText, Field, Icon, PasswordField, usePalette } from '@/components/kit';
+import { KeyboardAwareScrollView } from '@/components/keyboard-safe-view';
 import { useAuth } from '@/context/auth-context';
 import { ForgotPasswordScreen } from '@/screens/forgot-password-screen';
 import { RegisterScreen } from '@/screens/register-screen';
@@ -59,8 +60,8 @@ function LoginForm({
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView behavior="padding" style={styles.root}>
+        <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           <View style={[styles.mark, { backgroundColor: palette.primary }]}>
             <Icon name={{ ios: 'graduationcap.fill', android: 'school' }} color={palette.onPrimary} size={30} />
           </View>
@@ -111,7 +112,7 @@ function LoginForm({
             <Button label="Create an account" variant="secondary" onPress={onSignUp} />
           </View>
 
-        </ScrollView>
+        </KeyboardAwareScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
