@@ -124,3 +124,46 @@ export async function pickQuestions(exam: string, body: Record<string, unknown>)
     foundByLevel: mix(data.foundByLevel, { Easy: 0, Mid: 0, Hard: 0 }) as Mix,
   };
 }
+
+// ─── The one-page Make PDF form: Foundation and Competitive MCQs ───────────
+// Read-only calls to /make-pdf/*; each names the whole scope and the server
+// decides what matches. Nothing here changes a question.
+
+export interface BankOptions {
+  chapters: { name: string; count: number }[];
+  topics: { chapter: string; name: string; count: number }[];
+  years: { name: string; count: number }[];
+  total: number;
+}
+
+const asRows = <T extends { name: string; count: number }>(value: unknown): T[] =>
+  Array.isArray(value) ? (value.filter((row) => row && typeof row.name === 'string' && typeof row.count === 'number') as T[]) : [];
+
+export async function fetchBankOptions(body: Record<string, unknown>): Promise<BankOptions> {
+  const data = await api<Record<string, unknown>>('/make-pdf/options', { method: 'POST', body });
+  return { chapters: asRows(data.chapters), topics: asRows(data.topics), years: asRows(data.years), total: Number(data.total) || 0 };
+}
+
+export interface BankPage {
+  questions: Question[];
+  total: number;
+  hasMore: boolean;
+}
+
+export async function fetchBankPage(body: Record<string, unknown>, page: number, limit: number): Promise<BankPage> {
+  const data = await api<{ questions?: unknown[]; total?: number; hasMore?: boolean }>('/make-pdf/questions', { method: 'POST', body: { ...body, page, limit } });
+  const raw = Array.isArray(data.questions) ? data.questions : [];
+  return { questions: raw.map(toQuestion), total: typeof data.total === 'number' ? data.total : raw.length, hasMore: !!data.hasMore };
+}
+
+/** `count` random questions from the scope, leaving out the ids given. */
+export async function fetchBankRandom(body: Record<string, unknown>, count: number, exclude: string[]): Promise<Question[]> {
+  const data = await api<{ questions?: unknown[] }>('/make-pdf/pick', { method: 'POST', body: { ...body, count, exclude } });
+  return (Array.isArray(data.questions) ? data.questions : []).map(toQuestion);
+}
+
+/** The picked questions the server confirms are inside the scope, in order, and how many it dropped. */
+export async function verifyBankQuestions(body: Record<string, unknown>, ids: string[]): Promise<{ questions: Question[]; dropped: number }> {
+  const data = await api<{ questions?: unknown[]; dropped?: number }>('/make-pdf/pick', { method: 'POST', body: { ...body, ids } });
+  return { questions: (Array.isArray(data.questions) ? data.questions : []).map(toQuestion), dropped: Number(data.dropped) || 0 };
+}

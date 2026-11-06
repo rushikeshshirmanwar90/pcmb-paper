@@ -329,13 +329,13 @@ describe('the screens', () => {
     assert.match(dropdown, /required \? options\.filter/);
   });
 
-  test('the first step offers Exam PDF and Smart PDF, and both go through the same steps', () => {
-    assert.match(flow, /title="Exam PDF"[\s\S]*Printable Question Paper/);
-    assert.match(flow, /title="Smart PDF"[\s\S]*Digital Classroom Presentation/);
-    assert.match(flow, /useState<PdfKind \| null>/);
-    assert.equal((flow.match(/<ScopeStep/g) ?? []).length, 1);
-    assert.equal((flow.match(/<ReviewStep/g) ?? []).length, 1);
-    assert.equal((flow.match(/<MethodStep/g) ?? []).length, 1);
+  test('one screen offers Exam PDF and Smart PDF and chooses the questions; no wizard steps remain', () => {
+    const page = read('../src/screens/teacher/make-pdf/one-page.tsx');
+    assert.match(page, /label: 'Exam PDF'/);
+    assert.match(page, /label: 'Smart PDF'/);
+    assert.match(flow, /useState<PdfKind>/);
+    assert.equal((flow.match(/<OnePageSelect/g) ?? []).length, 1);
+    for (const gone of ['<ScopeStep', '<ReviewStep', '<MethodStep', '<ManualPicker']) assert.ok(!flow.includes(gone), gone);
   });
 
   test('only an Exam PDF gets the paper settings; a Smart PDF gets its own and none of the paper\'s', () => {
@@ -352,17 +352,16 @@ describe('the screens', () => {
     }
   });
 
-  test('automatic generation offers a number, levels, a type and leaving out used questions; manual and review exist', () => {
-    for (const text of ['Automatic generation', 'Manual selection', 'Question type', 'Questions used before', 'Set by level']) assert.ok(method.includes(text), text);
-    assert.match(flow, /<ManualPicker/);
-    assert.match(flow, /replaceQuestion|replaceWith/);
-    assert.match(flow, /moveQuestion/);
+  test('the one page offers a number, random and manual picking, browsing and removal', () => {
+    const page = read('../src/screens/teacher/make-pdf/one-page.tsx');
+    for (const text of ['Number of questions', 'Pick randomly', 'Browse questions', 'Selected questions', 'Remove question', 'Load more questions']) assert.ok(page.includes(text), text);
   });
 
   test('the flow never reads questions from anywhere but the exam-checked services', () => {
     assert.doesNotMatch(flow, /fetchQuestions|fetchQuestionPool|searchPdfQuestions|MOCK_QUESTIONS/);
     const service = read('../src/services/pdf-questions.ts');
     assert.match(service, /sourceMatchesExam/);
+    assert.match(service, /verifyBankQuestions/);
     assert.doesNotMatch(service, /MOCK_QUESTIONS/);
   });
 
