@@ -1,3 +1,4 @@
+import type { VisibilityPacket } from '@/screens/student/exam-visibility';
 import { api, ApiError } from '@/services/api-client';
 import type { Program, SchoolStandard, SchoolSubject, Track } from '@/constants/school';
 import type { TestSummary, TimetableEntry, TopicPerformance, WeakTopic } from '@/services/school-api';
@@ -56,7 +57,13 @@ export interface TestQuestion {
 }
 
 export interface Attempt {
-  state: 'in-progress' | 'submitted';
+  state: 'in-progress' | 'suspended' | 'submitted';
+  id?: string;
+  suspendedAt?: string | null;
+  remainingMs?: number;
+  resumeVersion?: number;
+  revision?: number;
+  visibilityVerified?: boolean;
   startedAt: string;
   /** "violation" when the attempt was ended for leaving the app during the exam. */
   endedReason?: 'violation' | null;
@@ -349,16 +356,19 @@ export const studentApi = {
   /** The batch's tests, upcoming (scheduled) ones included as summaries; they can't be opened until they open. */
   tests: () => api<{ tests: StudentTest[] }>('/tests?upcoming=1').then((r) => r.tests),
   /** `analytics` is null (or missing from older servers) until the test has closed and the student has submitted. */
-  test: (id: string) => api<{ test: TestSummary; attempt: Attempt | null; questions: TestQuestion[]; analytics?: TestAnalytics | null }>(`/tests/${id}`),
-  start: (id: string) => api<{ attempt: Attempt; questions: TestQuestion[] }>(`/tests/${id}/start`, { method: 'POST' }),
-  saveAnswers: (id: string, answers: { index: number; selected: string | null }[]) =>
-    api<{ saved: number }>(`/tests/${id}/answers`, { method: 'PUT', body: { answers } }),
-  submit: (id: string, answers: { index: number; selected: string | null }[]) =>
-    api<{ attempt: Attempt; questions: TestQuestion[] }>(`/tests/${id}/submit`, { method: 'POST', body: { answers } }),
+  test: (id: string) => api<{ test: TestSummary; access?: import('./school-api').TestAccess; attempt: Attempt | null; questions: TestQuestion[]; analytics?: TestAnalytics | null }>(`/tests/${id}`),
+  requestTestAccess: (id: string) => api('/tests/' + id + '/access', { method: 'POST', body: { action: 'request' } }),
+  reportVisibility: (id: string, body: VisibilityPacket) => api<{ attempt: Attempt; questions?: TestQuestion[] }>(`/tests/${id}/visibility`, { method: 'POST', body }),
+  attemptStatus: (id: string) => api<{ attempt: Attempt | null; questions?: TestQuestion[] }>(`/tests/${id}/status`),
+  start: (id: string) => api<{ attempt: Attempt; questions: TestQuestion[] }>(`/tests/${id}/start`, { method: 'POST', body: { visibility: true } }),
+  saveAnswers: (id: string, answers: { index: number; selected: string | null }[], resumeVersion = 0) =>
+    api<{ saved: number }>(`/tests/${id}/answers`, { method: 'PUT', body: { answers, resumeVersion } }),
+  submit: (id: string, answers: { index: number; selected: string | null }[], resumeVersion = 0) =>
+    api<{ attempt: Attempt; questions: TestQuestion[] }>(`/tests/${id}/submit`, { method: 'POST', body: { answers, resumeVersion } }),
 
   /** The app came back after `awayMs` out of the foreground. The server records it and ends the attempt if that was too long. */
-  reportAway: (id: string, awayMs: number, answers: { index: number; selected: string | null }[]) =>
-    api<{ attempt: Attempt; questions: TestQuestion[] }>(`/tests/${id}/events`, { method: 'POST', body: { type: 'away', awayMs, answers } }),
+  reportAway: (id: string, awayMs: number, answers: { index: number; selected: string | null }[], resumeVersion = 0) =>
+    api<{ attempt: Attempt; questions: TestQuestion[] }>(`/tests/${id}/events`, { method: 'POST', body: { type: 'away', awayMs, answers, resumeVersion } }),
 
   answerPyq: (questionId: string, selected: string) =>
     api<PyqAnswerResult>('/pyq/answer', {

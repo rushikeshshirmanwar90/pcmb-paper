@@ -1,5 +1,5 @@
 import type { IconName } from '@/components/kit';
-import type { TestStatus, TestSummary } from '@/services/school-api';
+import type { TestAccess, TestStatus, TestSummary } from '@/services/school-api';
 import type { StudentTest } from '@/services/student-api';
 
 // Small helpers shared by the student's test list, test runner and results.
@@ -11,8 +11,9 @@ const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
 /** The test's status at `now`, the same rule as the server's, so a list stays right while it's open. */
-export function statusAt(test: Pick<TestSummary, 'opensAt' | 'closesAt'>, now: number): TestStatus {
+export function statusAt(test: Pick<TestSummary, 'opensAt' | 'closesAt' | 'pendingResolution'>, now: number): TestStatus {
   if (new Date(test.opensAt).getTime() > now) return 'scheduled';
+  if (test.pendingResolution) return 'open';
   if (test.closesAt && new Date(test.closesAt).getTime() <= now) return 'closed';
   return 'open';
 }
@@ -122,4 +123,12 @@ export function factsLine(test: Pick<TestSummary, 'questionCount' | 'durationMin
   ]
     .filter(Boolean)
     .join(' · ');
+}
+
+/** Permission feedback is separate from enrollment and test timing. */
+export function testAccessLabel(access: TestAccess): string {
+  if (access.allowed) return 'Access allowed';
+  if (access.request === 'pending') return 'Request pending';
+  if (access.request === 'declined') return 'Access request declined';
+  return 'Not allowed to take this test';
 }
