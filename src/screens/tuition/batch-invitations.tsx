@@ -19,7 +19,7 @@ export const BatchInvitationsScreen = tuitionOnly(function BatchInvitationsScree
   const { data: invite, error, loading, refreshing, refresh, reload, setData } = useLoad(() => batchInviteApi.get(batchId), [batchId], { cacheKey: `invite:${batchId}` });
   // Students who joined with the code and wait for approval. Left out when it can't be read.
   const pending = useLoad(() => enrollmentsApi.pending(), [batchId], { cacheKey: `invite-pending:${batchId}` });
-  const waiting = pending.data?.filter((e) => e.batch.id === batchId).length;
+  const waiting = pending.data?.filter((e) => e.batch?.id === batchId).length;
   const [expiry, setExpiry] = useState<Expiry>('180');
   const [busy, setBusy] = useState(false);
   const { flash, show, clear } = useFlash();

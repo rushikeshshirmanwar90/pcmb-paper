@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ComponentRef, type PropsWithChildren, type ReactNode, type Ref } from 'react';
+import { useEffect, useRef, useState, type ComponentRef, type PropsWithChildren, type ReactNode, type Ref } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { usePreventRemove, useRouter } from 'expo-router';
 import { confirmAction } from '@/components/account-section';
@@ -22,7 +22,15 @@ export function useDiscardGuard(dirty: boolean, title = 'Discard changes?', mess
   const allowRef = useRef<() => void>(() => {});
   // Set when leaving on purpose: a re-render before the navigation lands must not bring the question back.
   const leaving = useRef(false);
-  const allowLeave = usePreventRemove(dirty, ({ repeat }) => {
+  // Mirrors the hook's internal state once prevention is disabled, so `preventRemove` stays in sync with it.
+  const [released, setReleased] = useState(false);
+  // A change in the dirty state arms the guard again.
+  const [seenDirty, setSeenDirty] = useState(dirty);
+  if (seenDirty !== dirty) {
+    setSeenDirty(dirty);
+    setReleased(false);
+  }
+  const allowLeave = usePreventRemove(dirty && !released, ({ repeat }) => {
     if (leaving.current) {
       allowRef.current();
       repeat();
@@ -34,11 +42,14 @@ export function useDiscardGuard(dirty: boolean, title = 'Discard changes?', mess
     });
   });
   useEffect(() => {
-    allowRef.current = allowLeave;
+    allowRef.current = () => {
+      setReleased(true);
+      allowLeave();
+    };
   });
   return () => {
     leaving.current = true;
-    allowLeave();
+    allowRef.current();
   };
 }
 

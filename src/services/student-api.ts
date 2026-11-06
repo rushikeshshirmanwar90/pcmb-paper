@@ -30,6 +30,8 @@ export interface StudentOverview {
     strong: TopicStat[];
     lastResult: { title: string; score: number; maxScore: number; submittedAt: string } | null;
   };
+  enrollmentStatus?: 'enrolled' | 'approval_pending' | 'batch_pending' | null;
+  pendingBatchName?: string | null;
 }
 
 export type StudentTest = TestSummary & { mine: { state: 'in-progress' | 'submitted'; score: number | null } | null };

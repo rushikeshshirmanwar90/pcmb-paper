@@ -26,6 +26,8 @@ export interface DropdownSelectProps {
   emptyText?: string;
   /** How many questions each option holds, shown beside it; "All" shows the total. */
   counts?: Record<string, number>;
+  /** A real choice, not a filter: no "All" row and no clear button, so exactly one option is picked. */
+  required?: boolean;
 }
 
 const formatCount = (n: number) => n.toLocaleString();
@@ -40,6 +42,7 @@ export function DropdownSelect({
   searchable = false,
   emptyText,
   counts,
+  required = false,
 }: DropdownSelectProps) {
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
@@ -62,11 +65,11 @@ export function DropdownSelect({
 
   // All options including 'All'
   const allOptions = useMemo(() => {
-    const opts = ['All', ...options.filter((o) => o !== 'All')];
+    const opts = required ? options.filter((o) => o !== 'All') : ['All', ...options.filter((o) => o !== 'All')];
     if (!searchQuery.trim()) return opts;
     const q = searchQuery.toLowerCase();
     return opts.filter((o) => o.toLowerCase().includes(q));
-  }, [options, searchQuery]);
+  }, [options, required, searchQuery]);
 
   const handleSelect = (val: string) => {
     onSelect(val);
@@ -130,7 +133,7 @@ export function DropdownSelect({
           {!isEmpty && selectedCount !== undefined && (
             <Text style={[styles.countText, { color: palette.mutedForeground }]}>{formatCount(selectedCount)}</Text>
           )}
-          {isSelected && (
+          {isSelected && !required && (
             <Pressable
               onPress={handleClear}
               hitSlop={8}
@@ -252,7 +255,7 @@ export function DropdownSelect({
                 </View>
               ) : (
                 allOptions.map((opt) => {
-                  const active = selected === opt || (!selected && opt === 'All');
+                  const active = selected === opt || (!required && !selected && opt === 'All');
                   return (
                     <Pressable
                       key={opt}

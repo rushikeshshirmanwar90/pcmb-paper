@@ -26,6 +26,7 @@ import { useAppearance, type AppearancePreference } from '@/context/appearance-c
 import { useAuth, useSignedInUser } from '@/context/auth-context';
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
 import { FlashNotice, InfoRow, useFlash } from '@/screens/tuition/admin-ui';
+import { InstituteLogoCard } from '@/screens/tuition/institute-logo-card';
 import { tuitionApi, type TuitionDetails, type Weightage } from '@/services/tuition-api';
 
 /** The tuition's details, its chapter weightage, settings on this phone, and the account. */
@@ -71,6 +72,9 @@ export function TuitionProfileScreen() {
           <Button label="Edit institute details" variant="secondary" icon={{ ios: 'pencil', android: 'edit' }} onPress={() => setEditing(true)} />
         </Card>
       ) : null}
+
+      <SectionTitle title="Institute logo" />
+      <InstituteLogoCard />
 
       <SectionTitle title="Syllabus" />
       <Card style={styles.listCard}>

@@ -657,7 +657,7 @@ ${message}`)) void submit();
   const timeUp = remaining === 0;
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={styles.flex} behavior="padding">
       <Header title={test.title} trailing={<TimerPill seconds={remaining} />} />
 
       <View style={[styles.statusBar, { borderBottomColor: palette.border, backgroundColor: palette.card }]}>

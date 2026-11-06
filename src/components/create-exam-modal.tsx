@@ -37,6 +37,9 @@ import type {
 import { fetchQuestionPool, QuestionLoadError } from '@/services/apiService';
 import { useKeepServerConnection } from '@/hooks/use-keep-server-connection';
 import { createPdfsFor, PDF_CHOICES, PdfRequestError, type PdfChoice, type PdfStage } from '@/services/question-pdf';
+import { useAuth } from '@/context/auth-context';
+import { loadPdfWatermark, savePdfWatermark } from '@/services/pdf-watermark-prefs';
+import { cleanWatermark, MAX_WATERMARK } from '@/shared/watermark';
 import { DateField } from '@/screens/teacher/date-field';
 import { openPdf, pdfContentLabel, printPdf, sharePdf, type SavedPdf } from '@/services/pdf-library';
 import { SmartPdfScreen } from './smart-pdf-screen';
@@ -590,6 +593,32 @@ export function QuestionSetFlow({
   const [examDate, setExamDate] = useState(startOfToday);
   const [durationText, setDurationText] = useState(String(DEFAULT_DURATION_MINUTES));
   const durationMinutes = wholeNumberIn(durationText, DURATION_RANGE);
+  // The watermark is remembered per teacher on this phone: the first time the
+  // field is open to type in; afterwards the saved one is shown, tap to edit.
+  const { user } = useAuth();
+  const userId = user?.id ?? '';
+  const [watermark, setWatermark] = useState('');
+  const [editingWatermark, setEditingWatermark] = useState(true);
+  // The field is there at once; the saved text fills it in when it arrives, unless the teacher has already typed.
+  const typedWatermark = useRef(false);
+  useEffect(() => {
+    if (!isPdf || !userId) return;
+    let cancelled = false;
+    void loadPdfWatermark(userId).then((saved) => {
+      if (cancelled || saved === null || typedWatermark.current) return;
+      setWatermark(saved);
+      setEditingWatermark(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isPdf, userId]);
+  const doneWithWatermark = () => {
+    const kept = cleanWatermark(watermark);
+    setWatermark(kept);
+    setEditingWatermark(false);
+    if (userId) void savePdfWatermark(userId, kept);
+  };
 
   const examCategory = standard ? trackOf(standard) : null;
   // The whole subject's chapters and topics; chapters only mean something
@@ -853,6 +882,9 @@ export function QuestionSetFlow({
     setMakingPdf(true);
     setPdfProgress({ stage: 'making', count: selectedList.length });
     setPdfError(null);
+    const printedWatermark = cleanWatermark(watermark);
+    // What this paper used is what the next one starts with, even if Done wasn't tapped.
+    if (userId) void savePdfWatermark(userId, printedWatermark);
     try {
       const pdfs = await createPdfsFor(
         {
@@ -865,6 +897,7 @@ export function QuestionSetFlow({
             paperSet: paperSet.trim() || '1',
             date: dayKey(examDate),
             durationMinutes: durationMinutes || undefined,
+            watermark: printedWatermark || undefined,
           },
         },
         pdfChoice,
@@ -1197,6 +1230,64 @@ export function QuestionSetFlow({
                 <Text style={[styles.fieldHint, { color: palette.mutedForeground }]}>
                   The institute, class, subject, chapter and marks are filled in for you.
                 </Text>
+              </View>
+              <View style={styles.fieldGroup}>
+                <Text style={[styles.fieldLabel, { color: palette.mutedForeground }]}>Watermark</Text>
+                {editingWatermark ? (
+                  <>
+                    <TextInput
+                      value={watermark}
+                      onChangeText={(text) => {
+                        typedWatermark.current = true;
+                        setWatermark(text.slice(0, MAX_WATERMARK));
+                      }}
+                      onSubmitEditing={doneWithWatermark}
+                      placeholder={user?.tuition?.name ? `e.g. ${cleanWatermark(user.tuition.name)}` : 'e.g. Your institute name'}
+                      placeholderTextColor={palette.mutedForeground}
+                      maxLength={MAX_WATERMARK}
+                      accessibilityLabel="Watermark"
+                      accessibilityHint="Optional. Printed faintly across every page of the paper"
+                      returnKeyType="done"
+                      style={[
+                        styles.textInput,
+                        { backgroundColor: palette.card, borderColor: palette.border, color: palette.foreground },
+                      ]}
+                    />
+                    <Text style={[styles.fieldHint, { color: palette.mutedForeground }]}>
+                      Optional. Printed in light grey across every page, behind the questions, so it shows on black-and-white
+                      prints without covering any text. Leave empty for none.
+                    </Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Save watermark"
+                      onPress={doneWithWatermark}
+                      style={({ pressed }) => [styles.watermarkDone, pressed && styles.pressed]}
+                    >
+                      <Text style={[styles.watermarkEdit, { color: palette.primary }]}>Done</Text>
+                    </Pressable>
+                  </>
+                ) : (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={watermark ? `Watermark: ${watermark}. Edit` : 'No watermark. Add one'}
+                    onPress={() => setEditingWatermark(true)}
+                    style={({ pressed }) => [
+                      styles.watermarkRow,
+                      { backgroundColor: palette.card, borderColor: palette.border },
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <View style={styles.watermarkText}>
+                      <Text numberOfLines={1} style={[styles.watermarkValue, { color: watermark ? palette.foreground : palette.mutedForeground }]}>
+                        {watermark || 'No watermark'}
+                      </Text>
+                      <Text style={[styles.fieldHint, styles.watermarkHint, { color: palette.mutedForeground }]}>
+                        {watermark ? 'Saved. Printed on every page of this paper.' : 'Saved. Tap to add one.'}
+                      </Text>
+                    </View>
+                    <Text style={[styles.watermarkEdit, { color: palette.primary }]}>{watermark ? 'Edit' : 'Add'}</Text>
+                  </Pressable>
+                )}
               </View>
               <View style={styles.numberRow}>
                 <DateField label="Date" value={examDate} minimumDate={startOfToday()} onChange={setExamDate} />
@@ -1721,7 +1812,7 @@ export function QuestionSetFlow({
 
 // ─── Inline Question Editor Modal Component ───────────────────────────────────
 
-function QuestionEditModal({
+export function QuestionEditModal({
   question,
   onSave,
   onCancel,
@@ -2054,6 +2145,33 @@ const styles = StyleSheet.create({
   fieldHint: {
     fontSize: 12,
     marginTop: 6,
+  },
+  watermarkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.2,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 12,
+  },
+  watermarkText: {
+    flex: 1,
+  },
+  watermarkValue: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  watermarkHint: {
+    marginTop: 2,
+  },
+  watermarkEdit: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  watermarkDone: {
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
   },
   summaryLine: {
     fontSize: 14,

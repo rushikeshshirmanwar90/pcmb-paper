@@ -60,6 +60,7 @@ export function AnnouncementsSection({
   allowAllBatches,
   limit = 3,
   tabKey = null,
+  compact = false,
 }: {
   /** The batches the user can post to. */
   batches: { id: string; name: string }[];
@@ -69,6 +70,8 @@ export function AnnouncementsSection({
   limit?: number;
   /** The tab it's shown in: it reloads after changes elsewhere only once that tab is open. */
   tabKey?: string | null;
+  /** "New" sits beside the section title instead of a full-width button. */
+  compact?: boolean;
 }) {
   const palette = usePalette();
   const user = useSignedInUser();
@@ -91,6 +94,7 @@ export function AnnouncementsSection({
     });
 
   const list = data ?? [];
+  const postDisabled = !allowAllBatches && batches.length === 0;
   const renderList = (items: Announcement[]) =>
     items.map((a) => <AnnouncementCard key={a.id} item={a} onDelete={canDelete(a) ? () => remove(a) : undefined} />);
 
@@ -99,20 +103,37 @@ export function AnnouncementsSection({
       <SectionTitle
         title="Announcements"
         action={
-          list.length > limit ? (
-            <Pressable accessibilityRole="button" onPress={() => setShowAll(true)} hitSlop={8}>
-              <Text style={[styles.link, { color: palette.primary }]}>See all ({list.length})</Text>
-            </Pressable>
+          list.length > limit || (compact && canPost) ? (
+            <View style={styles.titleActions}>
+              {compact && canPost ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="New announcement"
+                  accessibilityState={{ disabled: postDisabled }}
+                  disabled={postDisabled}
+                  onPress={() => setPosting(true)}
+                  hitSlop={8}
+                  style={postDisabled && styles.off}
+                >
+                  <Text style={[styles.link, { color: palette.primary }]}>New</Text>
+                </Pressable>
+              ) : null}
+              {list.length > limit ? (
+                <Pressable accessibilityRole="button" onPress={() => setShowAll(true)} hitSlop={8}>
+                  <Text style={[styles.link, { color: palette.primary }]}>See all ({list.length})</Text>
+                </Pressable>
+              ) : null}
+            </View>
           ) : undefined
         }
       />
-      {canPost ? (
+      {canPost && !compact ? (
         <Button
           label="New announcement"
           variant="secondary"
           icon={{ ios: 'megaphone', android: 'campaign' }}
           onPress={() => setPosting(true)}
-          disabled={!allowAllBatches && batches.length === 0}
+          disabled={postDisabled}
         />
       ) : null}
       <ErrorText message={deleteError} />
@@ -229,5 +250,7 @@ const styles = StyleSheet.create({
   body: { fontSize: 14, lineHeight: 20 },
   meta: { fontSize: 12, flex: 1 },
   link: { fontSize: 13, fontWeight: '700' },
+  titleActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  off: { opacity: 0.45 },
   multiline: { minHeight: 96, textAlignVertical: 'top' },
 });

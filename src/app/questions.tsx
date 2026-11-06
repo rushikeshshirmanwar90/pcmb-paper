@@ -17,7 +17,7 @@ import { MathText } from '@/components/math-text';
 import { Explanation } from '@/components/explanation';
 import { Diagrams } from '@/components/diagrams';
 import { DropdownSelect } from '@/components/dropdown-select';
-import { QuestionSetFlow } from '@/components/create-exam-modal';
+import { MakePdfFlow } from '@/screens/teacher/make-pdf/flow';
 import { Colors, getPalette, Spacing, BottomTabInset, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTabNavigation } from '@/context/tab-context';
@@ -187,10 +187,9 @@ function QuestionsScreenComponent() {
   // Tests for batches are set from the Tests tab; this tab makes PDF papers.
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: colors.background }]}>
-      <AppHeader title="Make a PDF paper" subtitle="Choose a class and chapter, then the questions" />
+      <AppHeader title="Make a PDF" subtitle="An exam paper or classroom slides, from JEE and NEET questions" />
       <View style={[styles.mainWrapper, { maxWidth: MaxContentWidth }]}>
-        <QuestionSetFlow
-          purpose="pdf"
+        <MakePdfFlow
           onViewPdfs={() => setQuestionsMode('pdfs')}
           bottomInset={tabBarHeight}
           active={activeKey === 'questions'}
