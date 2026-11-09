@@ -32,6 +32,8 @@ import { bumpDataVersion } from '@/context/data-version';
 import { AWAY_LIMIT_MS, backAction, cellStatus, examCounts, type MultiWindowReading, secondsLeft, skewOf, type CellStatus } from '@/screens/student/exam-guard';
 import { useExamSecurity, useMultiWindow } from '@/screens/student/exam-security';
 import { createAnswerSaver, type AnswerSaver, type SaveState } from '@/screens/student/answer-saver';
+import { mergeSavedAnswers, restorableAnswers, type SavedAnswer } from '@/screens/student/answer-sync';
+import { ApiError } from '@/services/api-client';
 import { RESULT_SECTIONS, numberLabel, percentLabel, resultFigures, type ResultSection } from '@/screens/shared/result-format';
 
 import { TopicPerformanceList, WeakTopicsSection } from '@/screens/shared/topic-performance';
@@ -378,7 +380,7 @@ function Runner({
   const [attempt, setAttempt] = useState(initialAttempt);
   const liveAttempt = useRef(initialAttempt);
   const suspended = attempt.state === 'suspended';
-  const applyStatusRef = useRef<(value: Attempt, reviewQuestions?: TestQuestion[]) => void>(() => {});
+  const applyStatusRef = useRef<(value: Attempt, reviewQuestions?: TestQuestion[], mergeDuringSave?: boolean) => void>(() => {});
   const statusRequest = useRef<Promise<Attempt | null> | null>(null);
   const refreshStatus = useCallback(() => {
     if (statusRequest.current) return statusRequest.current;
@@ -412,6 +414,7 @@ function Runner({
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [warning, setWarning] = useState<{ minutes: number } | null>(null);
   const answersRef = useRef(answers);
+  const savedAnswers = useRef(new Map<number, SavedAnswer>(initialAttempt.answers.map(a => [a.index, a])));
   const submittedRef = useRef(false);
   const scrollRef = useRef<ScrollViewInstance>(null);
 
@@ -422,8 +425,22 @@ function Runner({
     const latest = answersRef;
     const done = submittedRef;
     const saver = createAnswerSaver({
-      save: (changed) => studentApi.saveAnswers(test.id, changed, liveAttempt.current.resumeVersion ?? 0),
+      save: async (changed) => {
+        try {
+          const result = await studentApi.saveAnswers(test.id, changed, liveAttempt.current.resumeVersion ?? 0);
+          for (const answer of result.answers) {
+            if ((answer.version ?? 0) >= (savedAnswers.current.get(answer.index)?.version ?? 0)) savedAnswers.current.set(answer.index, answer);
+          }
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 409) {
+            const status = await studentApi.attemptStatus(test.id);
+            if (status.attempt) applyStatusRef.current(status.attempt, status.questions, true);
+          }
+          throw error;
+        }
+      },
       read: (index) => latest.current.get(index) ?? null,
+      readVersion: (index) => savedAnswers.current.get(index)?.version ?? 0,
       onState: setSaveState,
     });
     saverRef.current = saver;
@@ -453,7 +470,7 @@ function Runner({
         const marks = new Set([...draft.marks.filter((i) => known.has(i)), ...markedRef.current]);
         markedRef.current = marks;
         setMarked(marks);
-        const pending = draft.pending.filter((p) => known.has(p.index) && !touched.current.has(p.index));
+        const pending = restorableAnswers(draft.pending, [...savedAnswers.current.values()]).filter((p) => known.has(p.index) && !touched.current.has(p.index));
         if (pending.length) {
           const next = new Map(answersRef.current);
           pending.forEach((p) => next.set(p.index, p.selected));
@@ -488,7 +505,7 @@ function Runner({
     return () => clearTimeout(timer);
   }, [marked, answers, saveState, current, restored, persistDraft]);
 
-  const all = () => questions.map((q) => ({ index: q.index, selected: answersRef.current.get(q.index) ?? null }));
+  const all = () => questions.map((q) => ({ index: q.index, selected: answersRef.current.get(q.index) ?? null, baseVersion: savedAnswers.current.get(q.index)?.version ?? 0 }));
 
   const warned = useRef({ five: false, one: false });
   const lastExpiryTry = useRef(0);
@@ -548,9 +565,18 @@ function Runner({
   // attempt if it was too long; the exam stays frozen until it answers. A
   // report that can't be sent (no connection) is kept and retried, and a
   // dropped connection by itself is never treated as leaving.
-  const applyStatus = useCallback((value: Attempt, reviewQuestions?: TestQuestion[]) => {
+  const applyStatus = useCallback((value: Attempt, reviewQuestions?: TestQuestion[], mergeDuringSave = false) => {
     const previous = liveAttempt.current;
     if (!acceptsAttemptStatus(previous, value)) return;
+    // Acknowledgement of our own in-flight save may precede its HTTP response.
+    // Wait for that response before merging, preserving edits made meanwhile.
+    if (mergeDuringSave || !saverRef.current?.saving || value.state === 'submitted') {
+      const saved = value.answers.filter(a => (a.version ?? 0) >= (savedAnswers.current.get(a.index)?.version ?? 0));
+      const next = mergeSavedAnswers(answersRef.current, saverRef.current?.unconfirmed() ?? [], saved);
+      answersRef.current = next;
+      setAnswers(next);
+      for (const answer of saved) savedAnswers.current.set(answer.index, answer);
+    }
     liveAttempt.current = value;
     skewRef.current = skewOf(value.serverTime);
     setAttempt(value);
@@ -578,7 +604,7 @@ function Runner({
     const interval = setInterval(() => { if (isExamVisible()) void refreshStatus(); }, 5000);
     return () => clearInterval(interval);
   }, [refreshStatus, isExamVisible]);
-  const holdSaving = suspended || frozen || visibilityBlocked || remaining === 0;
+  const holdSaving = !restored || suspended || frozen || visibilityBlocked || remaining === 0;
   useEffect(() => {
     if (holdSaving) saverRef.current?.pause();
     else saverRef.current?.resume();
@@ -591,6 +617,8 @@ function Runner({
     setSubmitting(true);
     setError(null);
     try {
+      // Wait for an autosave acknowledgement before building final versions.
+      await saverRef.current?.flush();
       // Every answer goes with the submission, saved or not.
       const result = await studentApi.submit(test.id, all(), liveAttempt.current.resumeVersion ?? 0);
       if (result.attempt.state !== 'submitted') {
@@ -599,6 +627,7 @@ function Runner({
       } else onSubmitted(result.attempt, result.questions);
     } catch (e) {
       submittedRef.current = false;
+      if (e instanceof ApiError && e.status === 409) await refreshStatus();
       setError(e instanceof Error ? e.message : "Couldn't submit. Check your internet and try again.");
       if (liveAttempt.current.state === 'in-progress') saverRef.current?.resume();
     } finally {
@@ -625,7 +654,7 @@ function Runner({
   }, [hint]);
 
   const select = (value: string | null) => {
-    if (liveAttempt.current.state !== 'in-progress' || frozen || !canAnswerExam() || remaining === 0 || submitting || splitBlocked) return;
+    if (!restored || liveAttempt.current.state !== 'in-progress' || frozen || !canAnswerExam() || remaining === 0 || submitting || splitBlocked) return;
     const index = questions[current].index;
     answersRef.current = new Map(answersRef.current).set(index, value);
     setAnswers(answersRef.current);

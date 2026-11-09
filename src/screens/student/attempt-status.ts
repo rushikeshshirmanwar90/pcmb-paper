@@ -1,7 +1,7 @@
 import type { Attempt } from '../../services/student-api';
 
-/** Status refreshes change timing/state only. They cannot replace the local
- * answer queue, navigation or review marks, or switch to another attempt. */
+/** Reject responses from another attempt or older control generations.
+ * Answer reconciliation separately preserves edits based on current versions. */
 export function acceptsAttemptStatus(previous: Attempt, next: Attempt): boolean {
   if (previous.startedAt !== next.startedAt || (previous.id && next.id && previous.id !== next.id)) return false;
   if (previous.state === 'submitted' && next.state !== 'submitted') return false;

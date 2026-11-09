@@ -46,7 +46,7 @@ export function decodeDraft(raw: string | null, startedAt: string): AttemptDraft
             !!p && typeof p === 'object' && isIndex(p.index) && (p.selected === null || (typeof p.selected === 'string' && p.selected.length <= 20))
         )
         .slice(0, MAX_ITEMS)
-        .map((p) => ({ index: p.index, selected: p.selected }))
+        .map((p) => ({ index: p.index, selected: p.selected, ...(Number.isSafeInteger(p.baseVersion) && p.baseVersion! >= 0 ? { baseVersion: p.baseVersion } : {}) }))
     : [];
   return { startedAt, marks, pending, ...(isIndex(v.current) ? { current: v.current } : {}), ...(Array.isArray(v.visited) ? { visited: [...new Set(v.visited.filter(isIndex))].slice(0, MAX_ITEMS) } : {}) };
 }

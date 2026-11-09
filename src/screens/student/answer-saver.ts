@@ -10,7 +10,7 @@
 //   every 20 seconds, until it works or the test is submitted.
 
 export type SaveState = 'saved' | 'pending' | 'saving' | 'error';
-export type AnswerUpdate = { index: number; selected: string | null };
+export type AnswerUpdate = { index: number; selected: string | null; baseVersion?: number };
 
 type Timer = ReturnType<typeof setTimeout>;
 
@@ -19,6 +19,7 @@ export interface AnswerSaverOptions {
   save: (answers: AnswerUpdate[]) => Promise<unknown>;
   /** The answer to a question as it is now. */
   read: (index: number) => string | null;
+  readVersion?: (index: number) => number;
   /** Called whenever the state changes. */
   onState: (state: SaveState) => void;
   delayMs?: number;
@@ -51,11 +52,13 @@ export interface AnswerSaver {
   /** Stop all timers, e.g. when the screen closes. */
   dispose(): void;
   readonly state: SaveState;
+  readonly saving: boolean;
 }
 
 export function createAnswerSaver({
   save,
   read,
+  readVersion,
   onState,
   delayMs = 800,
   retryMs = [2000, 5000, 10000, 20000],
@@ -90,7 +93,7 @@ export function createAnswerSaver({
     }, ms);
   };
 
-  const updates = (indexes: Iterable<number>) => [...indexes].map((index) => ({ index, selected: read(index) }));
+  const updates = (indexes: Iterable<number>) => [...indexes].map((index) => ({ index, selected: read(index), ...(readVersion ? { baseVersion: readVersion(index) } : {}) }));
 
   function flush(): Promise<void> {
     if (paused || inFlight || !waiting.size) return flight ?? Promise.resolve();
@@ -153,7 +156,8 @@ export function createAnswerSaver({
       if (waiting.size && !paused) await flush();
       return !waiting.size && !inFlight;
     },
-    dispose: cancel,
+    dispose() { paused = true; cancel(); },
+    get saving() { return inFlight; },
     get state() {
       return state;
     },

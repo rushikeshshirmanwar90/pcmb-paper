@@ -40,7 +40,8 @@ export function DetailsScreen() {
     const changed = scopeId(nextDerived, keepSubject) !== scopeId(derived, subject);
     if (changed && (draft.questions.length || draft.chapters.length)) setNotice('The batches changed what can be asked, so the picked questions and filters were cleared.');
     else setNotice(null);
-    update({ batchIds: ids, subject: keepSubject, ...(changed ? CLEARED : {}) });
+    const audienceChanged = ids.length !== draft.batchIds.length || ids.some(id => !draft.batchIds.includes(id));
+    update({ batchIds: ids, subject: keepSubject, ...(audienceChanged ? { studentIds: [], excludedStudentIds: [] } : {}), ...(changed ? CLEARED : {}) });
   };
 
   const onSubject = (value: string) => {
@@ -89,7 +90,7 @@ export function DetailsScreen() {
           onSelect={onBatches}
           placeholder="Select multiple"
           selectedLabel={(n) => `${n} Batch${n === 1 ? '' : 'es'} Selected`}
-          applyOnDone searchable
+          applyOnDone searchable showSelectedChips
           icon={{ ios: 'person.3', android: 'groups', web: 'groups' }}
         />
       ) : null}

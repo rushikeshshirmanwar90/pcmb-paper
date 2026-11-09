@@ -64,7 +64,7 @@ function TeacherTestPage({ testId }: { testId: string }) {
   const footer = !closed && data?.canEdit && test && can && (can.edit || can.cancel || can.closeNow) ? <View style={styles.actions}>
     {can.edit ? <Button label="Edit test" variant="secondary" disabled={!!busy || overview.loading || !overview.data} onPress={() => setEditing(true)} /> : null}
     {can.cancel ? <Button label="Cancel test" variant="danger" disabled={!!busy} onPress={() => confirmAction('Cancel this test?', 'This upcoming test will be removed. Its question bank stays unchanged.', 'Cancel test', () => void act('cancel', async () => { await schoolApi.deleteTest(testId); goBack(); }, 'Test cancelled.'))} /> : null}
-    {can.closeNow ? <Button label="End test for everyone" variant="danger" disabled={!!busy} onPress={() => confirmAction('End the test now?', 'All attempts still in progress will be submitted using saved answers. No more students can start.', 'End test', () => void act('end', () => schoolApi.updateTest(testId, { closeNow: true }), 'The test has ended.'))} /> : null}
+    {can.closeNow ? <Button label="End test for everyone" variant="danger" disabled={!!busy} onPress={() => confirmAction('End the test now?', 'All unfinished attempts, including suspended attempts and students with extra time, will be finalized using saved answers. This cannot be undone. No more students can start.', 'End test', () => void act('end', () => schoolApi.updateTest(testId, { closeNow: true }), 'The test has ended.'))} /> : null}
   </View> : undefined;
 
   return <>
@@ -99,9 +99,9 @@ function TeacherTestPage({ testId }: { testId: string }) {
               </View>;
             })}
             {accessRows.map((row, index) => <View key={row.student.id}>
-              <ListRow title={row.student.name} subtitle={[row.batch?.name, !row.eligible ? 'Account activation or enrollment needs attention' : row.request === 'pending' ? 'Waiting for teacher approval' : row.request === 'declined' ? 'Access request declined' : 'Not allowed to start this test'].filter(Boolean).join(' | ')} last={index === accessRows.length - 1} />
+              <ListRow title={row.student.name} subtitle={[row.batch?.name, row.allowed ? row.started ? 'Allowed · Attempt started' : 'Allowed · Not started' : !row.eligible ? 'Account activation or enrollment needs attention' : row.request === 'pending' ? 'Waiting for teacher approval' : row.request === 'declined' ? 'Access request declined' : 'Not allowed to start this test'].filter(Boolean).join(' | ')} last={index === accessRows.length - 1} />
               {data.canEdit && !closed ? <View style={styles.rowAction}>
-                {row.request === 'pending' ? <><Button label="Approve request" disabled={!!busy || !row.eligible} onPress={() => accessAction(row, 'approve')} /><Button label="Decline request" variant="secondary" disabled={!!busy} onPress={() => accessAction(row, 'decline')} /></> : row.eligible ? <Button label="Allow student" variant="secondary" disabled={!!busy} onPress={() => void act(row.student.id, () => schoolApi.testAccess(testId, row.student.id, 'grant'), `${row.student.name} can now take this test.`)} /> : null}
+                {row.allowed ? !row.started ? <Button label="Remove access" variant="secondary" disabled={!!busy} onPress={() => accessAction(row, 'revoke')} /> : null : row.request === 'pending' ? <><Button label="Approve request" disabled={!!busy || !row.eligible} onPress={() => accessAction(row, 'approve')} /><Button label="Decline request" variant="secondary" disabled={!!busy} onPress={() => accessAction(row, 'decline')} /></> : row.eligible ? <Button label="Allow student" variant="secondary" disabled={!!busy} onPress={() => void act(row.student.id, () => schoolApi.testAccess(testId, row.student.id, 'grant'), `${row.student.name} can now take this test.`)} /> : null}
               </View> : null}
             </View>)}
           </Card> : <EmptyView icon={{ ios: 'person.2', android: 'groups' }} title={query ? 'No students found' : `No students in ${selectedGroup.label.toLowerCase()}`} text={query ? 'Try another name.' : 'This list updates as students start, submit or receive access.'} />}

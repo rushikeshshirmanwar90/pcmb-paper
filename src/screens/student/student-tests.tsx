@@ -131,7 +131,8 @@ const ACTIONS: Partial<Record<Kind, { label: string; icon: IconName }>> = {
 function TestCard({ test, kind, now, prominent, onOpen }: { test: ListedTest; kind: Kind; now: number; prominent: boolean; onOpen: (id: string) => void }) {
   const palette = usePalette();
   const soon = closesSoon(test, now);
-  const action = ACTIONS[kind];
+  const paused = test.mine?.state === 'suspended';
+  const action = paused ? { label: 'View paused test', icon: { ios: 'pause.circle', android: 'pause_circle' } as IconName } : ACTIONS[kind];
   const timing = test.closesAt
     ? `Closes ${soon ? untilLabel(test.closesAt, now) : whenLabel(test.closesAt, now)}`
     : 'No closing time';
@@ -148,7 +149,7 @@ function TestCard({ test, kind, now, prominent, onOpen }: { test: ListedTest; ki
             {test.subject || 'Mixed'} · {test.teacher.name}
           </Text>
         </View>
-        {kind === 'continue' ? <Badge label="In progress" tone="warning" /> : kind === 'start' ? <Badge label="Not started" tone="primary" /> : null}
+        {paused ? <Badge label="Paused" tone="warning" /> : kind === 'continue' ? <Badge label="In progress" tone="warning" /> : kind === 'start' ? <Badge label="Not started" tone="primary" /> : null}
       </View>
 
       <Text style={[styles.facts, { color: palette.inkSoft }]}>{factsLine(test)}</Text>
