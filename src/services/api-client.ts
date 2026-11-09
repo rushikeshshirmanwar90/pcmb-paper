@@ -1,3 +1,4 @@
+import { clearLoadCache } from '@/services/load-cache';
 import { API_BASE_URL } from '@/services/apiService';
 
 // Requests to the papers backend that need the user's login. The auth context
@@ -7,6 +8,8 @@ let token: string | null = null;
 let onExpired: (() => void) | null = null;
 
 export function setApiToken(next: string | null) {
+  // Another login must never start from the last one's cached answers.
+  if (next !== token) clearLoadCache();
   token = next;
 }
 

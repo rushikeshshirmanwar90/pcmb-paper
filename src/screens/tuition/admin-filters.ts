@@ -1,6 +1,6 @@
 import type { Program, SchoolStandard, SchoolSubject } from '@/constants/school';
-import type { TestStatus, TestSummary } from '@/services/school-api';
-import type { Batch, BatchSlot, Student, Teacher } from '@/services/tuition-api';
+import type { TestStatus, TestSummary, TimetableEntry } from '@/services/school-api';
+import type { Batch, BatchSlot, Coverage, Student, Teacher } from '@/services/tuition-api';
 
 // Filtering and summaries for the tuition's Batches, Students and Teachers
 // tabs. Type imports only, so it can be tested on its own
@@ -200,4 +200,57 @@ export function initials(name: string) {
 /** "1 student", "3 students". */
 export function plural(n: number, one: string, many = `${one}s`) {
   return `${n} ${n === 1 ? one : many}`;
+}
+
+// ─── Home ──────────────────────────────────────────────────────────────────
+
+export type AttentionKind = 'students' | 'teachers' | 'noTeacher' | 'noBatch' | 'noTimetable';
+
+export interface AttentionItem {
+  kind: AttentionKind;
+  count: number;
+  /** For batch-related items: the batches concerned, so one can be opened directly. */
+  batches: { id: string; name: string }[];
+}
+
+type HomeBatch = Pick<Batch, 'id' | 'name' | 'subjects' | 'teachers' | 'classes'>;
+
+/**
+ * What the tuition should act on, most urgent first; items with nothing to do
+ * are left out. A batch with no students or classes yet is expected while it
+ * is being set up, so only missing teachers and timetables are flagged.
+ */
+export function attentionItems(input: {
+  pendingStudents: number;
+  pendingTeachers: number;
+  unassignedStudents: number;
+  batches: HomeBatch[];
+}): AttentionItem[] {
+  const refs = (list: HomeBatch[]) => list.map((b) => ({ id: b.id, name: b.name }));
+  const noTeacher = input.batches.filter((b) => missingTeachers(b).length > 0);
+  const noTimetable = input.batches.filter((b) => b.classes.classes === 0);
+  const items: AttentionItem[] = [
+    { kind: 'students', count: input.pendingStudents, batches: [] },
+    { kind: 'teachers', count: input.pendingTeachers, batches: [] },
+    { kind: 'noTeacher', count: noTeacher.length, batches: refs(noTeacher) },
+    { kind: 'noBatch', count: input.unassignedStudents, batches: [] },
+    { kind: 'noTimetable', count: noTimetable.length, batches: refs(noTimetable) },
+  ];
+  return items.filter((i) => i.count > 0);
+}
+
+/** The classes on one weekday (0 = Sunday), earliest first. */
+export function classesOnDay<T extends Pick<TimetableEntry, 'day' | 'start'>>(entries: T[], day: number): T[] {
+  return entries.filter((e) => e.day === day).sort((a, b) => a.start.localeCompare(b.start));
+}
+
+/** Topics covered across all of a batch's subjects, as a whole percent; null when no subject has a syllabus. */
+export function overallCoverage(coverage: Coverage | undefined) {
+  let covered = 0;
+  let total = 0;
+  for (const c of Object.values(coverage ?? {})) {
+    covered += c.covered;
+    total += c.total;
+  }
+  return total ? { covered, total, percent: Math.round((covered / total) * 100) } : null;
 }

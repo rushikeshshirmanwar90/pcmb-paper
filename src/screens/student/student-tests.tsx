@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Badge, Button, Card, EmptyView, ErrorView, Icon, LoadingView, Screen, SectionTitle, useLoad, usePalette, type IconName } from '@/components/kit';
+import { Badge, Button, Card, EmptyView, ErrorView, Icon, LoadingView, Screen, SectionTitle, useLoad, usePalette, Muted, ListRow, type IconName } from '@/components/kit';
 import { useTabDataVersion } from '@/context/data-version';
 import {
   byUrgency,
@@ -15,6 +15,8 @@ import {
   type ListedTest,
   type TestKind as Kind,
 } from '@/screens/student/test-format';
+import { RequestTestAccessButton } from '@/screens/student/test-access';
+import { testAccessLabel } from '@/screens/student/test-format';
 import { TestRunner } from '@/screens/student/test-runner';
 import { dayLabel } from '@/services/school-api';
 import { studentApi } from '@/services/student-api';
@@ -40,7 +42,8 @@ export function StudentTestsScreen() {
   const [openId, setOpenId] = useState<string | null>(null);
 
   const tests: ListedTest[] = data ?? [];
-  const withKind = tests.map((t) => ({ test: t, kind: kindOf(t, now) }));
+  const restricted = tests.filter(t => t.access && !t.access.allowed);
+  const withKind = tests.filter(t => !t.access || t.access.allowed).map((t) => ({ test: t, kind: kindOf(t, now) }));
   const toDo = withKind.filter((x) => x.kind === 'start' || x.kind === 'continue' || x.kind === 'open').map((x) => x.test).sort(byUrgency);
   const upcoming = withKind.filter((x) => x.kind === 'upcoming').map((x) => x.test).sort((a, b) => time(a.opensAt) - time(b.opensAt));
   const past = withKind.filter((x) => x.kind === 'done' || x.kind === 'missed' || x.kind === 'closed').sort((a, b) => time(b.test.opensAt) - time(a.test.opensAt));
@@ -64,8 +67,8 @@ export function StudentTestsScreen() {
             <Card>
               <EmptyView
                 icon={{ ios: 'checkmark.circle', android: 'task_alt' }}
-                title="You're all caught up"
-                text={upcoming.length ? `Your next test opens ${whenLabel(upcoming[0].opensAt, now)}.` : 'New tests from your teachers show here.'}
+                title={restricted.length ? 'No tests ready to start' : "You're all caught up"}
+                text={restricted.length ? 'Some tests need teacher approval. Request access below.' : upcoming.length ? `Your next test opens ${whenLabel(upcoming[0].opensAt, now)}.` : 'New tests from your teachers show here.'}
               />
             </Card>
           )}
@@ -93,6 +96,7 @@ export function StudentTestsScreen() {
           ) : null}
         </>
       )}
+      {restricted.length ? <MutedAccess tests={restricted} onOpen={setOpenId} onRefresh={refresh} /> : null}
       {openId ? <TestRunner testId={openId} onClose={() => setOpenId(null)} /> : null}
     </Screen>
   );
@@ -262,3 +266,14 @@ const styles = StyleSheet.create({
   tile: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   pressed: { opacity: 0.7 },
 });
+
+function MutedAccess({ tests, onOpen, onRefresh }: { tests: ListedTest[]; onOpen: (id: string) => void; onRefresh: () => void }) {
+  return <>
+    <SectionTitle title="Restricted tests" />
+    {tests.map(test => <Card key={test.id}>
+      <ListRow title={test.title} subtitle={[test.subject, test.access ? testAccessLabel(test.access) : 'Not allowed to take this test'].filter(Boolean).join(' | ')} onPress={() => onOpen(test.id)} last />
+      <Muted>You can view this test. Teacher approval is required before you can take it.</Muted>
+      {test.access ? <RequestTestAccessButton testId={test.id} access={test.access} onRefresh={onRefresh} /> : null}
+    </Card>)}
+  </>;
+}

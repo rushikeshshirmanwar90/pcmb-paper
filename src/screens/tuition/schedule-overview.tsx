@@ -19,7 +19,7 @@ export const ScheduleOverviewScreen = tuitionOnly(function ScheduleOverviewScree
   const palette = usePalette();
   const version = useDataVersion();
   const batchLoad = useBatch(batchId);
-  const timetable = useLoad(() => schoolApi.timetable(batchId), [batchId, version]);
+  const timetable = useLoad(() => schoolApi.timetable(batchId), [batchId, version], { cacheKey: `timetable:${batchId}` });
   const notice = useScheduleNotice();
   // The message from the form that just closed; it fades after a few seconds.
   useEffect(() => {
@@ -67,6 +67,7 @@ export const ScheduleOverviewScreen = tuitionOnly(function ScheduleOverviewScree
       footer={<Button label="Add Class" icon={{ ios: 'plus', android: 'add' }} onPress={() => router.push(batchHref(batchId, 'schedule/new'))} />}
     >
       {notice ? <Notice key={notice} tone="success" title={notice} onDismiss={() => setScheduleNotice(null)} live /> : null}
+      {timetable.error && timetable.data ? <Notice tone="danger" text={`Couldn't refresh: ${timetable.error}`} /> : null}
       {timetable.loading ? (
         <LoadingView label="Loading the timetable…" />
       ) : timetable.error && !timetable.data ? (

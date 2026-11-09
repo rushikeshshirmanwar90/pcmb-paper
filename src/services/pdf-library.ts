@@ -4,6 +4,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import type { PaperStyle } from '@/shared/paper-style';
 import type { Question } from '@/types/pcmb';
 
 /**
@@ -38,7 +39,14 @@ export interface PaperDetails {
   /** The exam's day, yyyy-mm-dd. */
   date?: string;
   durationMinutes?: number;
+  /** Printed faintly across every page; kept so another version of the paper carries it too. */
+  watermark?: string;
+  /** The exam paper's font, size, columns, spacing, logo and watermark strength; kept so another version looks the same. */
+  style?: PaperStyle;
 }
+
+/** What kind of PDF it is: the printable exam paper, or Smart PDF slides. */
+export type PdfFormat = 'exam' | 'smart';
 
 export interface SavedPdf {
   id: string;
@@ -57,8 +65,8 @@ export interface SavedPdf {
   chapters: string[];
   /** Whether the questions were kept, so another version can be made. */
   hasQuestions: boolean;
-  /** A Smart PDF: one question per 16:9 slide, with room to write. Missing for an exam paper. */
-  format?: 'smart';
+  /** 'smart': one question per 16:9 slide, with room to write. 'exam' (or missing, for PDFs made before) is the printable paper. */
+  format?: PdfFormat;
 }
 
 /** What My PDFs calls a PDF's contents. */
@@ -76,7 +84,7 @@ export interface NewPdf {
   standard?: string;
   subject?: string;
   paper?: PaperDetails;
-  format?: 'smart';
+  format?: PdfFormat;
 }
 
 export const pdfLibraryAvailable = Platform.OS !== 'web';
@@ -260,6 +268,22 @@ export function loadPdfQuestions(id: string): Question[] | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * The ids of every question in the PDFs kept on this phone, for leaving out
+ * questions a teacher has already used. Only reads the kept question files; a
+ * PDF whose questions weren't kept adds nothing.
+ */
+export function usedQuestionIds(): string[] {
+  load();
+  const ids = new Set<string>();
+  for (const pdf of items) {
+    for (const question of loadPdfQuestions(pdf.id) ?? []) {
+      if (typeof question?._id === 'string' && question._id) ids.add(question._id);
+    }
+  }
+  return [...ids];
 }
 
 export function totalLibrarySize(list: SavedPdf[]) {

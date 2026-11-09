@@ -22,6 +22,8 @@ export interface AuthUser {
   standard: SchoolStandard | null;
   batchId: string | null;
   parentPhone: string;
+  /** Admin-created students must change their password on first login. */
+  mustChangePassword?: boolean;
 }
 
 /** unreachable: a login is saved but the server couldn't be reached to check it. */

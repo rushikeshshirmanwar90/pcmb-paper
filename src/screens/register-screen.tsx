@@ -1,6 +1,13 @@
 import React, { useRef, useState } from 'react';
+<<<<<<< HEAD
 import { type TextInputInstance } from 'react-native';
 import { Button, ErrorText, Field, PasswordField } from '@/components/kit';
+=======
+import { KeyboardAvoidingView, Pressable, StyleSheet, Text, type TextInputInstance, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Button, ErrorText, Field, Icon, PasswordField, usePalette, type IconName } from '@/components/kit';
+import { KeyboardAwareScrollView } from '@/components/keyboard-safe-view';
+>>>>>>> 8ce38ca54eb9706ddc3736c1b82fd445f3e61052
 import { useAuth } from '@/context/auth-context';
 import { ApiError } from '@/services/api-client';
 import { AuthCard, AuthScreen, AuthTitle, AuthTopBar, BackLink, StepProgress } from '@/screens/auth-ui';
@@ -67,6 +74,7 @@ export function RegisterScreen({ onBack }: { onBack: (email?: string) => void })
   };
 
   return (
+<<<<<<< HEAD
     <AuthScreen>
       <AuthTopBar leading={<BackLink label="Log in instead" onPress={() => onBack()} />} />
       <StepProgress step={1} style={{ marginBottom: 16 }} />
@@ -153,5 +161,67 @@ export function RegisterScreen({ onBack }: { onBack: (email?: string) => void })
         <Button label="Create account" onPress={submit} loading={busy} variant={taken ? 'secondary' : 'primary'} />
       </AuthCard>
     </AuthScreen>
+=======
+    <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
+      <KeyboardAvoidingView behavior="padding" style={styles.root}>
+        <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+          <Pressable accessibilityRole="button" onPress={onBack} hitSlop={8} style={styles.back}>
+            <Icon name={{ ios: 'chevron.left', android: 'arrow_back' }} color={palette.primary} size={16} />
+            <Text style={[styles.backText, { color: palette.primary }]}>Log in instead</Text>
+          </Pressable>
+
+          <Text accessibilityRole="header" style={[styles.title, { color: palette.foreground }]}>
+            Create your account
+          </Text>
+          <Text style={[styles.lead, { color: palette.mutedForeground }]}>
+            For students and teachers. After this, you ask your tuition to let you in.
+          </Text>
+
+          <View style={[styles.card, { backgroundColor: palette.card, borderColor: palette.border }]}>
+            <Field
+              label="Your name"
+              value={name}
+              onChangeText={setName}
+              autoComplete="name"
+              textContentType="name"
+              returnKeyType="next"
+              onSubmitEditing={() => emailRef.current?.focus()}
+              maxLength={100}
+            />
+            <Field
+              ref={emailRef}
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              hint="You log in with this."
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              autoComplete="email"
+              textContentType="username"
+              returnKeyType="next"
+              onSubmitEditing={() => phoneRef.current?.focus()}
+            />
+            <Field ref={phoneRef} label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" maxLength={20} />
+            <PasswordField label="Password" value={password} onChangeText={setPassword} hint="At least 8 characters." autoComplete="new-password" textContentType="newPassword" />
+            <PasswordField label="Password again" value={confirm} onChangeText={setConfirm} autoComplete="new-password" textContentType="newPassword" returnKeyType="go" onSubmitEditing={submit} />
+            <ErrorText message={error} />
+            <Button label="Create account" onPress={submit} loading={busy} />
+          </View>
+
+          <View style={styles.next}>
+            {STEPS.map(({ icon, text }, i) => (
+              <View key={text} style={styles.nextRow}>
+                <View style={[styles.nextIcon, { backgroundColor: i === 0 ? palette.primary : palette.secondary }]}>
+                  <Icon name={icon} color={i === 0 ? palette.onPrimary : palette.mutedForeground} size={15} />
+                </View>
+                <Text style={[styles.nextText, { color: i === 0 ? palette.foreground : palette.mutedForeground }]}>{text}</Text>
+              </View>
+            ))}
+          </View>
+        </KeyboardAwareScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+>>>>>>> 8ce38ca54eb9706ddc3736c1b82fd445f3e61052
   );
 }

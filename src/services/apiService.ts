@@ -556,7 +556,7 @@ export async function searchPdfQuestions(filters: PdfQuestionSearch): Promise<Qu
 const DIFFICULTY_NAMES: Record<string, DifficultyLevel> = { Easy: "Easy", Medium: "Mid", Mid: "Mid", Hard: "Hard" };
 
 /** One question from the API, in the app's shape. */
-function toQuestion(raw: any, idx: number): Question {
+export function toQuestion(raw: any, idx: number): Question {
   return {
     _id: raw._id || `q-api-${idx}`,
     paperId: raw.paperId || "",

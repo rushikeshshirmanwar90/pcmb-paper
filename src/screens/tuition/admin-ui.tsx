@@ -1,4 +1,5 @@
 import React, { useEffect, useState, type PropsWithChildren } from 'react';
+import { useIsFocused } from 'expo-router';
 import { BackHandler, Clipboard, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Badge, Chips, Icon, Notice, usePalette, type IconName } from '@/components/kit';
 import type { Program } from '@/constants/school';
@@ -46,14 +47,15 @@ export function PanelScroll({ children, onRefresh, refreshing }: PropsWithChildr
  */
 export function useBackToHome() {
   const { activeKey, goToTab } = useTabNavigation();
+  const focused = useIsFocused();
   useEffect(() => {
-    if (Platform.OS !== 'android' || activeKey === 'home') return;
+    if (Platform.OS !== 'android' || !focused || activeKey === 'home') return;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       goToTab('home');
       return true;
     });
     return () => subscription.remove();
-  }, [activeKey, goToTab]);
+  }, [activeKey, goToTab, focused]);
 }
 
 // ─── Feedback ──────────────────────────────────────────────────────────────

@@ -1,5 +1,10 @@
+import { useIsFocused } from 'expo-router';
+import { reopenVisibility } from '@/screens/student/exam-visibility';
+import { useExamVisibility } from '@/screens/student/use-exam-visibility';
+import { acceptsAttemptStatus } from '@/screens/student/attempt-status';
+import { RestrictedTest } from '@/screens/student/test-access';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Alert, AppState, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, type ScrollViewInstance, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, type ScrollViewInstance, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { allowScreenCaptureAsync, preventScreenCaptureAsync } from 'expo-screen-capture';
 import {
@@ -24,20 +29,22 @@ import {
 import { MaxContentWidth } from '@/constants/theme';
 import { useSignedInUser } from '@/context/auth-context';
 import { bumpDataVersion } from '@/context/data-version';
-import { AWAY_LIMIT_MS, cellStatus, createAwayTracker, examCounts, secondsLeft, skewOf, type CellStatus } from '@/screens/student/exam-guard';
+import { AWAY_LIMIT_MS, backAction, cellStatus, examCounts, type MultiWindowReading, secondsLeft, skewOf, type CellStatus } from '@/screens/student/exam-guard';
+import { useExamSecurity, useMultiWindow } from '@/screens/student/exam-security';
 import { createAnswerSaver, type AnswerSaver, type SaveState } from '@/screens/student/answer-saver';
 import { RESULT_SECTIONS, numberLabel, percentLabel, resultFigures, type ResultSection } from '@/screens/shared/result-format';
 
 import { TopicPerformanceList, WeakTopicsSection } from '@/screens/shared/topic-performance';
 import { QuestionView } from '@/screens/student/question-view';
 import { clock, resultTone, spokenDuration, subjectIcon, whenLabel } from '@/screens/student/test-format';
-import type { TestSummary } from '@/services/school-api';
-import { clearDraft, loadDraft, saveDraft } from '@/services/attempt-store';
+import type { TestAccess, TestSummary } from '@/services/school-api';
+import { clearDraft, loadDraft, saveDraft, saveDraftImmediate, loadVisibility, saveVisibility } from '@/services/attempt-store';
 import { studentApi, type Attempt, type TestAnalytics, type TestQuestion } from '@/services/student-api';
 
 type Phase =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
+  | { kind: 'restricted'; test: TestSummary; access: TestAccess }
   | { kind: 'intro'; test: TestSummary }
   | { kind: 'running'; test: TestSummary; attempt: Attempt; questions: TestQuestion[] }
   | { kind: 'review'; test: TestSummary; attempt: Attempt | null; questions: TestQuestion[]; analytics?: TestAnalytics | null; justSubmitted: boolean };
@@ -78,18 +85,32 @@ export function TestRunner({ testId, onClose }: { testId: string; onClose: () =>
   const palette = usePalette();
   const insets = useSafeAreaInsets();
   const user = useSignedInUser();
+  const focused = useIsFocused();
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
   const [busy, setBusy] = useState(false);
   const [round, setRound] = useState(0);
   // Android's back button during the exam: it can't leave, and says so.
   const blockedBackRef = useRef<(() => void) | null>(null);
   const protectedScreen = useScreenProtection(phase.kind !== 'review');
+  // Android-only extras, on while the test is being answered and off the moment it isn't (see exam-security.ts).
+  useExamSecurity(phase.kind === 'running');
+  // Looked at before the test starts, so it isn't begun in split-screen.
+  const introWindow = useMultiWindow(phase.kind === 'intro');
 
   useEffect(() => {
     let cancelled = false;
-    studentApi.test(testId).then(
-      async ({ test, attempt, questions, analytics }) => {
+    Promise.resolve().then(async () => {
+      const record = loadVisibility(user.id, testId);
+      if (record) {
+        const packet = reopenVisibility(record);
+        saveVisibility(user.id, testId, { ...record, clientId: packet.clientId, sequence: packet.sequence, pending: packet.interruptions, open: null });
+        await studentApi.reportVisibility(testId, packet);
+      }
+      return studentApi.test(testId);
+    }).then(
+      async ({ test, attempt, questions, analytics, access }) => {
         if (cancelled) return;
+        if (access && !access.allowed) { setPhase({ kind: 'restricted', test, access }); return; }
         if (attempt?.state === 'submitted' || (!attempt && test.status === 'closed')) {
           // Submitted (here, elsewhere, or when time ran out): the phone's draft is done with.
           if (attempt) void clearDraft(user.id, testId);
@@ -140,7 +161,7 @@ export function TestRunner({ testId, onClose }: { testId: string; onClose: () =>
       visible
       animationType="slide"
       presentationStyle="fullScreen"
-      onRequestClose={phase.kind === 'running' ? () => blockedBackRef.current?.() : close}
+      onRequestClose={backAction(phase.kind === 'restricted' ? 'intro' : phase.kind) === 'block' ? () => blockedBackRef.current?.() : close}
     >
       {/* A Modal is its own native window, where SafeAreaView reads no insets. It covers the whole
           screen, so the app's own insets are the right ones. */}
@@ -154,11 +175,14 @@ export function TestRunner({ testId, onClose }: { testId: string; onClose: () =>
               <Button label="Close" variant="secondary" onPress={close} />
             </View>
           </View>
+        ) : phase.kind === 'restricted' ? (
+          <RestrictedTest test={phase.test} access={phase.access} onClose={close} onRefresh={() => setRound(n => n + 1)} />
         ) : phase.kind === 'intro' ? (
-          <Intro test={phase.test} busy={busy} onStart={() => start(phase.test)} onClose={close} />
+          <Intro test={phase.test} busy={busy} splitScreen={introWindow} onStart={() => start(phase.test)} onClose={close} />
         ) : phase.kind === 'running' ? (
           <Runner
             test={phase.test}
+            focused={focused}
             attempt={phase.attempt}
             questions={phase.questions}
             blockedBackRef={blockedBackRef}
@@ -223,7 +247,7 @@ const column = { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' }
 
 // ─── Before starting ───────────────────────────────────────────────────────
 
-function Intro({ test, busy, onStart, onClose }: { test: TestSummary; busy: boolean; onStart: () => void; onClose: () => void }) {
+function Intro({ test, busy, splitScreen, onStart, onClose }: { test: TestSummary; busy: boolean; splitScreen: MultiWindowReading; onStart: () => void; onClose: () => void }) {
   const palette = usePalette();
   const [now] = useState(() => Date.now());
   const minutesUntilClose = test.closesAt ? Math.floor((new Date(test.closesAt).getTime() - now) / 60_000) : null;
@@ -267,7 +291,21 @@ function Intro({ test, busy, onStart, onClose }: { test: TestSummary; busy: bool
           />
         ) : null}
 
+<<<<<<< HEAD
         <SectionTitle title="How it works" />
+=======
+        {splitScreen.inMultiWindow ? (
+          <Notice
+            tone="warning"
+            icon={{ ios: 'rectangle.split.2x1', android: 'splitscreen' }}
+            title="Return to full screen"
+            text={splitScreen.authoritative ? "The app is in split-screen or a small window. Make it full screen to start; the test can't be taken this way." : 'The app looks like it is in a small window. Make it full screen before you start.'}
+            live
+          />
+        ) : null}
+
+        <SectionTitle title="Examination instructions" />
+>>>>>>> 8ce38ca54eb9706ddc3736c1b82fd445f3e61052
         <Card>
           <Tip icon={{ ios: 'timer', android: 'timer' }} text="The timer starts when you tap Start test. It keeps running through calls, a lost connection or closing the app." />
           <Tip icon={{ ios: 'checkmark.icloud', android: 'cloud_done' }} text="Your answers save as you go. The bar at the top shows when they're saved." />
@@ -278,6 +316,7 @@ function Intro({ test, busy, onStart, onClose }: { test: TestSummary; busy: bool
 
         <SectionTitle title="Exam rules" />
         <Card>
+<<<<<<< HEAD
           <Tip icon={{ ios: 'lock', android: 'lock' }} text="You can't leave the test until you submit or time runs out." />
           <Tip icon={{ ios: 'rectangle.on.rectangle.slash', android: 'block' }} text={`Don't switch apps. If you leave the app for more than ${AWAY_LIMIT_MS / 1000} seconds, the test ends and the answers saved so far are submitted.`} />
           <Tip icon={{ ios: 'camera.viewfinder', android: 'screenshot' }} text="Screenshots and screen recording are restricted." />
@@ -287,6 +326,19 @@ function Intro({ test, busy, onStart, onClose }: { test: TestSummary; busy: bool
       <Footer>
         <Text style={[styles.footerNote, { color: palette.mutedForeground }]}>By starting, you agree to the exam rules.</Text>
         <Button label="Start test" icon={{ ios: 'play.fill', android: 'play_arrow' }} onPress={onStart} loading={busy} />
+=======
+          <Tip icon={{ ios: 'lock', android: 'lock' }} text="In-app navigation is disabled during the examination. You can't leave it until you submit or time runs out." />
+          <Tip icon={{ ios: 'rectangle.on.rectangle.slash', android: 'block' }} text={`Switching applications is prohibited. If you leave the app for more than ${AWAY_LIMIT_MS / 1000} seconds, your test is paused for a teacher decision with your saved answers preserved.`} />
+          <Tip icon={{ ios: 'rectangle.split.2x1', android: 'splitscreen' }} text={`Split-screen and floating windows aren't allowed. On Android, time spent in split-screen counts as leaving the app (more than ${AWAY_LIMIT_MS / 1000} seconds pauses the test for teacher review), and other apps' floating overlays are hidden where your device supports it.`} />
+          <Tip icon={{ ios: 'camera.viewfinder', android: 'screenshot' }} text="Screenshots and screen recording are blocked while the test is open." />
+          <Tip icon={{ ios: 'hourglass', android: 'hourglass_top' }} text="The examination timer continues during interruptions such as calls or a lost connection." />
+          <Tip icon={{ ios: 'exclamationmark.shield', android: 'gpp_maybe' }} text="Confirmed security violations may automatically pause the attempt. A violation-paused attempt requires a teacher decision." />
+          <Tip icon={{ ios: 'chart.bar', android: 'bar_chart' }} text="Results become available after the test closes." />
+        </Card>
+      </ScrollView>
+      <Footer>
+        <Button label="I Understand — Start Test" icon={{ ios: 'play.fill', android: 'play_arrow' }} onPress={onStart} loading={busy} disabled={splitScreen.inMultiWindow && splitScreen.authoritative} />
+>>>>>>> 8ce38ca54eb9706ddc3736c1b82fd445f3e61052
       </Footer>
     </View>
   );
@@ -325,13 +377,15 @@ function Footer({ children }: { children: React.ReactNode }) {
 
 function Runner({
   test,
-  attempt,
+  focused,
+  attempt: initialAttempt,
   questions,
   blockedBackRef,
   onExit,
   onSubmitted,
 }: {
   test: TestSummary;
+  focused: boolean;
   attempt: Attempt;
   questions: TestQuestion[];
   blockedBackRef: React.RefObject<(() => void) | null>;
@@ -341,6 +395,19 @@ function Runner({
 }) {
   const palette = usePalette();
   const user = useSignedInUser();
+  const [attempt, setAttempt] = useState(initialAttempt);
+  const liveAttempt = useRef(initialAttempt);
+  const suspended = attempt.state === 'suspended';
+  const applyStatusRef = useRef<(value: Attempt, reviewQuestions?: TestQuestion[]) => void>(() => {});
+  const statusRequest = useRef<Promise<Attempt | null> | null>(null);
+  const refreshStatus = useCallback(() => {
+    if (statusRequest.current) return statusRequest.current;
+    statusRequest.current = studentApi.attemptStatus(test.id).then(({ attempt, questions }) => {
+      if (attempt) applyStatusRef.current(attempt, questions);
+      return attempt;
+    }).catch(() => null).finally(() => { statusRequest.current = null; });
+    return statusRequest.current;
+  }, [test.id]);
   const [answers, setAnswers] = useState<Map<number, string | null>>(() => new Map(attempt.answers.map((a) => [a.index, a.selected])));
   // Questions marked for review: a study aid kept on the phone (with answers
   // the server hasn't confirmed yet), never sent to the server.
@@ -349,13 +416,15 @@ function Runner({
   const touched = useRef(new Set<number>());
   const [restored, setRestored] = useState(false);
   const [current, setCurrent] = useState(0);
+  const positionRef = useRef(0);
+  const visitedRef = useRef(new Set<number>(questions.length ? [questions[0].index] : []));
   // Questions opened so far, for the palette's "not visited".
   const [visited, setVisited] = useState<Set<number>>(() => new Set([questions[0]?.index]));
   // The time left is the deadline by the server's clock; the phone's clock only tells how long ago the server answered.
   const skewRef = useRef(skewOf(attempt.serverTime));
-  const [remaining, setRemaining] = useState(() => secondsLeft(attempt.deadline, skewOf(attempt.serverTime)));
+  const [remaining, setRemaining] = useState(() => attempt.state === 'suspended' ? Math.floor((attempt.remainingMs ?? 0) / 1000) : secondsLeft(attempt.deadline, skewOf(attempt.serverTime)));
   // Set when the app was away longer than allowed and the server hasn't confirmed the outcome yet: the exam is frozen until it does.
-  const [frozen, setFrozen] = useState(false);
+  const [frozen, setFrozen] = useState(initialAttempt.state === 'suspended');
   const [hint, setHint] = useState<string | null>(null);
   const [showPalette, setShowPalette] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -373,22 +442,21 @@ function Runner({
     const latest = answersRef;
     const done = submittedRef;
     const saver = createAnswerSaver({
-      save: (changed) => studentApi.saveAnswers(test.id, changed),
+      save: (changed) => studentApi.saveAnswers(test.id, changed, liveAttempt.current.resumeVersion ?? 0),
       read: (index) => latest.current.get(index) ?? null,
       onState: setSaveState,
     });
     saverRef.current = saver;
+    saver.pause();
     const marks = markedRef;
     // Leaving the screen: send whatever hasn't gone yet, and keep it on the
     // phone too in case that last try fails; reopening the test sends it.
     return () => {
-      const rest = saver.unsent();
       const unconfirmed = saver.unconfirmed();
       saver.dispose();
       saverRef.current = null;
       if (done.current) return;
-      void saveDraft(user.id, test.id, { startedAt: attempt.startedAt, marks: [...marks.current], pending: unconfirmed });
-      if (rest.length) studentApi.saveAnswers(test.id, rest).catch(() => {});
+      void saveDraft(user.id, test.id, { startedAt: attempt.startedAt, marks: [...marks.current], pending: unconfirmed, current: positionRef.current, visited: [...visitedRef.current] });
     };
   }, [test.id, user.id, attempt.startedAt]);
 
@@ -399,6 +467,8 @@ function Runner({
     void loadDraft(user.id, test.id, attempt.startedAt).then((draft) => {
       if (cancelled) return;
       if (draft) {
+        if (draft.current !== undefined && draft.current < questions.length) { positionRef.current = draft.current; setCurrent(draft.current); }
+        if (draft.visited) { visitedRef.current = new Set(draft.visited); setVisited(visitedRef.current); }
         const known = new Set(questions.map((q) => q.index));
         const marks = new Set([...draft.marks.filter((i) => known.has(i)), ...markedRef.current]);
         markedRef.current = marks;
@@ -421,9 +491,13 @@ function Runner({
 
   /** Writes the draft now; false if the phone couldn't store it. */
   const persistDraft = useCallback(
-    () => saveDraft(user.id, test.id, { startedAt: attempt.startedAt, marks: [...markedRef.current], pending: saverRef.current?.unconfirmed() ?? [] }),
+    () => saveDraft(user.id, test.id, { startedAt: attempt.startedAt, marks: [...markedRef.current], pending: saverRef.current?.unconfirmed() ?? [], current: positionRef.current, visited: [...visitedRef.current] }),
     [user.id, test.id, attempt.startedAt]
   );
+
+  const persistDraftNow = useCallback(() => {
+    saveDraftImmediate(user.id, test.id, { startedAt: attempt.startedAt, marks: [...markedRef.current], pending: saverRef.current?.unconfirmed() ?? [], current: positionRef.current, visited: [...visitedRef.current] });
+  }, [user.id, test.id, attempt.startedAt]);
 
   // Keep the draft current, shortly after changes, so it survives the app being closed.
   useEffect(() => {
@@ -432,32 +506,10 @@ function Runner({
       if (!submittedRef.current) void persistDraft();
     }, 300);
     return () => clearTimeout(timer);
-  }, [marked, answers, saveState, restored, persistDraft]);
+  }, [marked, answers, saveState, current, restored, persistDraft]);
 
   const all = () => questions.map((q) => ({ index: q.index, selected: answersRef.current.get(q.index) ?? null }));
 
-  const submit = useCallback(async () => {
-    if (submittedRef.current) return;
-    submittedRef.current = true;
-    saverRef.current?.pause();
-    setSubmitting(true);
-    setError(null);
-    try {
-      // Every answer goes with the submission, saved or not.
-      const result = await studentApi.submit(test.id, all());
-      onSubmitted(result.attempt, result.questions);
-    } catch (e) {
-      submittedRef.current = false;
-      setError(e instanceof Error ? e.message : "Couldn't submit. Check your internet and try again.");
-      saverRef.current?.resume();
-    } finally {
-      setSubmitting(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [test.id, onSubmitted]);
-
-  // ── The clock; warnings at 5 minutes and 1 minute; at zero the test is
-  // submitted with what's answered.
   const warned = useRef({ five: false, one: false });
   const lastExpiryTry = useRef(0);
   useEffect(() => {
@@ -467,13 +519,16 @@ function Runner({
       AccessibilityInfo.announceForAccessibility(`${minutes} minute${minutes === 1 ? '' : 's'} left`);
     };
     const timer = setInterval(() => {
-      const left = secondsLeft(attempt.deadline, skewRef.current);
+      if (liveAttempt.current.state === 'suspended') return;
+      const left = secondsLeft(liveAttempt.current.deadline, skewRef.current);
       setRemaining(left);
       if (left === 0) {
         // Time is up: submit what is saved. If that can't reach the server, try again every few seconds.
         if (Date.now() - lastExpiryTry.current >= 5000) {
           lastExpiryTry.current = Date.now();
-          void submit();
+          // The server expires the attempt only after re-reading its latest
+          // individual deadline. Offline means wait and preserve the draft.
+          void refreshStatus();
         }
       } else if (left <= 60 && !warned.current.one) {
         warned.current.one = warned.current.five = true;
@@ -484,7 +539,7 @@ function Runner({
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [attempt.deadline, submit]);
+  }, [attempt.deadline, refreshStatus]);
 
   useEffect(() => {
     if (!warning) return;
@@ -500,7 +555,10 @@ function Runner({
   /** Opens a question (by its place in the test) and counts it as visited. */
   const goTo = (position: number) => {
     const target = Math.min(questions.length - 1, Math.max(0, position));
+    positionRef.current = target;
     setCurrent(target);
+    visitedRef.current.add(questions[target].index);
+    persistDraftNow();
     setVisited((v) => (v.has(questions[target].index) ? v : new Set(v).add(questions[target].index)));
   };
 
@@ -510,48 +568,67 @@ function Runner({
   // attempt if it was too long; the exam stays frozen until it answers. A
   // report that can't be sent (no connection) is kept and retried, and a
   // dropped connection by itself is never treated as leaving.
-  const awayTracker = useRef(createAwayTracker());
-  const pendingAway = useRef<number | null>(null);
-  const reporting = useRef(false);
-  const reportAway = useCallback(async () => {
-    const ms = pendingAway.current;
-    if (ms === null || reporting.current || submittedRef.current) return;
-    reporting.current = true;
+  const applyStatus = useCallback((value: Attempt, reviewQuestions?: TestQuestion[]) => {
+    const previous = liveAttempt.current;
+    if (!acceptsAttemptStatus(previous, value)) return;
+    liveAttempt.current = value;
+    skewRef.current = skewOf(value.serverTime);
+    setAttempt(value);
+    if (value.state === 'submitted') {
+      submittedRef.current = true;
+      saverRef.current?.pause();
+      onSubmitted(value, reviewQuestions ?? questions);
+    } else if (value.state === 'suspended') {
+      saverRef.current?.pause();
+      setRemaining(Math.floor((value.remainingMs ?? 0) / 1000));
+      setFrozen(true);
+      persistDraftNow();
+    } else {
+      setRemaining(secondsLeft(value.deadline, skewRef.current));
+      setFrozen(false);
+    }
+  }, [onSubmitted, persistDraftNow, questions]);
+  useEffect(() => { applyStatusRef.current = applyStatus; }, [applyStatus]);
+
+  const split = useMultiWindow(true);
+  const splitBlocked = split.inMultiWindow && split.authoritative;
+  const { blocked: visibilityBlocked, visible: isExamVisible, canAnswer: canAnswerExam } = useExamVisibility({ userId: user.id, testId: test.id, attempt, focused, splitBlocked,
+    skew: skewRef, onStatus: applyStatus, onLoss: persistDraftNow });
+  useEffect(() => {
+    const interval = setInterval(() => { if (isExamVisible()) void refreshStatus(); }, 5000);
+    return () => clearInterval(interval);
+  }, [refreshStatus, isExamVisible]);
+  const holdSaving = suspended || frozen || visibilityBlocked || remaining === 0;
+  useEffect(() => {
+    if (holdSaving) saverRef.current?.pause();
+    else saverRef.current?.resume();
+  }, [holdSaving]);
+
+  const submit = useCallback(async () => {
+    if (submittedRef.current || liveAttempt.current.state === 'suspended' || !canAnswerExam()) return;
+    submittedRef.current = true;
+    saverRef.current?.pause();
+    setSubmitting(true);
+    setError(null);
     try {
-      const result = await studentApi.reportAway(test.id, ms, all());
-      pendingAway.current = null;
-      skewRef.current = skewOf(result.attempt.serverTime);
-      if (result.attempt.state === 'submitted') {
-        submittedRef.current = true;
-        saverRef.current?.pause();
-        onSubmitted(result.attempt, result.questions);
-      } else setFrozen(false);
-    } catch {
-      // Kept and tried again shortly.
+      // Every answer goes with the submission, saved or not.
+      const result = await studentApi.submit(test.id, all(), liveAttempt.current.resumeVersion ?? 0);
+      if (result.attempt.state !== 'submitted') {
+        submittedRef.current = false;
+        applyStatusRef.current(result.attempt);
+      } else onSubmitted(result.attempt, result.questions);
+    } catch (e) {
+      submittedRef.current = false;
+      setError(e instanceof Error ? e.message : "Couldn't submit. Check your internet and try again.");
+      if (liveAttempt.current.state === 'in-progress') saverRef.current?.resume();
     } finally {
-      reporting.current = false;
+      setSubmitting(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [test.id, onSubmitted]);
 
-  useEffect(() => {
-    const tracker = awayTracker.current;
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'background') tracker.background();
-      else if (state === 'active') {
-        const ms = tracker.foreground();
-        if (ms === null) return;
-        pendingAway.current = Math.max(pendingAway.current ?? 0, ms);
-        if (ms > AWAY_LIMIT_MS) setFrozen(true);
-        void reportAway();
-      }
-    });
-    const retry = setInterval(() => void reportAway(), 4000);
-    return () => {
-      sub.remove();
-      clearInterval(retry);
-    };
-  }, [reportAway]);
+  // ── The clock; warnings at 5 minutes and 1 minute; at zero the test is
+  // submitted with what's answered.
 
   // Android's back button and back gestures can't leave the exam; they say so.
   useEffect(() => {
@@ -568,11 +645,13 @@ function Runner({
   }, [hint]);
 
   const select = (value: string | null) => {
+    if (liveAttempt.current.state !== 'in-progress' || frozen || !canAnswerExam() || remaining === 0 || submitting || splitBlocked) return;
     const index = questions[current].index;
     answersRef.current = new Map(answersRef.current).set(index, value);
     setAnswers(answersRef.current);
     touched.current.add(index);
     saverRef.current?.change(index);
+    persistDraftNow();
   };
 
   const toggleMark = () => {
@@ -582,6 +661,7 @@ function Runner({
     else next.add(index);
     markedRef.current = next;
     setMarked(next);
+    persistDraftNow();
   };
 
   const isAnswered = (index: number) => (answers.get(index) ?? null) !== null;
@@ -590,6 +670,7 @@ function Runner({
   const answeredCount = counts.answered;
 
   const askSubmit = () => {
+    if (suspended || frozen || visibilityBlocked || remaining === 0) return;
     const message = `Answered: ${counts.answered}
 Unanswered: ${counts.unanswered}
 Marked for Review: ${counts.marked}
@@ -614,7 +695,7 @@ ${message}`)) void submit();
   const timeUp = remaining === 0;
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={styles.flex} behavior="padding">
       <Header title={test.title} trailing={<TimerPill seconds={remaining} />} />
 
       <View style={[styles.statusBar, { borderBottomColor: palette.border, backgroundColor: palette.card }]}>
@@ -656,12 +737,19 @@ ${message}`)) void submit();
         />
       ) : null}
 
+      {split.inMultiWindow && !split.authoritative ? (
+        <View style={[styles.warning, column]}>
+          <Notice tone="warning" icon={{ ios: 'rectangle.split.2x1', android: 'splitscreen' }} title="Use full screen" text="The app looks like it is in a small window. Please use the whole screen for the exam." live />
+        </View>
+      ) : null}
+
       {hint ? (
         <View style={[styles.warning, column]}>
           <Notice tone="warning" icon={{ ios: 'lock', android: 'lock' }} title="Exam in progress" text={hint} live />
         </View>
       ) : null}
 
+      {timeUp && !suspended ? <Notice title="Checking examination status" text="Waiting for the server to confirm your deadline. Your local progress is preserved." /> : null}
       {warning ? (
         <View style={[styles.warning, column]}>
           <Notice
@@ -724,14 +812,25 @@ ${message}`)) void submit();
         {!last ? <QuietButton label="Submit test" onPress={askSubmit} disabled={submitting} /> : null}
         {timeUp && error ? <QuietButton label="Time is up — exit (saved answers are submitted)" tone="muted" onPress={onExit} /> : null}
       </Footer>
-      {frozen ? (
+      {splitBlocked && !frozen ? (
+        <View style={[styles.frozen, { backgroundColor: palette.background }]} accessibilityViewIsModal>
+          <Icon name={{ ios: 'rectangle.split.2x1', android: 'splitscreen' }} color={palette.primary} size={32} />
+          <Text accessibilityRole="header" accessibilityLiveRegion="polite" style={[styles.frozenTitle, { color: palette.foreground }]}>
+            Return to full screen
+          </Text>
+          <Text style={[styles.frozenText, { color: palette.mutedForeground }]}>
+            {`The exam can't be taken in split-screen. Close the other window to continue. Time in split-screen counts as leaving the app: more than ${AWAY_LIMIT_MS / 1000} seconds pauses your test for teacher review. The timer keeps running until the server confirms a pause.`}
+          </Text>
+        </View>
+      ) : null}
+      {frozen || visibilityBlocked ? (
         <View style={[styles.frozen, { backgroundColor: palette.background }]} accessibilityViewIsModal>
           <Icon name={{ ios: 'lock.shield', android: 'gpp_maybe' }} color={palette.primary} size={32} />
           <Text accessibilityRole="header" accessibilityLiveRegion="polite" style={[styles.frozenTitle, { color: palette.foreground }]}>
-            Ending your test
+            {suspended ? 'Test paused due to violations' : 'Checking examination status'}
           </Text>
           <Text style={[styles.frozenText, { color: palette.mutedForeground }]}>
-            You left the app for longer than allowed. Your saved answers are being submitted. If you have no connection, this finishes as soon as you are back online.
+            {suspended ? 'Waiting for teacher decision. Your answers and remaining time are preserved.' : 'Waiting for the server. Your local progress is preserved while the connection recovers.'}
           </Text>
         </View>
       ) : null}

@@ -1,6 +1,13 @@
+<<<<<<< HEAD
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, type TextInputInstance, View } from 'react-native';
+=======
+import React, { useEffect, useState } from 'react';
+import { KeyboardAvoidingView, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+>>>>>>> 8ce38ca54eb9706ddc3736c1b82fd445f3e61052
 import { Button, CodeInput, ErrorText, Field, Icon, PasswordField, usePalette } from '@/components/kit';
+import { KeyboardAwareScrollView } from '@/components/keyboard-safe-view';
 import { emailApi } from '@/services/email-api';
 import { AuthCard, AuthScreen, AuthTitle, AuthTopBar, BackLink, Bubble, FinePrint, Strong, TextLink } from '@/screens/auth-ui';
 
@@ -128,6 +135,7 @@ export function ForgotPasswordScreen({ initialEmail, onBack }: { initialEmail: s
   }
 
   return (
+<<<<<<< HEAD
     <AuthScreen>
       <AuthTopBar leading={<BackLink label="Change email" onPress={() => setStep('email')} />} />
       <AuthTitle
@@ -189,6 +197,60 @@ export function ForgotPasswordScreen({ initialEmail, onBack }: { initialEmail: s
       </AuthCard>
       <FinePrint>Can&apos;t find it? Look in Spam or Promotions. The code works for 10 minutes. {noAccess}</FinePrint>
     </AuthScreen>
+=======
+    <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
+      <KeyboardAvoidingView behavior="padding" style={styles.root}>
+        <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+          <Pressable accessibilityRole="button" onPress={step === 'code' ? () => setStep('email') : () => onBack()} hitSlop={8} style={styles.back}>
+            <Icon name={{ ios: 'chevron.left', android: 'arrow_back' }} color={palette.primary} size={16} />
+            <Text style={[styles.backText, { color: palette.primary }]}>{step === 'code' ? 'Change email' : 'Back to log in'}</Text>
+          </Pressable>
+          <Text accessibilityRole="header" style={[styles.title, styles.left, { color: palette.foreground }]}>
+            {step === 'email' ? 'Forgot your password?' : 'Choose a new password'}
+          </Text>
+          <Text style={[styles.lead, styles.left, { color: palette.mutedForeground }]}>
+            {step === 'email' ? "Enter the email you log in with. We'll send a 6-digit code to reset your password." : `If ${email.trim()} has an account, a 6-digit code is on its way.`}
+          </Text>
+
+          <View style={[styles.card, { backgroundColor: palette.card, borderColor: palette.border }]}>
+            {step === 'email' ? (
+              <>
+                <Field
+                  label="Email"
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  autoComplete="email"
+                  textContentType="username"
+                  returnKeyType="send"
+                  onSubmitEditing={sendCode}
+                />
+                <ErrorText message={error} />
+                <Button label="Send code" onPress={sendCode} loading={busy} />
+              </>
+            ) : (
+              <>
+                <Text style={[styles.label, { color: palette.mutedForeground }]}>Code from the email</Text>
+                <CodeInput value={code} onChange={(c) => { setCode(c); setError(null); }} />
+                <PasswordField label="New password" value={password} onChangeText={setPassword} hint="At least 8 characters." autoComplete="new-password" textContentType="newPassword" />
+                <PasswordField label="New password again" value={confirm} onChangeText={setConfirm} autoComplete="new-password" textContentType="newPassword" returnKeyType="go" onSubmitEditing={reset} />
+                <ErrorText message={error} />
+                <Button label="Change password" onPress={reset} loading={busy} />
+                <Pressable accessibilityRole="button" onPress={sendCode} disabled={wait > 0 || busy} style={styles.center} hitSlop={8}>
+                  <Text style={[styles.link, { color: wait > 0 ? palette.mutedForeground : palette.primary }]}>
+                    {wait > 0 ? `Send a new code in ${wait}s` : 'Send a new code'}
+                  </Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+          {step === 'code' ? <Text style={[styles.small, { color: palette.mutedForeground }]}>Can&apos;t find it? Look in Spam or Promotions. The code works for 10 minutes.</Text> : null}
+        </KeyboardAwareScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+>>>>>>> 8ce38ca54eb9706ddc3736c1b82fd445f3e61052
   );
 }
 

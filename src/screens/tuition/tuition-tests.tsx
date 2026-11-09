@@ -50,7 +50,7 @@ export function TuitionTestsScreen() {
   const [batch, setBatch] = useState<string>(ALL);
   const [status, setStatus] = useState<StatusFilter>(ALL);
   const [openId, setOpenId] = useState<string | null>(null);
-  const batches = useLoad(() => tuitionApi.batches(), [version]);
+  const batches = useLoad(() => tuitionApi.batches(), [version], { cacheKey: 'batches' });
   // The server narrows by batch (it lists at most 200); the state filter is applied here.
   const { data, error, loading, refreshing, refresh, reload } = useLoad(() => schoolApi.tests(batch === ALL ? undefined : batch), [batch, version]);
   const tests = data ?? [];

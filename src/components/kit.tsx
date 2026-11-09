@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState, type PropsWithChildren
 import {
   AccessibilityInfo,
   ActivityIndicator,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -15,13 +14,17 @@ import {
   type StyleProp,
   type TextInputInstance,
   type TextInputProps,
+  type ViewInstance,
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView, type AndroidSymbol, type SFSymbol } from 'expo-symbols';
 import { AppHeader } from '@/components/app-header';
+import { confirmAction } from '@/components/confirm-action';
+import { KeyboardAwareScrollView, KeyboardSafeView, useKeyboardVisible, useScrollIntoView } from '@/components/keyboard-safe-view';
 import { getPalette, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { cachedLoad, loadShared } from '@/services/load-cache';
 import { useTabBarHeight } from '@/hooks/use-tab-bar-height';
 
 // Building blocks for the tuition, teacher and student screens, so they share
@@ -304,6 +307,7 @@ type FieldProps = TextInputProps & {
   ref?: React.Ref<TextInputInstance>;
 };
 
+<<<<<<< HEAD
 export function Field({ label, hint, error, accessory, style, onFocus, onBlur, ...input }: FieldProps) {
   const palette = usePalette();
   const [focused, setFocused] = useState(false);
@@ -325,9 +329,16 @@ export function Field({ label, hint, error, accessory, style, onFocus, onBlur, .
       style={[styles.input, { backgroundColor: palette.background, borderColor, color: palette.foreground }, style]}
     />
   );
+=======
+export function Field({ label, hint, error, style, onFocus, ...input }: FieldProps) {
+  const palette = usePalette();
+  const scrollIntoView = useScrollIntoView();
+  const group = useRef<ViewInstance>(null);
+>>>>>>> 8ce38ca54eb9706ddc3736c1b82fd445f3e61052
   return (
-    <View style={styles.field}>
+    <View ref={group} style={styles.field}>
       <Text style={[styles.fieldLabel, { color: palette.mutedForeground }]}>{label}</Text>
+<<<<<<< HEAD
       {accessory ? (
         <View>
           {box}
@@ -336,6 +347,23 @@ export function Field({ label, hint, error, accessory, style, onFocus, onBlur, .
       ) : (
         box
       )}
+=======
+      <TextInput
+        accessibilityLabel={label}
+        placeholderTextColor={palette.mutedForeground}
+        {...input}
+        onFocus={(event) => {
+          // The whole group (label, input, helper or error), not just the input, is brought into view.
+          scrollIntoView?.(group.current);
+          onFocus?.(event);
+        }}
+        style={[
+          styles.input,
+          { backgroundColor: palette.background, borderColor: error ? palette.danger : palette.border, color: palette.foreground },
+          style,
+        ]}
+      />
+>>>>>>> 8ce38ca54eb9706ddc3736c1b82fd445f3e61052
       {error ? <ErrorText message={error} /> : hint ? <Text style={[styles.hint, { color: palette.mutedForeground }]}>{hint}</Text> : null}
     </View>
   );
@@ -618,6 +646,7 @@ export function FormSheet({
   submitting = false,
   error,
   extraAction,
+  dirty = false,
 }: PropsWithChildren<{
   visible: boolean;
   title: string;
@@ -628,29 +657,33 @@ export function FormSheet({
   error?: string | null;
   /** e.g. a Delete button under the save button. */
   extraAction?: ReactNode;
+  /** There are unsaved changes: closing (the X, Android's Back or the swipe) asks first. */
+  dirty?: boolean;
 }>) {
   const palette = usePalette();
   const insets = useSafeAreaInsets();
+  const keyboardVisible = useKeyboardVisible();
+  const close = () => (dirty && !submitting ? confirmAction('Discard changes?', 'Your unsaved changes will be lost.', 'Discard', onClose) : onClose());
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.flex, { backgroundColor: palette.background }]}>
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={close}>
+      <KeyboardSafeView style={{ backgroundColor: palette.background }}>
         <View style={[styles.sheetHeader, { borderBottomColor: palette.border, backgroundColor: palette.card, paddingTop: Platform.OS === 'ios' ? 12 : insets.top + 8 }]}>
           <Text accessibilityRole="header" style={[styles.sheetTitle, { color: palette.foreground }]} numberOfLines={1}>
             {title}
           </Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} hitSlop={10} style={styles.sheetClose}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={close} hitSlop={10} style={styles.sheetClose}>
             <Icon name={{ ios: 'xmark', android: 'close' }} color={palette.foreground} size={18} />
           </Pressable>
         </View>
-        <ScrollView contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
+        <KeyboardAwareScrollView contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
           {children}
-        </ScrollView>
-        <View style={[styles.sheetFooter, { borderTopColor: palette.border, backgroundColor: palette.card, paddingBottom: Math.max(insets.bottom, 12) }]}>
+        </KeyboardAwareScrollView>
+        <View style={[styles.sheetFooter, { borderTopColor: palette.border, backgroundColor: palette.card, paddingBottom: keyboardVisible ? 12 : Math.max(insets.bottom, 12) }]}>
           <ErrorText message={error} />
           <Button label={submitLabel} onPress={onSubmit} loading={submitting} />
           {extraAction}
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardSafeView>
     </Modal>
   );
 }
@@ -720,8 +753,13 @@ export function DetailRow({ label, value }: { label: string; value: string }) {
 /**
  * Loads data when the screen shows, when `deps` change and on reload; keeps
  * the last data while reloading, so pull-to-refresh doesn't blank the screen.
+ *
+ * With a `cacheKey` the screen starts from the last answer for that key (if
+ * any, see load-cache.ts) and refreshes it quietly, and a request for the same
+ * key already under way is shared. The key names the request, so it must not
+ * change while the screen is open, and must include everything `deps` does.
  */
-export function useLoad<T>(load: () => Promise<T>, deps: unknown[], { enabled = true }: { enabled?: boolean } = {}) {
+export function useLoad<T>(load: () => Promise<T>, deps: unknown[], { enabled = true, cacheKey }: { enabled?: boolean; cacheKey?: string } = {}) {
   const loadRef = useRef(load);
   useEffect(() => {
     loadRef.current = load;
@@ -730,12 +768,17 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[], { enabled = 
   const [round, setRound] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const key = `${JSON.stringify(deps)}#${round}`;
-  const [result, setResult] = useState<{ key: string; data: T | null; error: string | null }>({ key: '', data: null, error: null });
+  const [result, setResult] = useState<{ key: string; data: T | null; error: string | null }>(() => ({
+    key: '',
+    data: (cacheKey ? cachedLoad<T>(cacheKey) : undefined) ?? null,
+    error: null,
+  }));
 
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
-    loadRef.current().then(
+    // A reload or refresh (round > 0) sends its own request rather than joining one under way.
+    (cacheKey ? loadShared(cacheKey, loadRef.current, { fresh: round > 0 }) : loadRef.current()).then(
       (data) => {
         if (cancelled) return;
         setResult({ key, data, error: null });
@@ -750,7 +793,7 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[], { enabled = 
     return () => {
       cancelled = true;
     };
-  }, [key, enabled]);
+  }, [key, round, enabled, cacheKey]);
 
   const setData = useCallback((update: (prev: T | null) => T | null) => {
     setResult((prev) => ({ ...prev, data: update(prev.data) }));

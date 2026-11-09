@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SymbolView } from 'expo-symbols';
+import { KeyboardSafeView } from '@/components/keyboard-safe-view';
 import { getPalette } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -29,6 +30,10 @@ type MultiSelectDropdownProps = {
   searchable?: boolean;
   /** Picking nothing means "all of them" (a filter), rather than a required choice. */
   allWhenNone?: boolean;
+  /** Choices are held while the list is open and applied together when Done is pressed (closing any other way discards them). */
+  applyOnDone?: boolean;
+  /** Summarises the picks as e.g. "3 Batches Selected" instead of listing names. */
+  selectedLabel?: (count: number) => string;
 };
 
 const formatCount = (n: number) => n.toLocaleString();
@@ -36,8 +41,8 @@ const formatCount = (n: number) => n.toLocaleString();
 export function MultiSelectDropdown({
   label,
   options,
-  selected,
-  onSelect,
+  selected: committed,
+  onSelect: commit,
   placeholder,
   icon,
   emptyText,
@@ -45,19 +50,25 @@ export function MultiSelectDropdown({
   sections,
   searchable,
   allWhenNone = false,
+  applyOnDone = false,
+  selectedLabel,
 }: MultiSelectDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [draft, setDraft] = useState<string[]>([]);
+  const selected = applyOnDone && isOpen ? draft : committed;
+  const onSelect = applyOnDone ? setDraft : commit;
   const [query, setQuery] = useState('');
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const palette = getPalette(useColorScheme() === 'dark');
   const disabled = options.length === 0;
   const showSearch = searchable ?? options.length > 8;
 
   const selectionSummary = useMemo(() => {
     if (selected.length === 0) return placeholder;
+    if (selectedLabel) return selectedLabel(selected.length);
     if (selected.length <= 2) return selected.join(', ');
     return `${selected.slice(0, 2).join(', ')} +${selected.length - 2}`;
-  }, [placeholder, selected]);
+  }, [placeholder, selected, selectedLabel]);
 
   // When nothing picked means "all of them", the total covers every option.
   const total = useMemo(() => {
@@ -92,6 +103,11 @@ export function MultiSelectDropdown({
     setQuery('');
   };
 
+  const done = () => {
+    if (applyOnDone && (draft.length !== committed.length || draft.some((item) => !committed.includes(item)))) commit(draft);
+    close();
+  };
+
   return (
     <View style={styles.container}>
       <Text style={[styles.label, { color: palette.mutedForeground }]}>{label}</Text>
@@ -100,7 +116,10 @@ export function MultiSelectDropdown({
         accessibilityLabel={`${label}: ${selected.join(', ') || placeholder}`}
         accessibilityState={{ disabled }}
         disabled={disabled}
-        onPress={() => setIsOpen(true)}
+        onPress={() => {
+          setDraft(committed);
+          setIsOpen(true);
+        }}
         style={({ pressed }) => [
           styles.trigger,
           {
@@ -133,13 +152,15 @@ export function MultiSelectDropdown({
         transparent
         animationType="fade"
         onRequestClose={close}>
+        <KeyboardSafeView>
         <Pressable style={styles.overlay} onPress={close}>
           <Pressable
             style={[
               styles.modal,
               {
                 width: Math.min(width - 32, 480),
-                maxHeight: height * 0.8,
+                // Of the space the keyboard leaves, so the list and Done stay in view while searching.
+                maxHeight: '90%',
                 backgroundColor: palette.card,
                 borderColor: palette.border,
               },
@@ -270,7 +291,7 @@ export function MultiSelectDropdown({
                 ) : null}
                 <Pressable
                   accessibilityRole="button"
-                  onPress={close}
+                  onPress={done}
                   style={({ pressed }) => [styles.doneButton, { backgroundColor: palette.primary }, pressed && styles.pressed]}>
                   <Text style={[styles.doneText, { color: palette.onPrimary }]}>Done</Text>
                 </Pressable>
@@ -278,6 +299,7 @@ export function MultiSelectDropdown({
             </View>
           </Pressable>
         </Pressable>
+        </KeyboardSafeView>
       </Modal>
     </View>
   );

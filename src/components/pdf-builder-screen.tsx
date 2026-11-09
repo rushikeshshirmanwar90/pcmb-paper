@@ -12,6 +12,7 @@ import {
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DropdownSelect } from '@/components/dropdown-select';
+import { KeyboardSafeView } from '@/components/keyboard-safe-view';
 import { MultiSelectDropdown } from '@/components/multi-select-dropdown';
 import { getPalette } from '@/constants/theme';
 import { isStandard, isSubject, mergeNames, SUBJECTS_BY_TRACK, syllabusOptions } from '@/constants/syllabus';
@@ -186,6 +187,7 @@ export function PdfBuilderScreen({ visible, onClose }: { visible: boolean; onClo
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={closeScreen}>
       <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
+        <KeyboardSafeView>
         <View style={[styles.header, { backgroundColor: palette.card, borderBottomColor: palette.border }]}>
           <Pressable
             accessibilityRole="button"
@@ -590,6 +592,7 @@ export function PdfBuilderScreen({ visible, onClose }: { visible: boolean; onClo
               </View>
           )}
         </ScrollView>
+        </KeyboardSafeView>
       </SafeAreaView>
     </Modal>
   );

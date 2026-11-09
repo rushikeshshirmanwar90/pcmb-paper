@@ -57,6 +57,9 @@ export interface Teacher {
   batches: { id: string; name: string; subject: SchoolSubject }[];
 }
 
+export type AccountStatus = 'invited' | 'active';
+export type InvitationStatus = 'pending_send' | 'sent' | 'send_failed';
+
 export interface Student {
   id: string;
   name: string;
@@ -69,6 +72,10 @@ export interface Student {
   standard: SchoolStandard | null;
   batch: { id: string; name: string } | null;
   active: boolean;
+  accountStatus: AccountStatus;
+  invitationStatus: InvitationStatus | null;
+  invitedAt: string | null;
+  mustChangePassword: boolean;
   lastLoginAt: string | null;
   createdAt: string;
 }
@@ -123,6 +130,8 @@ export type BatchInput = Partial<{
 
 export type TeacherInput = Partial<{ name: string; email: string; phone: string; subjects: SchoolSubject[]; password: string; active: boolean }>;
 
+export type EnrollmentMethod = 'enroll_immediately' | 'require_approval';
+
 export type StudentInput = Partial<{
   name: string;
   email: string;
@@ -133,13 +142,29 @@ export type StudentInput = Partial<{
   batchId: string | null;
   password: string;
   active: boolean;
+  enrollmentMethod: EnrollmentMethod;
 }>;
+
+export interface CreateStudentResult {
+  student: Student;
+  enrollment: 'enrolled' | 'approval_pending' | 'batch_pending';
+  pendingCreated: boolean;
+  emailSent: boolean;
+  emailError: string | null;
+}
 
 // The server sends `program` and `academicYear` from Step 2 on; older
 // servers don't, so they're filled in here from the legacy track.
 type FromServer<T> = Omit<T, 'program' | 'academicYear' | 'classes'> & { program?: Program | null; academicYear?: string | null; classes?: TimetableSummary };
 const withBatch = <T extends Batch>(b: FromServer<T>) => ({ ...b, program: programOf(b) ?? 'GENERAL', academicYear: b.academicYear ?? null, classes: b.classes ?? NO_CLASSES }) as T;
-const withStudent = (s: FromServer<Student>): Student => ({ ...s, program: programOf(s) });
+const withStudent = (s: FromServer<Student>): Student => ({
+  ...s,
+  program: programOf(s),
+  accountStatus: s.accountStatus ?? 'active',
+  invitationStatus: s.invitationStatus ?? null,
+  invitedAt: s.invitedAt ?? null,
+  mustChangePassword: s.mustChangePassword ?? false,
+});
 // The program's legacy track goes along with it, so an older server (which
 // only knows tracks) still saves the batch or student. Newer servers check
 // that the two agree.
@@ -167,6 +192,12 @@ export const tuitionApi = {
       batch: withBatch<Batch & { coverage: Coverage }>(r.batch),
       students: r.students.map(withStudent),
     })),
+  /**
+   * Just the syllabus coverage. A server that knows `coverage=only` skips the
+   * students and the rest; an older one answers in full, which is read the same.
+   */
+  batchCoverage: (id: string) =>
+    api<{ batch: { coverage?: Coverage } }>(`/tuition/batches/${id}?coverage=only`).then((r) => r.batch.coverage ?? {}),
   createBatch: (input: BatchInput) =>
     api<{ batch: FromServer<Batch> }>('/tuition/batches', { method: 'POST', body: withTrack(input) }).then((r) => withBatch(r.batch)),
   updateBatch: (id: string, input: BatchInput) =>
@@ -179,6 +210,7 @@ export const tuitionApi = {
   removeTeacher: (id: string, teacherId: string) =>
     api<{ batch: FromServer<Batch> }>(`/tuition/batches/${id}/teachers?teacherId=${teacherId}`, { method: 'DELETE' }).then((r) => withBatch(r.batch)),
 
+  teacher: (id: string) => api<{ teacher: Teacher }>(`/tuition/teachers/${encodeURIComponent(id)}`).then((r) => r.teacher),
   teachers: () => api<{ teachers: Teacher[] }>('/tuition/teachers').then((r) => r.teachers),
   createTeacher: (input: TeacherInput) => api<{ teacher: Teacher }>('/tuition/teachers', { method: 'POST', body: input }).then((r) => r.teacher),
   updateTeacher: (id: string, input: TeacherInput) =>
@@ -186,14 +218,23 @@ export const tuitionApi = {
   deleteTeacher: (id: string) => api(`/tuition/teachers/${id}`, { method: 'DELETE' }),
   resetTeacherPassword: (id: string, password: string) => api(`/tuition/teachers/${id}/password`, { method: 'POST', body: { password } }),
 
-  students: (filter: { batchId?: string | null; q?: string } = {}) =>
-    api<{ students: FromServer<Student>[] }>(`/tuition/students${q({ batchId: filter.batchId, q: filter.q })}`).then((r) => r.students.map(withStudent)),
+  checkStudentEmail: (email: string) =>
+    api<{ available: boolean; reason?: string; accountStatus?: string | null; studentId?: string | null }>(`/tuition/students/check-email${q({ email })}`),
+  student: (id: string) => api<{ student: FromServer<Student> }>(`/tuition/students/${encodeURIComponent(id)}`).then((r) => withStudent(r.student)),
+  students: (filter: { batchId?: string | null; q?: string; accountStatus?: string | null } = {}) =>
+    api<{ students: FromServer<Student>[] }>(`/tuition/students${q({ batchId: filter.batchId, q: filter.q, accountStatus: filter.accountStatus })}`).then((r) => r.students.map(withStudent)),
   createStudent: (input: StudentInput) =>
-    api<{ student: FromServer<Student> }>('/tuition/students', { method: 'POST', body: withTrack(input) }).then((r) => withStudent(r.student)),
+    api<{ student: FromServer<Student>; enrollment: CreateStudentResult['enrollment']; pendingCreated: boolean; emailSent: boolean; emailError: string | null }>(
+      '/tuition/students', { method: 'POST', body: withTrack(input) }
+    ).then((r) => ({ student: withStudent(r.student), enrollment: r.enrollment, pendingCreated: r.pendingCreated, emailSent: r.emailSent, emailError: r.emailError })),
   updateStudent: (id: string, input: StudentInput) =>
     api<{ student: FromServer<Student> }>(`/tuition/students/${id}`, { method: 'PATCH', body: withTrack(input) }).then((r) => withStudent(r.student)),
   deleteStudent: (id: string) => api(`/tuition/students/${id}`, { method: 'DELETE' }),
   resetStudentPassword: (id: string, password: string) => api(`/tuition/students/${id}/password`, { method: 'POST', body: { password } }),
+  resendInvitation: (id: string) =>
+    api<{ student: FromServer<Student>; emailSent: boolean; emailError: string | null }>(
+      `/tuition/students/${id}/resend-invitation`, { method: 'POST' }
+    ).then((r) => ({ student: withStudent(r.student), emailSent: r.emailSent, emailError: r.emailError })),
 
   weightage: (track: Track, subject: SchoolSubject) => api<Weightage>(`/tuition/weightage${q({ track, subject })}`),
   saveWeightage: (track: Track, subject: SchoolSubject, chapters: Weightage['chapters']) =>
@@ -282,7 +323,10 @@ export interface Enrollment {
   id: string;
   createdAt: string;
   name: string;
-  batch: { id: string; name: string; program: Program | null; standard: SchoolStandard | null };
+  email?: string | null;
+  phone?: string | null;
+  source?: 'join_code' | 'admin_created';
+  batch: { id: string; name: string; program: Program | null; standard: SchoolStandard | null } | null;
 }
 
 export interface EnrollmentResult {
@@ -293,7 +337,9 @@ export interface EnrollmentResult {
 
 export const enrollmentsApi = {
   pending: () => api<{ enrollments: Enrollment[] }>('/tuition/enrollments').then((r) => r.enrollments),
-  decide: (ids: string[], action: 'approve' | 'reject') => api<EnrollmentResult>('/tuition/enrollments/decide', { method: 'POST', body: { ids, action } }),
+  decide: (ids: string[], action: 'approve' | 'reject', batchId?: string) =>
+    api<EnrollmentResult>('/tuition/enrollments/decide', { method: 'POST', body: { ids, action, ...(batchId ? { batchId } : {}) } }),
+  dismiss: (id: string) => api<EnrollmentResult>('/tuition/enrollments/decide', { method: 'POST', body: { ids: [id], action: 'dismiss' } }),
 };
 
 export const announcementsApi = {

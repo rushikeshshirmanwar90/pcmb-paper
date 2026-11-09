@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
+import { KeyboardSafeView } from '@/components/keyboard-safe-view';
 import { getPalette, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { DifficultyLevel, ExamCategory, Paper, Standard, Subject } from '@/types/pcmb';
@@ -127,6 +128,7 @@ function EditPaperModalContent({
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
+      <KeyboardSafeView>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: palette.border }]}>
         <Text style={[styles.headerTitle, { color: palette.foreground }]}>Edit Question Paper</Text>
@@ -135,7 +137,7 @@ function EditPaperModalContent({
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Title */}
         <View style={styles.fieldGroup}>
           <Text style={[styles.fieldLabel, { color: palette.mutedForeground }]}>PAPER TITLE *</Text>
@@ -305,6 +307,7 @@ function EditPaperModalContent({
           </Pressable>
         </View>
       </ScrollView>
+      </KeyboardSafeView>
     </SafeAreaView>
   );
 }

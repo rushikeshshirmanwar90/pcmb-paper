@@ -19,6 +19,7 @@ import {
   usePalette,
   type IconName,
 } from '@/components/kit';
+import { KeyboardSafeView } from '@/components/keyboard-safe-view';
 import { programOf, programSubjects, type SchoolSubject } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
 import { bumpDataVersion } from '@/context/data-version';
@@ -342,7 +343,7 @@ function Builder({
   const standards = [...new Set(shown.map((c) => c.standard))];
 
   return (
-    <View style={styles.flex}>
+    <KeyboardSafeView>
       <SheetHeader title="New self-assessment" onBack={onBack} />
       <ScrollView contentContainerStyle={[styles.body, column]} keyboardShouldPersistTaps="handled">
         <Step n={1} title="Subject" />
@@ -445,7 +446,7 @@ function Builder({
         />
         {!scope.length ? <Text style={[styles.footerHint, { color: palette.mutedForeground }]}>Pick at least one chapter or topic.</Text> : null}
       </SheetFooter>
-    </View>
+    </KeyboardSafeView>
   );
 }
 

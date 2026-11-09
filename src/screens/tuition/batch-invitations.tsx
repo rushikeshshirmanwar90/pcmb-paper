@@ -1,3 +1,4 @@
+import { clearLoadCache } from '@/services/load-cache';
 import React, { useState } from 'react';
 import { Share, StyleSheet, Text, View } from 'react-native';
 import { confirmAction } from '@/components/account-section';
@@ -15,10 +16,10 @@ const plainCode = (code: string) => code.replace(/-/g, '');
 /** One batch's student joining code: copy, share, regenerate, change expiry or turn off. */
 export const BatchInvitationsScreen = tuitionOnly(function BatchInvitationsScreen({ batchId }: { batchId: string }) {
   const palette = usePalette();
-  const { data: invite, error, loading, refreshing, refresh, reload, setData } = useLoad(() => batchInviteApi.get(batchId), [batchId]);
+  const { data: invite, error, loading, refreshing, refresh, reload, setData } = useLoad(() => batchInviteApi.get(batchId), [batchId], { cacheKey: `invite:${batchId}` });
   // Students who joined with the code and wait for approval. Left out when it can't be read.
-  const pending = useLoad(() => enrollmentsApi.pending(), [batchId]);
-  const waiting = pending.data?.filter((e) => e.batch.id === batchId).length;
+  const pending = useLoad(() => enrollmentsApi.pending(), [batchId], { cacheKey: `invite-pending:${batchId}` });
+  const waiting = pending.data?.filter((e) => e.batch?.id === batchId).length;
   const [expiry, setExpiry] = useState<Expiry>('180');
   const [busy, setBusy] = useState(false);
   const { flash, show, clear } = useFlash();
@@ -46,6 +47,7 @@ export const BatchInvitationsScreen = tuitionOnly(function BatchInvitationsScree
     clear();
     try {
       const next = await batchInviteApi.change(batchId, change);
+      clearLoadCache(); // cached copies of the code are old now
       setData(() => next);
       show(message);
     } catch (e) {

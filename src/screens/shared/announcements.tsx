@@ -60,6 +60,7 @@ export function AnnouncementsSection({
   allowAllBatches,
   limit = 3,
   tabKey = null,
+  compact = false,
 }: {
   /** The batches the user can post to. */
   batches: { id: string; name: string }[];
@@ -69,6 +70,8 @@ export function AnnouncementsSection({
   limit?: number;
   /** The tab it's shown in: it reloads after changes elsewhere only once that tab is open. */
   tabKey?: string | null;
+  /** "New" sits beside the section title instead of a full-width button. */
+  compact?: boolean;
 }) {
   const palette = usePalette();
   const user = useSignedInUser();
@@ -91,6 +94,7 @@ export function AnnouncementsSection({
     });
 
   const list = data ?? [];
+  const postDisabled = !allowAllBatches && batches.length === 0;
   const renderList = (items: Announcement[]) =>
     items.map((a) => <AnnouncementCard key={a.id} item={a} onDelete={canDelete(a) ? () => remove(a) : undefined} />);
 
@@ -99,20 +103,37 @@ export function AnnouncementsSection({
       <SectionTitle
         title="Announcements"
         action={
-          list.length > limit ? (
-            <Pressable accessibilityRole="button" onPress={() => setShowAll(true)} hitSlop={8}>
-              <Text style={[styles.link, { color: palette.primary }]}>See all ({list.length})</Text>
-            </Pressable>
+          list.length > limit || (compact && canPost) ? (
+            <View style={styles.titleActions}>
+              {compact && canPost ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="New announcement"
+                  accessibilityState={{ disabled: postDisabled }}
+                  disabled={postDisabled}
+                  onPress={() => setPosting(true)}
+                  hitSlop={8}
+                  style={postDisabled && styles.off}
+                >
+                  <Text style={[styles.link, { color: palette.primary }]}>New</Text>
+                </Pressable>
+              ) : null}
+              {list.length > limit ? (
+                <Pressable accessibilityRole="button" onPress={() => setShowAll(true)} hitSlop={8}>
+                  <Text style={[styles.link, { color: palette.primary }]}>See all ({list.length})</Text>
+                </Pressable>
+              ) : null}
+            </View>
           ) : undefined
         }
       />
-      {canPost ? (
+      {canPost && !compact ? (
         <Button
           label="New announcement"
           variant="secondary"
           icon={{ ios: 'megaphone', android: 'campaign' }}
           onPress={() => setPosting(true)}
-          disabled={!allowAllBatches && batches.length === 0}
+          disabled={postDisabled}
         />
       ) : null}
       <ErrorText message={deleteError} />
@@ -154,7 +175,11 @@ function AnnouncementForm({
   const [body, setBody] = useState('');
   const [picked, setPicked] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  /** From posting, e.g. a network problem; shown by the button. */
   const [error, setError] = useState<string | null>(null);
+  /** Beside the field they're about. */
+  const [titleError, setTitleError] = useState<string | null>(null);
+  const [audienceError, setAudienceError] = useState<string | null>(null);
 
   const [openedFor, setOpenedFor] = useState(false);
   if (visible !== openedFor) {
@@ -165,6 +190,8 @@ function AnnouncementForm({
       setBody('');
       setPicked(allowAllBatches ? [ALL] : batches.length === 1 ? [batches[0].id] : []);
       setError(null);
+      setTitleError(null);
+      setAudienceError(null);
     }
   }
 
@@ -174,11 +201,15 @@ function AnnouncementForm({
   const onPick = (next: string[]) => {
     const addedAll = next.includes(ALL) && !picked.includes(ALL);
     setPicked(addedAll ? [ALL] : next.filter((v) => v !== ALL));
+    setAudienceError(null);
   };
 
   const save = async () => {
-    if (!title.trim()) return setError('Enter a title.');
-    if (!picked.length) return setError('Pick who it is for.');
+    const missingTitle = !title.trim();
+    const missingAudience = !picked.length;
+    setTitleError(missingTitle ? 'Enter a title.' : null);
+    setAudienceError(missingAudience ? 'Pick who it is for.' : null);
+    if (missingTitle || missingAudience) return;
     setSaving(true);
     setError(null);
     try {
@@ -193,11 +224,22 @@ function AnnouncementForm({
   };
 
   return (
-    <FormSheet visible={visible} title="New announcement" onClose={onClose} submitLabel="Post" onSubmit={save} submitting={saving} error={error}>
+    <FormSheet visible={visible} title="New announcement" onClose={onClose} submitLabel="Post" onSubmit={save} submitting={saving} error={error} dirty={!!title.trim() || !!body.trim()}>
       <Chips label="Type" choices={['update', 'schedule'] as const} selected={kind} onChange={setKind} labels={KIND_LABELS} />
-      <Field label="Title" value={title} onChangeText={setTitle} placeholder={kind === 'schedule' ? 'e.g. No class on Friday' : 'e.g. Test on Monday'} maxLength={120} />
+      <Field
+        label="Title"
+        value={title}
+        onChangeText={(t) => {
+          setTitle(t);
+          setTitleError(null);
+        }}
+        error={titleError}
+        placeholder={kind === 'schedule' ? 'e.g. No class on Friday' : 'e.g. Test on Monday'}
+        maxLength={120}
+      />
       <Field label="Message" value={body} onChangeText={setBody} placeholder="Details (optional)" multiline maxLength={2000} style={styles.multiline} />
       <MultiChips label="Send to" choices={choices} selected={picked} onChange={onPick} labels={labels} />
+      <ErrorText message={audienceError} />
     </FormSheet>
   );
 }
@@ -208,5 +250,7 @@ const styles = StyleSheet.create({
   body: { fontSize: 14, lineHeight: 20 },
   meta: { fontSize: 12, flex: 1 },
   link: { fontSize: 13, fontWeight: '700' },
+  titleActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  off: { opacity: 0.45 },
   multiline: { minHeight: 96, textAlignVertical: 'top' },
 });

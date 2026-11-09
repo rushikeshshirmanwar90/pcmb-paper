@@ -12,7 +12,7 @@ import { analysisApi } from '@/services/school-api';
 export function BatchAnalysisSection({ batchId }: { batchId: string }) {
   const palette = usePalette();
   const version = useDataVersion();
-  const { data, error, loading } = useLoad(() => analysisApi.batch(batchId), [batchId, version]);
+  const { data, error, loading } = useLoad(() => analysisApi.batch(batchId), [batchId, version], { cacheKey: `analysis:${batchId}` });
   const [studentId, setStudentId] = useState<string | null>(null);
 
   if (loading) return <LoadingView label="Loading students…" />;

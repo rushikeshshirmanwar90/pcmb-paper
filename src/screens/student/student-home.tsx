@@ -96,7 +96,19 @@ export function StudentHomeScreen() {
       ) : data ? (
         <>
           {!data.batch ? (
-            <Notice title="You're not in a batch yet" text="Your tuition will add you to one; then your classes, tests and syllabus show here." />
+            data.enrollmentStatus === 'approval_pending' ? (
+              <Notice
+                title="Enrollment Pending"
+                text={`Your account is ready. Your enrollment in ${data.pendingBatchName ?? 'your batch'} is awaiting approval from ${user.tuition.name}.`}
+              />
+            ) : data.enrollmentStatus === 'batch_pending' ? (
+              <Notice
+                title="Batch Assignment Pending"
+                text={`Your account is ready. The administration of ${user.tuition.name} will assign your batch shortly.`}
+              />
+            ) : (
+              <Notice title="You're not in a batch yet" text="Your tuition will add you to one; then your classes, tests and syllabus show here." />
+            )
           ) : null}
 
           {/* Next up: the most urgent test, else the class on now or next. */}

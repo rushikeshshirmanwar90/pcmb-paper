@@ -99,7 +99,14 @@ function requestBody(opts: QuestionPdfOptions, marksPerQuestion: number): string
     questionPaper,
     answerKey,
     solutions,
-    ...(opts.smart ? { format: 'smart', slides: opts.smart } : {}),
+    // Exam papers only: a Smart PDF carries no watermark and has its own settings.
+    ...(opts.smart
+      ? { format: 'smart', slides: opts.smart }
+      : {
+          ...(opts.paper?.watermark ? { watermark: opts.paper.watermark } : {}),
+          // The server accepts only the listed fonts, sizes and so on, and falls back to the default for the rest.
+          ...(opts.paper?.style ? { style: opts.paper.style } : {}),
+        }),
     questions: opts.questions.map((q) => ({
       questionText: q.questionText,
       optionA: q.optionA,
@@ -231,7 +238,7 @@ export async function createQuestionsPdf(
       standard: opts.standard,
       subject: opts.subject,
       paper: { ...opts.paper, title: opts.title },
-      ...(opts.smart ? { format: 'smart' as const } : {}),
+      format: opts.smart ? ('smart' as const) : ('exam' as const),
     });
   } catch {
     throw new PdfRequestError("The PDF was made but couldn't be saved on this phone. Check its free space and try again.");

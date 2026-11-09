@@ -1,6 +1,14 @@
 import React, { useEffect, useState } from 'react';
+<<<<<<< HEAD
 import { confirmAction } from '@/components/account-section';
 import { Button, CodeInput, ErrorText, Notice } from '@/components/kit';
+=======
+import { KeyboardAvoidingView, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { confirmAction } from '@/components/account-section';
+import { Button, CodeInput, ErrorText, Icon, usePalette } from '@/components/kit';
+import { KeyboardAwareScrollView } from '@/components/keyboard-safe-view';
+>>>>>>> 8ce38ca54eb9706ddc3736c1b82fd445f3e61052
 import { useAuth, useSignedInUser } from '@/context/auth-context';
 import { emailApi } from '@/services/email-api';
 import { AuthCard, AuthScreen, AuthTitle, AuthTopBar, FinePrint, StepProgress, Strong, TextLink } from '@/screens/auth-ui';
@@ -58,6 +66,7 @@ export function VerifyEmailScreen() {
   const logOut = () => confirmAction('Log out?', 'You can log in again and finish verifying later.', 'Log out', () => void signOut());
 
   return (
+<<<<<<< HEAD
     <AuthScreen>
       <AuthTopBar leading={<StepProgress step={2} />} trailing={<TextLink label="Log out" onPress={logOut} />} />
       <AuthTitle
@@ -68,6 +77,20 @@ export function VerifyEmailScreen() {
           </>
         }
       />
+=======
+    <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
+      <KeyboardAvoidingView behavior="padding" style={styles.root}>
+        <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+          <View style={[styles.mark, { backgroundColor: palette.primarySoft }]}>
+            <Icon name={{ ios: 'envelope.badge', android: 'mark_email_unread' }} color={palette.primary} size={28} />
+          </View>
+          <Text accessibilityRole="header" style={[styles.title, { color: palette.foreground }]}>
+            Check your email
+          </Text>
+          <Text style={[styles.lead, { color: palette.mutedForeground }]}>
+            We sent a 6-digit code to <Text style={{ color: palette.foreground, fontWeight: '700' }}>{user.email}</Text>. Enter it to verify your email.
+          </Text>
+>>>>>>> 8ce38ca54eb9706ddc3736c1b82fd445f3e61052
 
       <AuthCard>
         <CodeInput
@@ -89,9 +112,24 @@ export function VerifyEmailScreen() {
         />
       </AuthCard>
 
+<<<<<<< HEAD
       <FinePrint>
         Can&apos;t find it? Look in Spam or Promotions. The code works for 10 minutes. Typed the wrong email? Log out, then create your account again.
       </FinePrint>
     </AuthScreen>
+=======
+          <Text style={[styles.small, { color: palette.mutedForeground }]}>Can&apos;t find it? Look in Spam or Promotions. The code works for 10 minutes.</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => confirmAction('Log out?', 'You can log in again and finish verifying later.', 'Log out', () => void signOut())}
+            style={styles.center}
+            hitSlop={8}
+          >
+            <Text style={[styles.link, { color: palette.primary }]}>Wrong email? Log out</Text>
+          </Pressable>
+        </KeyboardAwareScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+>>>>>>> 8ce38ca54eb9706ddc3736c1b82fd445f3e61052
   );
 }

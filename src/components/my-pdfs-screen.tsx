@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -16,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 import { AppHeader } from '@/components/app-header';
+import { KeyboardSafeView } from '@/components/keyboard-safe-view';
 import { getPalette, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTabBarHeight } from '@/hooks/use-tab-bar-height';
@@ -319,7 +319,7 @@ function RenameDialog({ pdf, palette, onClose }: { pdf: SavedPdf; palette: Palet
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.dialogBackdrop}>
+      <KeyboardSafeView style={styles.dialogBackdrop}>
         <View style={[styles.dialog, { backgroundColor: palette.card, borderColor: palette.border }]}>
           <Text style={[styles.dialogTitle, { color: palette.foreground }]}>Rename PDF</Text>
           <View style={[styles.renameInput, { borderColor: error ? palette.danger : palette.border, backgroundColor: palette.background }]}>
@@ -364,7 +364,7 @@ function RenameDialog({ pdf, palette, onClose }: { pdf: SavedPdf; palette: Palet
             </Pressable>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardSafeView>
     </Modal>
   );
 }
