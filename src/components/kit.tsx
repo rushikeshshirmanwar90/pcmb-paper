@@ -20,6 +20,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView, type AndroidSymbol, type SFSymbol } from 'expo-symbols';
 import { AppHeader } from '@/components/app-header';
+import { WorkspaceSwitcher } from '@/components/workspace-switcher';
 import { confirmAction } from '@/components/confirm-action';
 import { KeyboardAwareScrollView, KeyboardSafeView, useKeyboardVisible, useScrollIntoView } from '@/components/keyboard-safe-view';
 import { getPalette, MaxContentWidth } from '@/constants/theme';
@@ -61,7 +62,7 @@ export function Screen({
 }: PropsWithChildren<{
   title: string;
   subtitle: string;
-  /** Shown at the right of the header, e.g. the notifications bell. */
+  /** Shown at the right of the header, e.g. the notifications bell (the workspace selector, when the account has one, follows it). */
   headerRight?: ReactNode;
   onRefresh?: () => void;
   refreshing?: boolean;
@@ -73,7 +74,16 @@ export function Screen({
   const tabBarHeight = useTabBarHeight();
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: palette.background }]}>
-      <AppHeader title={title} subtitle={subtitle} right={headerRight} />
+      <AppHeader
+        title={title}
+        subtitle={subtitle}
+        right={
+          <View style={styles.headerRight}>
+            {headerRight}
+            <WorkspaceSwitcher />
+          </View>
+        }
+      />
       {scroll ? (
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 24 }]}
@@ -770,6 +780,7 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   flex: { flex: 1 },
   content: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', padding: 16, gap: 14 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   card: { borderWidth: 1, borderRadius: 14, padding: 14, gap: 10 },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
   sectionTitle: { fontSize: 12, fontWeight: '700', letterSpacing: 0.6 },

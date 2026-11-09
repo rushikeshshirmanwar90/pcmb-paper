@@ -53,10 +53,11 @@ function SignedInGate() {
   // Admin-created students must change their password before using the app.
   if (user.mustChangePassword && user.role === 'student') return <ForcePasswordChangeScreen />;
 
-  // Keyed by the user, so logging in as someone else starts on a fresh first tab.
+  // Keyed by the user and workspace, so logging in as someone else, or switching an admin to the
+  // Teacher workspace, starts on a fresh first tab with none of the other one's screens left over.
   const tabs = tabsFor(user.role);
   return (
-    <TabProvider key={user.id} tabKeys={tabs.map((t) => t.key)}>
+    <TabProvider key={`${user.id}:${user.role}`} tabKeys={tabs.map((t) => t.key)}>
       <RoomsProvider>
         <NotificationTaps />
         <Stack screenOptions={{ headerShown: false }} />

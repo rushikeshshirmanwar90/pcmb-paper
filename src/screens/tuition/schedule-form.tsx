@@ -80,7 +80,7 @@ export const ScheduleFormScreen = tuitionOnly(function ScheduleFormScreen({ batc
 
 function ScheduleForm({ batch, classes, entry }: { batch: Batch; classes: TimetableEntry[]; entry?: TimetableEntry }) {
   const goBack = useGoBack();
-  const teachers = useLoad(() => tuitionApi.teachers(), []);
+  const teachers = useLoad(() => tuitionApi.assignableTeachers(), []);
   const [subject, setSubject] = useState<SchoolSubject | null>(entry?.subject ?? null);
   const [days, setDays] = useState<string[]>(entry ? [String(entry.day)] : []);
   const [start, setStart] = useState(entry?.start ?? DEFAULT_START);

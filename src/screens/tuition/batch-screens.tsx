@@ -278,7 +278,7 @@ const PICK = 'none';
 export const AssignTeacherScreen = tuitionOnly(function AssignTeacherScreen({ batchId, teacherId }: { batchId: string; teacherId?: string }) {
   const goBack = useGoBack();
   const { data, error: loadError, loading, reload } = useBatch(batchId);
-  const teachers = useLoad(() => tuitionApi.teachers(), [], { cacheKey: 'teachers' });
+  const teachers = useLoad(() => tuitionApi.assignableTeachers(), [], { cacheKey: 'assignable-teachers' });
   const [picked, setPicked] = useState<string>(teacherId ?? PICK);
   const [subjects, setSubjects] = useState<SchoolSubject[] | null>(null);
   const [saving, setSaving] = useState(false);
@@ -294,7 +294,7 @@ export const AssignTeacherScreen = tuitionOnly(function AssignTeacherScreen({ ba
   const mine = batch.teachers.filter((t) => t.teacherId === picked).map((t) => t.subject);
   const chosen = subjects ?? mine;
   const teacher = teachers.data?.find((t) => t.id === picked);
-  const outside = teacher ? chosen.filter((s) => !teacher.subjects.includes(s)) : [];
+  const outside = teacher && !teacher.self ? chosen.filter((s) => !teacher.subjects.includes(s)) : [];
   const options: PickerOption[] = [
     { value: PICK, label: 'Choose a teacher', pinned: true },
     ...(teachers.data ?? [])
