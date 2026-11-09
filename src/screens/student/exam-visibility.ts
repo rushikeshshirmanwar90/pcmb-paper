@@ -22,7 +22,7 @@ export function decodeVisibility(raw: string | null): VisibilityRecord | null {
  * persisted hidden interval by opening the same attempt again. */
 export function reopenVisibility(record: VisibilityRecord, now = Date.now() + record.clockSkew): VisibilityPacket {
   return { clientId: visibilityId(), sequence: 1, resumeVersion: record.resumeVersion, visible: true, observedAt: new Date(now).toISOString(),
-    interruptions: [...record.pending, ...(record.open ? [{ ...record.open, returnedAt: new Date(now).toISOString() }] : [])] };
+    interruptions: [...record.pending, ...(record.open ? [{ ...record.open, returnedAt: new Date(now).toISOString() }] : [])].filter(i => i.reason === 'app-background') };
 }
 
 export function createExamVisibility<T extends VisibilityStatus>({ startedAt, resumeVersion, recovered, now, clockSkew, persist, send, onStatus, onBlocked, onLoss }: {
@@ -32,7 +32,7 @@ export function createExamVisibility<T extends VisibilityStatus>({ startedAt, re
 }) {
   const sources = new Set<string>();
   let record: VisibilityRecord = { startedAt, resumeVersion, clientId: visibilityId(), sequence: 0, clockSkew: clockSkew(),
-    pending: recovered?.startedAt === startedAt && recovered.resumeVersion === resumeVersion ? [...recovered.pending, ...(recovered.open ? [{ ...recovered.open, returnedAt: new Date(now()).toISOString() }] : [])] : [], open: null };
+    pending: recovered?.startedAt === startedAt && recovered.resumeVersion === resumeVersion ? [...recovered.pending, ...(recovered.open ? [{ ...recovered.open, returnedAt: new Date(now()).toISOString() }] : [])].filter(i => i.reason === 'app-background') : [], open: null };
   let permitted = false;
   let stopped = false;
   let terminal = false;
@@ -48,7 +48,7 @@ export function createExamVisibility<T extends VisibilityStatus>({ startedAt, re
     if ((status.resumeVersion ?? 0) < record.resumeVersion) return;
     if ((status.resumeVersion ?? 0) > record.resumeVersion) {
       record = { startedAt, resumeVersion: status.resumeVersion!, clientId: visibilityId(), sequence: 0, clockSkew: clockSkew(), pending: [], open: null };
-      if (sources.size) record.open = { id: visibilityId(), reason: 'screen-focus-loss', startedAt: new Date(now()).toISOString() };
+      if (sources.size) record.open = { id: visibilityId(), reason: 'app-background', startedAt: new Date(now()).toISOString() };
       change++; dirty = true; store(); block();
     }
     terminal = status.state !== 'in-progress';

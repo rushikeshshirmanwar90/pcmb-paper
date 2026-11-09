@@ -1,4 +1,3 @@
-import { useIsFocused } from 'expo-router';
 import { reopenVisibility } from '@/screens/student/exam-visibility';
 import { useExamVisibility } from '@/screens/student/use-exam-visibility';
 import { acceptsAttemptStatus } from '@/screens/student/attempt-status';
@@ -86,7 +85,6 @@ export function TestRunner({ testId, onClose }: { testId: string; onClose: () =>
   const palette = usePalette();
   const insets = useSafeAreaInsets();
   const user = useSignedInUser();
-  const focused = useIsFocused();
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
   const [busy, setBusy] = useState(false);
   const [round, setRound] = useState(0);
@@ -183,7 +181,6 @@ export function TestRunner({ testId, onClose }: { testId: string; onClose: () =>
         ) : phase.kind === 'running' ? (
           <Runner
             test={phase.test}
-            focused={focused}
             attempt={phase.attempt}
             questions={phase.questions}
             blockedBackRef={blockedBackRef}
@@ -315,7 +312,7 @@ function Intro({ test, busy, splitScreen, onStart, onClose }: { test: TestSummar
         <Card>
           <Tip icon={{ ios: 'lock', android: 'lock' }} text="In-app navigation is disabled during the examination. You can't leave it until you submit or time runs out." />
           <Tip icon={{ ios: 'rectangle.on.rectangle.slash', android: 'block' }} text={`Switching applications is prohibited. If you leave the app for more than ${AWAY_LIMIT_MS / 1000} seconds, your test is paused for a teacher decision with your saved answers preserved.`} />
-          <Tip icon={{ ios: 'rectangle.split.2x1', android: 'splitscreen' }} text={`Split-screen and floating windows aren't allowed. On Android, time spent in split-screen counts as leaving the app (more than ${AWAY_LIMIT_MS / 1000} seconds pauses the test for teacher review), and other apps' floating overlays are hidden where your device supports it.`} />
+          <Tip icon={{ ios: 'rectangle.split.2x1', android: 'splitscreen' }} text="Use full screen to answer questions. Split-screen alone does not count as leaving the app. Other apps' floating overlays are hidden where your device supports it." />
           <Tip icon={{ ios: 'camera.viewfinder', android: 'screenshot' }} text="Screenshots and screen recording are blocked while the test is open." />
           <Tip icon={{ ios: 'hourglass', android: 'hourglass_top' }} text="The examination timer continues during interruptions such as calls or a lost connection." />
           <Tip icon={{ ios: 'exclamationmark.shield', android: 'gpp_maybe' }} text="Confirmed security violations may automatically pause the attempt. A violation-paused attempt requires a teacher decision." />
@@ -362,7 +359,6 @@ function Footer({ children }: { children: React.ReactNode }) {
 
 function Runner({
   test,
-  focused,
   attempt: initialAttempt,
   questions,
   blockedBackRef,
@@ -370,7 +366,6 @@ function Runner({
   onSubmitted,
 }: {
   test: TestSummary;
-  focused: boolean;
   attempt: Attempt;
   questions: TestQuestion[];
   blockedBackRef: React.RefObject<(() => void) | null>;
@@ -577,7 +572,7 @@ function Runner({
 
   const split = useMultiWindow(true);
   const splitBlocked = split.inMultiWindow && split.authoritative;
-  const { blocked: visibilityBlocked, visible: isExamVisible, canAnswer: canAnswerExam } = useExamVisibility({ userId: user.id, testId: test.id, attempt, focused, splitBlocked,
+  const { blocked: visibilityBlocked, visible: isExamVisible, canAnswer: canAnswerExam } = useExamVisibility({ userId: user.id, testId: test.id, attempt,
     skew: skewRef, onStatus: applyStatus, onLoss: persistDraftNow });
   useEffect(() => {
     const interval = setInterval(() => { if (isExamVisible()) void refreshStatus(); }, 5000);
@@ -804,7 +799,7 @@ ${message}`)) void submit();
             Return to full screen
           </Text>
           <Text style={[styles.frozenText, { color: palette.mutedForeground }]}>
-            {`The exam can't be taken in split-screen. Close the other window to continue. Time in split-screen counts as leaving the app: more than ${AWAY_LIMIT_MS / 1000} seconds pauses your test for teacher review. The timer keeps running until the server confirms a pause.`}
+            The exam cannot be taken in split-screen. Close the other window to continue. Split-screen alone does not count as leaving the app. The timer keeps running.
           </Text>
         </View>
       ) : null}
