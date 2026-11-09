@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { AccountSettings, confirmAction, ProfileHeader } from '@/components/account-section';
 import {
@@ -63,6 +63,7 @@ export function TuitionProfileScreen() {
         <Card>
           {error ? <Notice tone="danger" text={`Couldn't refresh: ${error}`} /> : null}
           <View>
+            <InfoRow icon={{ ios: 'person.crop.circle', android: 'account_circle' }} label="Admin name" value={user.name} />
             <InfoRow icon={{ ios: 'building.2', android: 'domain' }} label="Institute name" value={data.name} />
             <InfoRow icon={{ ios: 'mappin.and.ellipse', android: 'location_on' }} label="Address" value={data.address} />
             <InfoRow icon={{ ios: 'phone', android: 'call' }} label="Phone" value={data.phone} />
@@ -128,8 +129,11 @@ function AppearanceSetting() {
 }
 
 function TuitionDetailsForm({ visible, onClose, details, onSaved }: { visible: boolean; onClose: () => void; details: TuitionDetails; onSaved: () => void }) {
-  const { refresh } = useAuth();
+  const { refresh, updateProfile } = useAuth();
+  const user = useSignedInUser();
   const [form, setForm] = useState(details);
+  const [adminName, setAdminName] = useState(user.name);
+  const [adminNameError, setAdminNameError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
@@ -139,21 +143,34 @@ function TuitionDetailsForm({ visible, onClose, details, onSaved }: { visible: b
     setOpenedFor(visible);
     if (visible) {
       setForm(details);
+      setAdminName(user.name);
       setError(null);
       setNameError(null);
+      setAdminNameError(null);
     }
+  }
+  // The admin's name may have been changed elsewhere (e.g. by the platform admin): start from the saved one.
+  useEffect(() => {
+    if (visible) void refresh().catch(() => {});
+  }, [visible, refresh]);
+  const [seenName, setSeenName] = useState(user.name);
+  if (visible && user.name !== seenName) {
+    setSeenName(user.name);
+    if (adminName === seenName) setAdminName(user.name);
   }
 
   const set = (key: keyof TuitionDetails) => (value: string) => {
     setForm((f) => ({ ...f, [key]: value }));
     if (key === 'name') setNameError(null);
   };
-  const dirty = (Object.keys(details) as (keyof TuitionDetails)[]).some((key) => form[key] !== details[key]);
+  const dirty = adminName !== user.name || (Object.keys(details) as (keyof TuitionDetails)[]).some((key) => form[key] !== details[key]);
   const save = async () => {
+    if (!adminName.trim()) return setAdminNameError('Enter your name.');
     if (!form.name.trim()) return setNameError("Enter the institute's name.");
     setSaving(true);
     setError(null);
     try {
+      if (adminName.trim() !== user.name) await updateProfile({ name: adminName.trim() });
       await tuitionApi.updateProfile(form);
       bumpDataVersion();
       // The name shows in headers through the signed-in user.
@@ -170,6 +187,7 @@ function TuitionDetailsForm({ visible, onClose, details, onSaved }: { visible: b
   return (
     <FormSheet visible={visible} title="Institute details" onClose={onClose} submitLabel="Save details" onSubmit={save} submitting={saving} error={error} dirty={dirty}>
       <Muted>Teachers and students see these on their profile.</Muted>
+      <Field label="Admin name" value={adminName} onChangeText={(v) => { setAdminName(v); setAdminNameError(null); }} error={adminNameError} maxLength={100} autoComplete="name" textContentType="name" />
       <Field label="Institute name" value={form.name} onChangeText={set('name')} error={nameError} maxLength={120} />
       <Field label="Address" value={form.address} onChangeText={set('address')} multiline maxLength={300} placeholder="e.g. 2nd floor, Shanti Plaza, MG Road" />
       <Field label="Phone" value={form.phone} onChangeText={set('phone')} keyboardType="phone-pad" maxLength={20} />

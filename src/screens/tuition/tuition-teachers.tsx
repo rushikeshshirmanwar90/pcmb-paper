@@ -24,6 +24,7 @@ import {
   usePalette,
 } from '@/components/kit';
 import { SCHOOL_SUBJECTS, type SchoolSubject } from '@/constants/school';
+import { useSignedInUser } from '@/context/auth-context';
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
 import { ALL, filterTeachers, groupTeacherBatches, NO_SUBJECTS, plural, type TeacherFilter } from '@/screens/tuition/admin-filters';
 import { ActionRow, Avatar, ClearFilters, FilterRow, FlashNotice, InfoRow, LoginStatus, PanelScroll, PersonHeader, SearchBox, useFlash } from '@/screens/tuition/admin-ui';
@@ -40,7 +41,7 @@ const SHORT_SUBJECT: Record<SchoolSubject, string> = { Physics: 'Physics', Chemi
 /** People › Teachers: add, edit, assign subjects, reset passwords, remove. */
 export function TeachersPanel() {
   const version = useDataVersion();
-  const { data, error, loading, refreshing, refresh, reload } = useLoad(() => tuitionApi.teachers(), [version]);
+  const { data, error, loading, refreshing, refresh, reload } = useLoad(() => tuitionApi.assignableTeachers(), [version]);
   const [filter, setFilter] = useState<TeacherFilter>(EMPTY_FILTER);
   const [adding, setAdding] = useState(false);
   const [inviting, setInviting] = useState(false);
@@ -49,7 +50,7 @@ export function TeachersPanel() {
   const all = data ?? [];
   const shown = filterTeachers(all, filter);
   const filtering = filter.search.trim() !== '' || filter.subject !== ALL;
-  const withoutSubjects = all.filter((t) => !t.subjects.length).length;
+  const withoutSubjects = all.filter((t) => !t.self && !t.subjects.length).length;
 
   const subjectFilters = [
     { value: ALL, label: 'All', count: all.length },
@@ -114,7 +115,7 @@ export function TeachersPanel() {
 function TeacherRow({ teacher: t, onPress, last }: { teacher: Teacher; onPress: () => void; last: boolean }) {
   const palette = usePalette();
   const batchCount = groupTeacherBatches(t.batches).length;
-  const label = [t.name, t.subjects.length ? t.subjects.join(', ') : 'No subjects', plural(batchCount, 'batch', 'batches'), !t.active ? 'Login off' : null]
+  const label = [t.name, t.subjects.length ? t.subjects.join(', ') : t.self ? null : 'No subjects', plural(batchCount, 'batch', 'batches'), !t.active ? 'Login off' : null]
     .filter(Boolean)
     .join(', ');
   return (
@@ -137,7 +138,8 @@ function TeacherRow({ teacher: t, onPress, last }: { teacher: Teacher; onPress: 
           {t.email}
         </Text>
         <View style={styles.badges}>
-          {t.subjects.length ? t.subjects.map((s) => <Badge key={s} label={SHORT_SUBJECT[s]} tone="violet" />) : <Badge label="No subjects" tone="warning" />}
+          {t.self ? <Badge label="You · Admin" tone="primary" /> : null}
+          {t.subjects.length ? t.subjects.map((s) => <Badge key={s} label={SHORT_SUBJECT[s]} tone="violet" />) : t.self ? null : <Badge label="No subjects" tone="warning" />}
           {!t.active ? <Badge label="Login off" tone="danger" /> : null}
         </View>
       </View>
@@ -148,6 +150,8 @@ function TeacherRow({ teacher: t, onPress, last }: { teacher: Teacher; onPress: 
 
 export function TeacherDetailsContent({ teacher, onClose, feedbackView, onRefresh, refreshing }: { teacher: Teacher; onClose: () => void; feedbackView?: ReactNode; onRefresh?: () => void; refreshing?: boolean }) {
   const router = useRouter();
+  // The admin's own account is listed among the teachers but is edited from Profile, not here.
+  const isSelf = useSignedInUser().id === teacher.id;
   const [resetting, setResetting] = useState(false);
   const [busy, setBusy] = useState(false);
   const feedback = usePersonFeedback('teacher', teacher.id);
@@ -189,16 +193,16 @@ export function TeacherDetailsContent({ teacher, onClose, feedbackView, onRefres
     );
 
   return (
-    <StackScreen title={teacher.name} onBack={onClose} onRefresh={onRefresh} refreshing={refreshing} footer={<Button label="Edit teacher" icon={{ ios: 'pencil', android: 'edit' }} onPress={() => router.push(teacherHref(teacher.id, 'edit'))} />}>
+    <StackScreen title={teacher.name} onBack={onClose} onRefresh={onRefresh} refreshing={refreshing} footer={isSelf ? undefined : <Button label="Edit teacher" icon={{ ios: 'pencil', android: 'edit' }} onPress={() => router.push(teacherHref(teacher.id, 'edit'))} />}>
       <FlashNotice flash={flash} onDismiss={clear} />
       <PersonNotice kind="teacher" id={teacher.id} />
       {feedbackView}
       <Card>
-        <PersonHeader name={teacher.name} line={teacher.email} badges={!teacher.active ? <Badge label="Login off" tone="danger" /> : <Badge label="Teacher" tone="primary" />} />
+        <PersonHeader name={teacher.name} line={teacher.email} badges={isSelf ? <Badge label="You · Admin" tone="primary" /> : !teacher.active ? <Badge label="Login off" tone="danger" /> : <Badge label="Teacher" tone="primary" />} />
       </Card>
 
-      <SectionTitle title="Subjects" />
-      <Card>
+      {isSelf ? null : <SectionTitle title="Subjects" />}
+      {isSelf ? null : <Card>
         {teacher.subjects.length ? (
           <View style={styles.badgeWrap}>
             {teacher.subjects.map((s) => (
@@ -208,7 +212,7 @@ export function TeacherDetailsContent({ teacher, onClose, feedbackView, onRefres
         ) : (
           <Muted>No subjects yet. Tap Edit teacher to pick the subjects they teach; then you can assign them to batches.</Muted>
         )}
-      </Card>
+      </Card>}
 
       <SectionTitle title={`Batches (${batches.length})`} />
       {batches.length ? (
@@ -222,7 +226,7 @@ export function TeacherDetailsContent({ teacher, onClose, feedbackView, onRefres
         </Card>
       ) : (
         <Card>
-          <Muted>Not teaching any batch yet. Open the Teachers screen of a batch and choose Assign Teacher.</Muted>
+          <Muted>{isSelf ? 'You are not teaching any batch yet. Open the Teachers screen of a batch and choose Assign Teacher, then pick yourself.' : 'Not teaching any batch yet. Open the Teachers screen of a batch and choose Assign Teacher.'}</Muted>
         </Card>
       )}
 
@@ -232,8 +236,9 @@ export function TeacherDetailsContent({ teacher, onClose, feedbackView, onRefres
         <InfoRow icon={{ ios: 'phone', android: 'call' }} label="Phone" value={teacher.phone} last />
       </Card>
 
-      <SectionTitle title="Login and account" />
-      <Card style={styles.listCard}>
+      {isSelf ? <Notice text="This is your own account. Change your name, phone or password from Profile. Switch to the Teacher workspace to see your classes and tests." /> : null}
+      {isSelf ? null : <SectionTitle title="Login and account" />}
+      {isSelf ? null : <Card style={styles.listCard}>
         <LoginStatus active={teacher.active} lastLoginAt={teacher.lastLoginAt} ago={timeAgo} />
         <ActionRow icon={{ ios: 'key', android: 'key' }} title="Reset password" subtitle="Set a new password and log them out" onPress={() => setResetting(true)} disabled={busy} />
         <ActionRow
@@ -252,7 +257,7 @@ export function TeacherDetailsContent({ teacher, onClose, feedbackView, onRefres
           disabled={busy}
           last
         />
-      </Card>
+      </Card>}
 
       <ResetPasswordSheet
         visible={resetting}

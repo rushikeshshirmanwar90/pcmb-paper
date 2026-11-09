@@ -44,7 +44,7 @@ export function TimetableSheet({ visible, batch, onClose, page = false }: { visi
   const showForm = () => requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: 0, animated: true }));
   const version = useDataVersion();
   const timetable = useLoad(() => schoolApi.timetable(batch.id), [batch.id, version, visible], { enabled: visible });
-  const teachers = useLoad(() => tuitionApi.teachers(), [visible], { enabled: visible });
+  const teachers = useLoad(() => tuitionApi.assignableTeachers(), [visible], { enabled: visible });
   const [subject, setSubject] = useState<SchoolSubject | null>(null);
   const [days, setDays] = useState<string[]>([]);
   const [start, setStart] = useState(DEFAULT_START);

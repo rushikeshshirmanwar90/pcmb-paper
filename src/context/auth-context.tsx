@@ -1,7 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
-import { api, ApiError, setApiToken, setOnLoginExpired } from '@/services/api-client';
+import { api, ApiError, setApiToken, setApiWorkspace, setOnLoginExpired } from '@/services/api-client';
 import { registerForPush, setNotificationsUser, unregisterPush } from '@/services/notifications';
+import { loadPreference, savePreference } from '@/services/preferences';
 import { clearToken, loadToken, saveToken } from '@/services/session-store';
+import { apiWorkspaceFor, resolveWorkspace, workspaceKey, workspacesFor } from '@/services/workspace';
 import type { Program, Role, SchoolStandard, SchoolSubject, Track } from '@/constants/school';
 
 /** The signed-in user, as the server describes them. */
@@ -10,6 +12,8 @@ export interface AuthUser {
   email: string;
   /** null until a tuition accepts them as a student or teacher. */
   role: Role | null;
+  /** The workspaces this account may open; a tuition admin has Admin and Teacher. Older servers don't send it. */
+  workspaces?: Role[];
   /** Proved with a code sent to it. */
   emailVerified: boolean;
   name: string;
@@ -31,7 +35,12 @@ type AuthStatus = 'loading' | 'signedOut' | 'signedIn' | 'unreachable';
 
 interface AuthContextValue {
   status: AuthStatus;
+  /** The signed-in user. Its `role` is the workspace in use, so every screen follows the workspace the admin switched to. */
   user: AuthUser | null;
+  /** The workspaces the account may open (more than one shows the selector), and the one in use. */
+  workspaces: Role[];
+  workspace: Role | null;
+  switchWorkspace: (next: Role) => void;
   signIn: (email: string, password: string) => Promise<void>;
   /** Creates an account (no tuition yet) and logs in. */
   register: (input: { name: string; email: string; phone: string; password: string }) => Promise<void>;
@@ -50,13 +59,27 @@ type Session = { token: string; user: AuthUser };
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [status, setStatus] = useState<AuthStatus>('loading');
-  const [user, setUser] = useState<AuthUser | null>(null);
+  // The account as the server describes it; `user` below follows the workspace in use.
+  const [account, setAccount] = useState<AuthUser | null>(null);
+  const [workspace, setWorkspace] = useState<Role | null>(null);
+
+  /** Takes the account in, opening the workspace last used on this device (if it may still be opened). */
+  const adopt = useCallback(async (next: AuthUser) => {
+    const saved = next.role && next.tuition.id ? await loadPreference(workspaceKey(next.id, next.tuition.id)) : null;
+    const open = resolveWorkspace(next.role, next.workspaces, saved);
+    // Before any screen asks for data in this workspace.
+    setApiWorkspace(apiWorkspaceFor(next.role, open));
+    setWorkspace(open);
+    setAccount(next);
+  }, []);
 
   const forget = useCallback(async () => {
     // While the login still works: stop this phone's notifications.
     await unregisterPush().catch(() => {});
     setApiToken(null);
-    setUser(null);
+    setApiWorkspace(null);
+    setAccount(null);
+    setWorkspace(null);
     setStatus('signedOut');
     await clearToken();
   }, []);
@@ -64,9 +87,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const keep = useCallback(async ({ token, user: next }: Session) => {
     setApiToken(token);
     await saveToken(token);
-    setUser(next);
+    await adopt(next);
     setStatus('signedIn');
-  }, []);
+  }, [adopt]);
 
   // On launch (and on retry): is there a saved login, and is it still good?
   const [attempt, setAttempt] = useState(0);
@@ -81,8 +104,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setApiToken(saved);
       try {
         const { user: me } = await api<{ user: AuthUser }>('/auth/me');
+        await adopt(me);
         if (cancelled) return;
-        setUser(me);
         setStatus('signedIn');
       } catch (error) {
         if (cancelled) return;
@@ -94,7 +117,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => {
       cancelled = true;
     };
-  }, [forget, attempt]);
+  }, [forget, adopt, attempt]);
 
   const retry = useCallback(() => {
     setStatus('loading');
@@ -102,7 +125,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   // Once someone is signed in on this phone, register it for notifications.
-  const signedInId = status === 'signedIn' ? user?.id : null;
+  const signedInId = status === 'signedIn' ? account?.id : null;
   useEffect(() => {
     // Class-reminder settings belong to whoever is signed in.
     setNotificationsUser(signedInId ?? null);
@@ -137,17 +160,32 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const updateProfile = useCallback(async (changes: Partial<Pick<AuthUser, 'name' | 'phone' | 'parentPhone'>>) => {
     const { user: next } = await api<{ user: AuthUser }>('/auth/me', { method: 'PATCH', body: changes });
-    setUser(next);
+    setAccount(next);
   }, []);
 
   const refresh = useCallback(async () => {
     const { user: next } = await api<{ user: AuthUser }>('/auth/me');
-    setUser(next);
+    setAccount(next);
   }, []);
 
+  const workspaces = useMemo(() => workspacesFor(account?.role ?? null, account?.workspaces), [account?.role, account?.workspaces]);
+
+  const switchWorkspace = useCallback(
+    (next: Role) => {
+      if (!account || next === workspace || !workspaces.includes(next)) return;
+      // Sent from the next request on; the server still decides what the account may do.
+      setApiWorkspace(apiWorkspaceFor(account.role, next));
+      setWorkspace(next);
+      if (account.tuition.id) void savePreference(workspaceKey(account.id, account.tuition.id), next);
+    },
+    [account, workspace, workspaces]
+  );
+
+  const user = useMemo(() => (account && workspace && workspace !== account.role && workspaces.includes(workspace) ? { ...account, role: workspace } : account), [account, workspace, workspaces]);
+
   const value = useMemo(
-    () => ({ status, user, signIn, register, signOut: forget, changePassword, updateProfile, refresh, retry }),
-    [status, user, signIn, register, forget, changePassword, updateProfile, refresh, retry]
+    () => ({ status, user, workspaces, workspace, switchWorkspace, signIn, register, signOut: forget, changePassword, updateProfile, refresh, retry }),
+    [status, user, workspaces, workspace, switchWorkspace, signIn, register, forget, changePassword, updateProfile, refresh, retry]
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

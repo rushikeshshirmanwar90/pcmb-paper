@@ -55,6 +55,8 @@ export interface Teacher {
   createdAt: string;
   lastLoginAt: string | null;
   batches: { id: string; name: string; subject: SchoolSubject }[];
+  /** The signed-in admin's own account, listed with the teachers because it can teach. Not editable like a teacher. */
+  self?: boolean;
 }
 
 export type AccountStatus = 'invited' | 'active';
@@ -212,6 +214,10 @@ export const tuitionApi = {
 
   teacher: (id: string) => api<{ teacher: Teacher }>(`/tuition/teachers/${encodeURIComponent(id)}`).then((r) => r.teacher),
   teachers: () => api<{ teachers: Teacher[] }>('/tuition/teachers').then((r) => r.teachers),
+  /** The teachers plus the admin's own account (named "(You)"), who can be assigned to teach like a teacher. Older servers don't send `self`. */
+  assignableTeachers: () =>
+    api<{ teachers: Teacher[]; self?: Teacher }>('/tuition/teachers').then((r) => (r.self ? [...r.teachers, { ...r.self, name: `${r.self.name} (You)`, self: true }] : r.teachers)),
+
   createTeacher: (input: TeacherInput) => api<{ teacher: Teacher }>('/tuition/teachers', { method: 'POST', body: input }).then((r) => r.teacher),
   updateTeacher: (id: string, input: TeacherInput) =>
     api<{ teacher: Teacher }>(`/tuition/teachers/${id}`, { method: 'PATCH', body: input }).then((r) => r.teacher),
