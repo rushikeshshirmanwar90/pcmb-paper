@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { confirmAction } from '@/components/confirm-action';
 import { Badge, Card, Field, FormSheet, ListRow, PasswordField, SectionTitle, usePalette } from '@/components/kit';
@@ -97,7 +97,7 @@ function initials(name: string) {
 
 function EditDetailsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const user = useSignedInUser();
-  const { updateProfile } = useAuth();
+  const { updateProfile, refresh } = useAuth();
   const [name, setName] = useState(user.name);
   const [phone, setPhone] = useState(user.phone);
   const [parentPhone, setParentPhone] = useState(user.parentPhone);
@@ -114,6 +114,16 @@ function EditDetailsSheet({ visible, onClose }: { visible: boolean; onClose: () 
       setParentPhone(user.parentPhone);
       setError(null);
     }
+  }
+
+  // Details changed elsewhere (e.g. the name set by the platform admin): load them, and show them unless already edited.
+  useEffect(() => {
+    if (visible) void refresh().catch(() => {});
+  }, [visible, refresh]);
+  const [seenName, setSeenName] = useState(user.name);
+  if (user.name !== seenName) {
+    setSeenName(user.name);
+    if (visible && name === seenName) setName(user.name);
   }
 
   const save = async () => {

@@ -1,16 +1,28 @@
 import { clearLoadCache } from '@/services/load-cache';
 import { API_BASE_URL } from '@/services/apiService';
+import { WORKSPACE_HEADER } from '@/services/workspace';
 
 // Requests to the papers backend that need the user's login. The auth context
 // hands over the token and is told when the server says the login has expired.
 
 let token: string | null = null;
 let onExpired: (() => void) | null = null;
+let workspaceHeader: 'teacher' | null = null;
 
 export function setApiToken(next: string | null) {
   // Another login must never start from the last one's cached answers.
   if (next !== token) clearLoadCache();
   token = next;
+}
+
+/**
+ * Which workspace requests are made from: a tuition admin in the Teacher workspace sends it so the
+ * server answers as for a teacher. Only a navigation choice: the server checks the account's role.
+ */
+export function setApiWorkspace(next: 'teacher' | null) {
+  // The other workspace's answers (batches, tests) must not show in this one.
+  if (next !== workspaceHeader) clearLoadCache();
+  workspaceHeader = next;
 }
 
 /** Called when the server answers 401 to a signed-in request. */
@@ -20,7 +32,7 @@ export function setOnLoginExpired(handler: (() => void) | null) {
 
 /** The login header, for requests that can't go through api() (e.g. a PDF download). */
 export function authHeaders(): Record<string, string> {
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return token ? { Authorization: `Bearer ${token}`, ...(workspaceHeader ? { [WORKSPACE_HEADER]: workspaceHeader } : {}) } : {};
 }
 
 /** Tells the app the login has expired, as api() does when a signed-in request gets a 401. */
