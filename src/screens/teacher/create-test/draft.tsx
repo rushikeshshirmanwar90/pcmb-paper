@@ -27,13 +27,14 @@ export interface TestDraft {
   wrong: string;
 }
 
-export function newDraft(): TestDraft {
+/** A fresh draft; `batchIds` pre-picks batches (e.g. Set a test from a batch's page). */
+export function newDraft(batchIds: string[] = []): TestDraft {
   const date = new Date();
   date.setDate(date.getDate() + 1);
   date.setHours(10, 0, 0, 0);
   return {
     requestId: `create_${Date.now()}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`,
-    title: '', batchIds: [], subject: '', source: EMPTY_BANK_SCOPE.source, chapters: [], topics: [], years: [], count: 30, questions: [],
+    title: '', batchIds, subject: '', source: EMPTY_BANK_SCOPE.source, chapters: [], topics: [], years: [], count: 30, questions: [],
     audienceMode: 'all', studentIds: [], excludedStudentIds: [], date, start: timeOf(date), end: null, minutes: '60', correct: '4', wrong: '0',
   };
 }
@@ -48,15 +49,15 @@ interface Ctx {
 
 const DraftContext = createContext<Ctx | null>(null);
 
-export function CreateTestProvider({ children }: PropsWithChildren) {
-  const [initial] = useState(newDraft);
+export function CreateTestProvider({ children, initialBatchIds = [] }: PropsWithChildren<{ initialBatchIds?: string[] }>) {
+  const [initial] = useState(() => newDraft(initialBatchIds));
   const [draft, setDraft] = useState<TestDraft>(initial);
   const [saved, setSaved] = useState(false);
   const value = useMemo<Ctx>(() => {
     const base = initial;
     const dirty =
       !saved &&
-      (draft.title.trim() !== '' || draft.batchIds.length > 0 || draft.questions.length > 0 || draft.studentIds.length > 0 || draft.excludedStudentIds.length > 0 ||
+      (draft.title.trim() !== '' || draft.batchIds.join('|') !== base.batchIds.join('|') || draft.questions.length > 0 || draft.studentIds.length > 0 || draft.excludedStudentIds.length > 0 ||
         draft.minutes !== base.minutes || draft.correct !== base.correct || draft.wrong !== base.wrong || draft.end !== null || draft.date.getTime() !== base.date.getTime() || draft.start !== base.start);
     return { draft, update: (patch) => setDraft((d) => ({ ...d, ...patch })), dirty, markSaved: () => setSaved(true) };
   }, [draft, saved, initial]);
