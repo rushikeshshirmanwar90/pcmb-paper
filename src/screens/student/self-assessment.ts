@@ -77,6 +77,29 @@ export const isTopicPicked = (selection: Selection, chapter: ChapterLike, topic:
   return picked === 'all' || (!!picked && picked.includes(topic));
 };
 
+/** What Quick start covers: the topics covered in class, else the student's own class's chapters, else nothing to pick automatically. */
+export type QuickBasis = 'covered' | 'class' | 'none';
+
+/**
+ * Quick start's topics (a good default, no choices up front): every topic the
+ * batch has covered that has questions; with nothing covered yet, every
+ * chapter of the student's own class. Customise starts from the same picks.
+ */
+export function quickSelection<
+  C extends ChapterLike & { mine: boolean; coveredOn: string | null; topics: { topic: string; questions: number; coveredOn: string | null }[] },
+>(chapters: C[]): { selection: Selection; basis: QuickBasis } {
+  let selection: Selection = {};
+  for (const c of chapters) {
+    if (!c.questions) continue;
+    if (c.topics.length) {
+      for (const t of c.topics) if (t.coveredOn && t.questions > 0) selection = toggleTopic(selection, c, t.topic);
+    } else if (c.coveredOn) selection = toggleChapter(selection, c);
+  }
+  if (Object.keys(selection).length) return { selection, basis: 'covered' };
+  for (const c of chapters) if (c.mine && c.questions > 0) selection = toggleChapter(selection, c);
+  return { selection, basis: Object.keys(selection).length ? 'class' : 'none' };
+}
+
 /** The scope to send, in the order the chapters are listed. */
 export function scopeOf(selection: Selection, chapters: ChapterLike[]): AssessmentScope[] {
   return chapters

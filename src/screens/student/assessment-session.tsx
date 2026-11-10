@@ -692,6 +692,8 @@ function Result({
   const { assessment: a, questions, report } = detail;
   const [filter, setFilter] = useState<Filter>('all');
   const [topicFilter, setTopicFilter] = useState<TopicStrength | null>(null);
+  // The report and the answers are two views of one result: the topics first, the answers a tap away.
+  const [view, setView] = useState<'topics' | 'answers'>(report ? 'topics' : 'answers');
   const listRef = useRef<FlatList<ResultRow>>(null);
   const answersY = useRef(0);
 
@@ -702,6 +704,7 @@ function Result({
   const seeQuestions = (t: TopicStrength) => {
     setTopicFilter(t);
     setFilter('all');
+    setView('answers');
     // The answers heading's place in the header, plus the list's top padding.
     listRef.current?.scrollToOffset({ offset: answersY.current + styles.body.padding, animated: true });
   };
@@ -745,6 +748,45 @@ function Result({
         {report ? (
           <>
             <Notice tone={report.overall.wrong + report.overall.skipped ? 'info' : 'success'} icon={{ ios: 'lightbulb', android: 'lightbulb' }} title={report.headline} />
+
+            {/* The next step right under the score (peak-end): advice, then the two ways to act on it. */}
+            <SectionTitle title="What to do next" />
+            <Card style={styles.adviceCard}>
+              {report.advice.map((line) => (
+                <Tip key={line} icon={{ ios: 'arrow.right.circle', android: 'arrow_circle_right' }} text={line} />
+              ))}
+            </Card>
+            {needWork.length ? (
+              <View style={styles.actions}>
+                <Button
+                  label={`Retake my ${needWork.length === 1 ? 'weak topic' : `${needWork.length} weaker topics`}`}
+                  icon={{ ios: 'arrow.counterclockwise', android: 'replay' }}
+                  onPress={() => onRetake(needWork.map(toPick))}
+                />
+                <Button label={`Practise ${topicName(needWork[0])}`} variant="tonal" icon={{ ios: 'book', android: 'menu_book' }} onPress={() => onPractise(toPick(needWork[0]))} />
+              </View>
+            ) : null}
+          </>
+        ) : null}
+
+        <View onLayout={(e) => (answersY.current = e.nativeEvent.layout.y)}>
+          {report ? (
+            <Segmented
+              label="Result details"
+              value={view}
+              onChange={setView}
+              options={[
+                { value: 'topics', label: 'Topics' },
+                { value: 'answers', label: 'Answers', count: rows.length },
+              ]}
+            />
+          ) : (
+            <SectionTitle title="Answers and solutions" />
+          )}
+        </View>
+
+        {report && view === 'topics' ? (
+          <>
             <StatGrid>
               <StatTile label="Strong topics" value={report.strongTopics} icon={{ ios: 'arrow.up.circle', android: 'trending_up' }} tone="success" />
               <StatTile label="Weak topics" value={report.weakTopics} icon={{ ios: 'arrow.down.circle', android: 'trending_down' }} tone="danger" />
@@ -777,52 +819,34 @@ function Result({
                 <BreakdownRow key={d.difficulty} title={d.difficulty} tally={d} last={i === report.difficulty.length - 1} />
               ))}
             </Card>
-
-            <SectionTitle title="What to do next" />
-            <Card style={styles.adviceCard}>
-              {report.advice.map((line) => (
-                <Tip key={line} icon={{ ios: 'arrow.right.circle', android: 'arrow_circle_right' }} text={line} />
-              ))}
-            </Card>
-            {needWork.length ? (
-              <View style={styles.actions}>
-                <Button
-                  label={`Retake my ${needWork.length === 1 ? 'weak topic' : `${needWork.length} weaker topics`}`}
-                  icon={{ ios: 'arrow.counterclockwise', android: 'replay' }}
-                  onPress={() => onRetake(needWork.map(toPick))}
-                />
-                <Button label={`Practise ${topicName(needWork[0])}`} variant="tonal" icon={{ ios: 'book', android: 'menu_book' }} onPress={() => onPractise(toPick(needWork[0]))} />
-              </View>
-            ) : null}
           </>
-        ) : null}
-
-        <View onLayout={(e) => (answersY.current = e.nativeEvent.layout.y)}>
-          <SectionTitle title="Answers and solutions" />
-        </View>
-        {topicFilter ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Showing ${topicName(topicFilter)} only. Show every topic`}
-            onPress={() => setTopicFilter(null)}
-            style={({ pressed }) => [styles.filterChip, { backgroundColor: palette.primarySoft, borderColor: palette.primaryBorder }, pressed && styles.pressed]}
-          >
-            <Text style={[styles.filterChipText, { color: palette.primaryInk }]} numberOfLines={1}>
-              {topicName(topicFilter)} only
-            </Text>
-            <Icon name={{ ios: 'xmark', android: 'close' }} color={palette.primaryInk} size={14} />
-          </Pressable>
-        ) : null}
-        <Segmented
-          label="Show answers"
-          value={filter}
-          onChange={setFilter}
-          options={[
-            { value: 'all', label: 'All', count: rows.length },
-            { value: 'wrong', label: 'Wrong', count: rows.filter((r) => r.outcome === 'wrong').length },
-            { value: 'skipped', label: 'Skipped', count: rows.filter((r) => r.outcome === 'skipped').length },
-          ]}
-        />
+        ) : (
+          <>
+            {topicFilter ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Showing ${topicName(topicFilter)} only. Show every topic`}
+                onPress={() => setTopicFilter(null)}
+                style={({ pressed }) => [styles.filterChip, { backgroundColor: palette.primarySoft, borderColor: palette.primaryBorder }, pressed && styles.pressed]}
+              >
+                <Text style={[styles.filterChipText, { color: palette.primaryInk }]} numberOfLines={1}>
+                  {topicName(topicFilter)} only
+                </Text>
+                <Icon name={{ ios: 'xmark', android: 'close' }} color={palette.primaryInk} size={14} />
+              </Pressable>
+            ) : null}
+            <Segmented
+              label="Show answers"
+              value={filter}
+              onChange={setFilter}
+              options={[
+                { value: 'all', label: 'All', count: rows.length },
+                { value: 'wrong', label: 'Wrong', count: rows.filter((r) => r.outcome === 'wrong').length },
+                { value: 'skipped', label: 'Skipped', count: rows.filter((r) => r.outcome === 'skipped').length },
+              ]}
+            />
+          </>
+        )}
       </View>
   );
 
@@ -832,12 +856,13 @@ function Result({
       {/* One list: the score and report are its header, the answer cards its items (virtualized). */}
       <FlatList
         ref={listRef}
-        data={shown}
+        data={view === 'answers' ? shown : []}
         // The filter is in the key: another filter remounts the cards, so solutions start open or closed for it.
         keyExtractor={(r) => `${filter}-${r.q.index}`}
         renderItem={renderAnswer}
         ListHeaderComponent={header}
         ListEmptyComponent={
+          view !== 'answers' ? undefined : (
           <Card>
             <EmptyView
               icon={{ ios: 'checkmark.seal', android: 'verified' }}
@@ -845,6 +870,7 @@ function Result({
               text={filter === 'wrong' ? 'Every question you answered here was right.' : 'You answered every question here.'}
             />
           </Card>
+          )
         }
         ListFooterComponent={<QuietButton label="Delete this self-assessment" icon={{ ios: 'trash', android: 'delete' }} tone="danger" onPress={onDelete} />}
         initialNumToRender={RESULT_CARDS.initial}

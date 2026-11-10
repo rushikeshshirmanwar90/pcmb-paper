@@ -36,6 +36,7 @@ import {
   MIN_QUESTIONS,
   MIX_INFO,
   pickedQuestions,
+  quickSelection,
   scopeOf,
   selectionLabel,
   splitLabel,
@@ -46,8 +47,10 @@ import {
   toggleChapter,
   toggleTopic,
   topicName,
+  type QuickBasis,
   type Selection,
 } from '@/screens/student/self-assessment';
+import { Reason } from '@/components/states';
 import { resultTone } from '@/screens/student/test-format';
 import { dayLabel } from '@/services/school-api';
 import {
@@ -338,6 +341,33 @@ function Builder({
     }
   };
 
+  // Quick start first (good defaults, no choices up front); Customise is 3 short
+  // steps. "Retake my weak topics" opens straight on the topics step.
+  const [stage, setStage] = useState<'quick' | 1 | 2 | 3>(preset ? 1 : 'quick');
+  const [quickFor, setQuickFor] = useState<{ subject: SchoolSubject; basis: QuickBasis } | null>(null);
+  if (!preset && chapters.length && quickFor?.subject !== subject) {
+    const quick = quickSelection(chapters);
+    setQuickFor({ subject, basis: quick.basis });
+    setSelection(quick.selection);
+  }
+  const back = () => {
+    if (stage === 'quick') onBack();
+    else if (stage === 1) {
+      if (preset) onBack();
+      else setStage('quick');
+    } else setStage(stage === 2 ? 1 : 2);
+  };
+  const blockedReason = !scope.length ? 'Pick at least one chapter or topic.' : tooFew ? 'Not enough questions in what you picked.' : current?.error ? "Couldn't plan the questions." : null;
+  const createButton = (label: string) => (
+    <Button
+      label={current?.plan ? `${label} · ${current.plan.plan.count} questions` : label}
+      icon={{ ios: 'checkmark', android: 'check' }}
+      onPress={() => void create()}
+      loading={creating}
+      disabled={!!blockedReason || planning}
+    />
+  );
+
   const query = search.trim().toLowerCase();
   const shown = query
     ? chapters.filter((c) => c.chapter.toLowerCase().includes(query) || c.topics.some((t) => t.topic.toLowerCase().includes(query)))
@@ -346,12 +376,28 @@ function Builder({
 
   return (
     <KeyboardSafeView>
-      <SheetHeader title="New self-assessment" onBack={onBack} />
+      <SheetHeader title={stage === 'quick' ? 'New self-assessment' : `Customise · Step ${stage} of 3`} onBack={back} />
       <ScrollView contentContainerStyle={[styles.body, column]} keyboardShouldPersistTaps="handled">
-        <Step n={1} title="Subject" />
+        {stage === 'quick' ? (
+          <>
+            <Step title="Subject" />
+            <Chips choices={subjects} selected={subject} onChange={pickSubject} />
+            <QuickSummary
+              loading={tree.loading && !chapters.length}
+              error={tree.error && !chapters.length ? tree.error : null}
+              onRetry={tree.reload}
+              basis={quickFor?.subject === subject ? quickFor.basis : null}
+              covers={scope.length ? `${selectionLabel(selection, chapters)} · ${available} questions` : ''}
+              size={`${n} questions · ${minutes ? `${minutes} min` : 'no time limit'} · ${MIX_INFO[mix].label} mix · ${negative === 'on' ? '+4 / −1' : '+4 / 0'}`}
+            />
+            {scope.length && (current?.error || tooFew) ? <PlanPreview plan={current?.plan ?? null} error={current?.error ?? null} loading={planning} mix={mix} /> : null}
+          </>
+        ) : stage === 1 ? (
+          <>
+        <Step title="Subject" />
         <Chips choices={subjects} selected={subject} onChange={pickSubject} />
 
-        <Step n={2} title="Chapters and topics" detail={scope.length ? `${selectionLabel(selection, chapters)} · ${available} questions` : 'Pick at least one'} />
+        <Step title="Chapters and topics" detail={scope.length ? `${selectionLabel(selection, chapters)} · ${available} questions` : 'Pick at least one'} />
         <View style={[styles.search, { borderColor: palette.border, backgroundColor: palette.card }]}>
           <Icon name={{ ios: 'magnifyingglass', android: 'search' }} color={palette.mutedForeground} size={16} />
           <TextInput
@@ -410,11 +456,13 @@ function Builder({
             );
           })
         )}
-
-        <Step n={3} title="How many questions" />
+          </>
+        ) : stage === 2 ? (
+          <>
+        <Step title="How many questions" />
         <Chips choices={COUNTS} selected={count} onChange={setCount} />
 
-        <Step n={4} title="Difficulty mix" />
+        <Step title="Difficulty mix" />
         <Segmented
           label="Difficulty mix"
           value={mix}
@@ -422,8 +470,10 @@ function Builder({
           options={(['smart', 'balanced', 'challenge'] as const).map((m) => ({ value: m, label: MIX_INFO[m].label }))}
         />
         <Muted>{MIX_INFO[mix].text}</Muted>
-
-        <Step n={5} title="Time and marking" />
+          </>
+        ) : (
+          <>
+        <Step title="Time and marking" />
         <Chips choices={TIME_CHOICES} selected={time} onChange={setTime} labels={{ pace: timeLabel(choices[0], suggested), relaxed: timeLabel(choices[1], suggested), none: timeLabel('0', suggested) }} />
         <Segmented
           label="Negative marking"
@@ -434,31 +484,87 @@ function Builder({
             { value: 'off', label: '+4 / 0' },
           ]}
         />
-
         {scope.length ? <PlanPreview plan={current?.plan ?? null} error={current?.error ?? null} loading={planning} mix={mix} /> : null}
+          </>
+        )}
       </ScrollView>
       <SheetFooter>
         <ErrorText message={error} />
-        <Button
-          label={current?.plan ? `Create · ${current.plan.plan.count} questions` : 'Create self-assessment'}
-          icon={{ ios: 'checkmark', android: 'check' }}
-          onPress={() => void create()}
-          loading={creating}
-          disabled={!scope.length || planning || tooFew || !!current?.error}
-        />
-        {!scope.length ? <Text style={[styles.footerHint, { color: palette.mutedForeground }]}>Pick at least one chapter or topic.</Text> : null}
+        {stage === 'quick' ? (
+          <>
+            {createButton('Quick start')}
+            <Reason text={blockedReason && quickFor?.subject === subject ? blockedReason : null} />
+            <Button label="Customise" variant="secondary" icon={{ ios: 'slider.horizontal.3', android: 'tune' }} onPress={() => setStage(1)} />
+          </>
+        ) : stage === 1 ? (
+          <>
+            <Button label="Next: size and difficulty" onPress={() => setStage(2)} disabled={!scope.length} />
+            <Reason text={!scope.length ? 'Pick at least one chapter or topic.' : null} />
+          </>
+        ) : stage === 2 ? (
+          <Button label="Next: time and marking" onPress={() => setStage(3)} />
+        ) : (
+          <>
+            {createButton('Create')}
+            <Reason text={blockedReason} />
+          </>
+        )}
       </SheetFooter>
     </KeyboardSafeView>
   );
 }
 
-function Step({ n, title, detail }: { n: number; title: string; detail?: string }) {
+/** Quick start in a few lines: what it covers and how big it is. Customise changes any of it. */
+function QuickSummary({
+  loading,
+  error,
+  onRetry,
+  basis,
+  covers,
+  size,
+}: {
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+  basis: QuickBasis | null;
+  covers: string;
+  size: string;
+}) {
+  const palette = usePalette();
+  if (loading) return <Card><LoadingView label="Getting your topics…" /></Card>;
+  if (error) return <ErrorView message={error} onRetry={onRetry} />;
+  if (basis === 'none') {
+    return <Notice title="Nothing to pick automatically yet" text="Your batch hasn't marked topics as covered. Choose the chapters yourself with Customise." />;
+  }
+  return (
+    <Card style={styles.preview}>
+      <View style={styles.quickRow}>
+        <Icon name={{ ios: 'book', android: 'menu_book' }} color={palette.inkSoft} size={18} />
+        <View style={styles.flex}>
+          <Text style={[styles.quickLabel, { color: palette.mutedForeground }]}>{basis === 'class' ? "Your class's chapters (nothing marked covered yet)" : 'Topics covered in class'}</Text>
+          <Text style={[styles.quickValue, { color: palette.foreground }]}>{covers || '…'}</Text>
+        </View>
+      </View>
+      <View style={styles.quickRow}>
+        <Icon name={{ ios: 'timer', android: 'timer' }} color={palette.inkSoft} size={18} />
+        <View style={styles.flex}>
+          <Text style={[styles.quickLabel, { color: palette.mutedForeground }]}>Size</Text>
+          <Text style={[styles.quickValue, { color: palette.foreground }]}>{size}</Text>
+        </View>
+      </View>
+    </Card>
+  );
+}
+
+function Step({ n, title, detail }: { n?: number; title: string; detail?: string }) {
   const palette = usePalette();
   return (
     <View style={styles.step}>
-      <View style={[styles.stepNumber, { backgroundColor: palette.primarySoft }]}>
-        <Text style={[styles.stepNumberText, { color: palette.primaryInk }]}>{n}</Text>
-      </View>
+      {n ? (
+        <View style={[styles.stepNumber, { backgroundColor: palette.primarySoft }]}>
+          <Text style={[styles.stepNumberText, { color: palette.primaryInk }]}>{n}</Text>
+        </View>
+      ) : null}
       <Text accessibilityRole="header" style={[styles.stepTitle, { color: palette.foreground }]}>
         {title}
       </Text>
@@ -653,6 +759,9 @@ const styles = StyleSheet.create({
   topicCount: { fontSize: 13, fontVariant: ['tabular-nums'], minWidth: 28, textAlign: 'right' },
 
   preview: { gap: 10, padding: 16 },
+  quickRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  quickLabel: { fontSize: 12, fontWeight: '600' },
+  quickValue: { fontSize: 15, lineHeight: 21, fontWeight: '600', marginTop: 2 },
   previewBig: { fontSize: 20, fontWeight: '800' },
   previewSmall: { fontSize: 14, fontWeight: '600' },
   previewTopics: { gap: 8, marginTop: 4 },

@@ -22,6 +22,7 @@ import {
   toggleTopic,
   answerRows,
   filterRows,
+  quickSelection,
 } from '../src/screens/student/self-assessment.ts';
 
 describe('result answer rows', () => {
@@ -208,5 +209,36 @@ describe('resultTree', () => {
   });
   test('a chapter with no topics in the result keeps an empty list', () => {
     assert.deepEqual(resultTree(chapters.slice(0, 1), []), [{ chapter: chapters[0], topics: [] }]);
+  });
+});
+
+describe('quickSelection (Quick start defaults)', () => {
+  const topic = (name, questions, coveredOn = null) => ({ topic: name, questions, coveredOn });
+  const chapter = (standard, name, topics, extra = {}) => ({
+    standard, chapter: name, mine: standard === '11th', coveredOn: null, topics,
+    questions: topics.reduce((n, t) => n + t.questions, 0), ...extra,
+  });
+
+  test('picks every covered topic that has questions; a chapter fully covered becomes the whole chapter', () => {
+    const chapters = [
+      chapter('11th', 'Kinematics', [topic('Projectile', 10, '2026-11-01'), topic('Graphs', 5), topic('Empty', 0, '2026-11-02')]),
+      chapter('11th', 'Laws of Motion', [topic('Friction', 8, '2026-11-03'), topic('Newton', 6, '2026-11-04')]),
+      chapter('12th', 'Optics', [], { questions: 12, coveredOn: '2026-11-05' }),
+    ];
+    const { selection, basis } = quickSelection(chapters);
+    assert.equal(basis, 'covered');
+    assert.deepEqual(selection, { '11th|Kinematics': ['Projectile'], '11th|Laws of Motion': 'all', '12th|Optics': 'all' });
+  });
+
+  test("nothing covered yet: the student's own class, whole chapters with questions", () => {
+    const chapters = [chapter('11th', 'Kinematics', [topic('Projectile', 10)]), chapter('11th', 'Units', [topic('SI', 0)]), chapter('12th', 'Optics', [topic('Lenses', 9)])];
+    const { selection, basis } = quickSelection(chapters);
+    assert.equal(basis, 'class');
+    assert.deepEqual(selection, { '11th|Kinematics': 'all' });
+  });
+
+  test('nothing to pick: basis none, empty selection (Customise is offered)', () => {
+    assert.deepEqual(quickSelection([chapter('12th', 'Optics', [topic('Lenses', 9)])]), { selection: {}, basis: 'none' });
+    assert.deepEqual(quickSelection([]), { selection: {}, basis: 'none' });
   });
 });
