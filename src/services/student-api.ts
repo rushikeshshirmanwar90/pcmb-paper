@@ -2,6 +2,7 @@ import type { VisibilityPacket } from '@/screens/student/exam-visibility';
 import type { AnswerUpdate } from '@/screens/student/answer-saver';
 import type { SavedAnswer } from '@/screens/student/answer-sync';
 import { api, ApiError } from '@/services/api-client';
+import { withEngagement, type EngagementField } from '@/services/engagement-api';
 import type { Program, SchoolStandard, SchoolSubject, Track } from '@/constants/school';
 import type { TestSummary, TimetableEntry, TopicPerformance, WeakTopic } from '@/services/school-api';
 import type { Batch, Coverage } from '@/services/tuition-api';
@@ -190,6 +191,8 @@ export type PyqAnswerResult = {
   correctAnswer: string;
   explanation: string;
   explanationDiagramUrls: string[];
+  /** The student's progress after this answer (servers with engagement; null if it failed there). */
+  engagement?: EngagementField | null;
 };
 
 
@@ -365,18 +368,23 @@ export const studentApi = {
   start: (id: string) => api<{ attempt: Attempt; questions: TestQuestion[] }>(`/tests/${id}/start`, { method: 'POST', body: { visibility: true, answerVersions: true } }),
   saveAnswers: (id: string, answers: AnswerUpdate[], resumeVersion = 0) =>
     api<{ saved: number; answers: SavedAnswer[] }>(`/tests/${id}/answers`, { method: 'PUT', body: { answers, resumeVersion } }),
+  /** The response's `engagement` field (participation XP) goes to the progress store; the runner never sees it. */
   submit: (id: string, answers: AnswerUpdate[], resumeVersion = 0) =>
-    api<{ attempt: Attempt; questions: TestQuestion[] }>(`/tests/${id}/submit`, { method: 'POST', body: { answers, resumeVersion } }),
+    withEngagement(
+      api<{ attempt: Attempt; questions: TestQuestion[]; engagement?: EngagementField | null }>(`/tests/${id}/submit`, { method: 'POST', body: { answers, resumeVersion } })
+    ),
 
   /** The app came back after `awayMs` out of the foreground. The server records it and ends the attempt if that was too long. */
   reportAway: (id: string, awayMs: number, answers: { index: number; selected: string | null }[], resumeVersion = 0) =>
     api<{ attempt: Attempt; questions: TestQuestion[] }>(`/tests/${id}/events`, { method: 'POST', body: { type: 'away', awayMs, answers, resumeVersion } }),
 
   answerPyq: (questionId: string, selected: string) =>
-    api<PyqAnswerResult>('/pyq/answer', {
-      method: 'POST',
-      body: { questionId, selected },
-    }),
+    withEngagement(
+      api<PyqAnswerResult>('/pyq/answer', {
+        method: 'POST',
+        body: { questionId, selected },
+      })
+    ),
 
   /** Topic practice: the subject's syllabus with question counts, coverage and the student's progress. */
   practiceTree: (subject: SchoolSubject) => api<PracticeTree>(`/pyq/topics?subject=${enc(subject)}`),
@@ -394,7 +402,7 @@ export const studentApi = {
   saveAssessmentAnswers: (id: string, answers: { index: number; selected: string | null }[]) =>
     api<{ saved: number }>(`/self-assessments/${id}/answers`, { method: 'PUT', body: { answers } }),
   submitAssessment: (id: string, answers: { index: number; selected: string | null }[]) =>
-    api<AssessmentDetail>(`/self-assessments/${id}/submit`, { method: 'POST', body: { answers } }),
+    withEngagement(api<AssessmentDetail & { engagement?: EngagementField | null }>(`/self-assessments/${id}/submit`, { method: 'POST', body: { answers } })),
   deleteAssessment: (id: string) => api<{ ok: true }>(`/self-assessments/${id}`, { method: 'DELETE' }),
 };
 

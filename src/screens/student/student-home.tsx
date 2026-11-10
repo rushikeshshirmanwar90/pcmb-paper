@@ -6,12 +6,14 @@ import { useSignedInUser } from '@/context/auth-context';
 import { useTabDataVersion } from '@/context/data-version';
 import { openPracticeAt } from '@/context/practice-target';
 import { useTabNavigation } from '@/context/tab-context';
+import { useEngagement } from '@/engagement/engagement-provider';
 import { syncClassReminders } from '@/services/notifications';
 import { AnnouncementsSection } from '@/screens/shared/announcements';
 import { WeekTimetable } from '@/screens/shared/timetable';
 import { Bubble } from '@/screens/auth-ui';
 import { nextClass, todayStates, type ClassState, type NextClass } from '@/screens/student/home-next-up';
 import { PRACTICE_TAB } from '@/screens/student/student-practice';
+import { ProgressHeader } from '@/screens/student/progress-header';
 import { byUrgency, closesSoon, kindOf, percentOf, resultTone, subjectIcon, untilLabel, whenLabel, type ListedTest, type TestKind } from '@/screens/student/test-format';
 import { TestRunner } from '@/screens/student/test-runner';
 import { dayLabel, type TimetableEntry } from '@/services/school-api';
@@ -53,6 +55,12 @@ export function StudentHomeScreen() {
     return { overview, tests, at: Date.now() };
   }, [version]);
   const data = loaded?.overview ?? null;
+  // Pull to refresh also reloads the progress header.
+  const engagement = useEngagement();
+  const refreshAll = () => {
+    refresh();
+    engagement.reload();
+  };
   // Reminders 15 minutes before each weekly class.
   const week = data?.week;
   useEffect(() => {
@@ -86,9 +94,11 @@ export function StudentHomeScreen() {
     <Screen
       title={`Hi, ${user.name.split(' ')[0]}`}
       subtitle={`${date} · ${data?.batch ? data.batch.name : user.tuition.name}`}
-      onRefresh={refresh}
+      onRefresh={refreshAll}
       refreshing={refreshing}
     >
+      {/* Streak · today's goal · level: loads on its own, hidden when the tuition has it off. */}
+      <ProgressHeader />
       {loading ? (
         <LoadingView />
       ) : error && !data ? (
