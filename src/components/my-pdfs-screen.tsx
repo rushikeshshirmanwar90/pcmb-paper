@@ -371,7 +371,11 @@ function RenameDialog({ pdf, palette, onClose }: { pdf: SavedPdf; palette: Palet
 
 // ─── Screen ────────────────────────────────────────────────────────────────
 
-export function MyPdfsScreen({ onBack, onCreate }: { onBack: () => void; onCreate: () => void }) {
+/**
+ * The Papers tab's front page: Make a paper (primary), the question bank one
+ * tap away, then every paper made on this device (search, sort, open, share).
+ */
+export function MyPdfsScreen({ onCreate, onBank }: { onCreate: () => void; onBank: () => void }) {
   const palette = getPalette(useColorScheme() === 'dark');
   const tabBarHeight = useTabBarHeight();
   const library = usePdfLibrary();
@@ -413,16 +417,31 @@ export function MyPdfsScreen({ onBack, onCreate }: { onBack: () => void; onCreat
 
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: palette.background }]}>
-      <AppHeader title="My PDFs" subtitle="Papers you've made, saved on this device" />
+      <AppHeader title="Papers" subtitle="Make a paper, or open one you made" />
       <View style={[styles.main, { maxWidth: MaxContentWidth }]}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onBack}
-          style={({ pressed }) => [styles.backRow, pressed && styles.pressed]}
-        >
-          <SymbolView name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }} tintColor={palette.primary} size={16} />
-          <Text style={[styles.backRowText, { color: palette.primary }]}>Create a PDF</Text>
-        </Pressable>
+        <View style={styles.actions}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onCreate}
+            style={({ pressed }) => [styles.primaryBtn, { backgroundColor: palette.primary }, pressed && styles.pressed]}
+          >
+            <SymbolView name={{ ios: 'plus', android: 'add', web: 'add' }} tintColor={palette.onPrimary} size={16} />
+            <Text style={[styles.emptyBtnText, { color: palette.onPrimary }]}>Make a paper</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Question bank: every question, by subject, chapter and level"
+            onPress={onBank}
+            style={({ pressed }) => [styles.bankRow, { backgroundColor: palette.card, borderColor: palette.border }, pressed && styles.pressed]}
+          >
+            <SymbolView name={{ ios: 'books.vertical', android: 'library_books', web: 'library_books' }} tintColor={palette.primary} size={18} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.bankTitle, { color: palette.foreground }]}>Question bank</Text>
+              <Text style={[styles.bankText, { color: palette.mutedForeground }]}>Every question, by subject, chapter and level</Text>
+            </View>
+            <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} tintColor={palette.mutedForeground} size={16} />
+          </Pressable>
+        </View>
 
         {!pdfLibraryAvailable ? (
           <EmptyState
@@ -434,9 +453,9 @@ export function MyPdfsScreen({ onBack, onCreate }: { onBack: () => void; onCreat
         ) : library.length === 0 ? (
           <EmptyState
             palette={palette}
-            title="No PDFs yet"
-            text="Every PDF you make from the Questions tab is saved here, so you can open, share or print it again any time."
-            onCreate={onCreate}
+            title="No papers yet"
+            text="Every paper you make is saved here, so you can open, share or print it again any time."
+            
           />
         ) : (
           <>
@@ -551,7 +570,7 @@ function Chip({ label, selected, palette, onPress }: { label: string; selected: 
   );
 }
 
-function EmptyState({ palette, title, text, onCreate }: { palette: Palette; title: string; text: string; onCreate: () => void }) {
+function EmptyState({ palette, title, text, onCreate }: { palette: Palette; title: string; text: string; onCreate?: () => void }) {
   return (
     <View style={styles.empty}>
       <View style={[styles.emptyIcon, { backgroundColor: palette.primarySoft }]}>
@@ -559,14 +578,16 @@ function EmptyState({ palette, title, text, onCreate }: { palette: Palette; titl
       </View>
       <Text style={[styles.emptyTitle, { color: palette.foreground }]}>{title}</Text>
       <Text style={[styles.emptyText, { color: palette.mutedForeground }]}>{text}</Text>
-      <Pressable
-        accessibilityRole="button"
-        onPress={onCreate}
-        style={({ pressed }) => [styles.emptyBtn, { backgroundColor: palette.primary }, pressed && styles.pressed]}
-      >
-        <SymbolView name={{ ios: 'plus', android: 'add', web: 'add' }} tintColor={palette.onPrimary} size={16} />
-        <Text style={[styles.emptyBtnText, { color: palette.onPrimary }]}>Create a PDF</Text>
-      </Pressable>
+      {onCreate ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={onCreate}
+          style={({ pressed }) => [styles.emptyBtn, { backgroundColor: palette.primary }, pressed && styles.pressed]}
+        >
+          <SymbolView name={{ ios: 'plus', android: 'add', web: 'add' }} tintColor={palette.onPrimary} size={16} />
+          <Text style={[styles.emptyBtnText, { color: palette.onPrimary }]}>Make a paper</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -576,6 +597,11 @@ const styles = StyleSheet.create({
   main: { flex: 1, width: '100%', alignSelf: 'center' },
   pressed: { opacity: 0.75 },
   disabled: { opacity: 0.45 },
+  actions: { gap: 10, marginBottom: 12 },
+  primaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 48, borderRadius: 12, paddingHorizontal: 16 },
+  bankRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 10 },
+  bankTitle: { fontSize: 15, fontWeight: '700' },
+  bankText: { fontSize: 13, marginTop: 1 },
   backRow: {
     flexDirection: 'row',
     alignItems: 'center',

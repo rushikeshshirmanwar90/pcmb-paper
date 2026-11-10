@@ -46,9 +46,10 @@ const TEACHER_TABS: AppTab[] = [
     render: () => <TeacherTestsScreen />,
   },
   {
+    // Key kept as 'questions' so links and notification taps keep working.
     key: 'questions',
-    label: 'Questions',
-    icon: { sf: { default: 'questionmark.circle', selected: 'questionmark.circle.fill' }, md: 'quiz' },
+    label: 'Papers',
+    icon: { sf: { default: 'doc.text', selected: 'doc.text.fill' }, md: 'description' },
     render: () => <QuestionsScreen />,
   },
   { ...PROFILE_TAB, render: () => <TeacherProfileScreen /> },

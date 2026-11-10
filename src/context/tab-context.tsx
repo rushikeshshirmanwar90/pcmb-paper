@@ -20,8 +20,9 @@ export const DEFAULT_QUESTION_FILTERS: FilterState = {
 };
 
 /**
- * The Questions tab opens on the create-PDF form; browsing the whole bank and
- * My PDFs (every PDF made, saved on the device) are the alternatives.
+ * The Papers tab (key 'questions') opens on the papers made (`pdfs`, with Make
+ * a paper and the question bank one tap away); `create` is Make a paper and
+ * `browse` the question bank.
  */
 export type QuestionsMode = 'create' | 'browse' | 'pdfs';
 export type PapersSegment = 'papers' | 'rooms';
@@ -46,7 +47,7 @@ const TabContext = createContext<TabContextValue | null>(null);
 export function TabProvider({ children, tabKeys }: PropsWithChildren<{ /** The signed-in role's tabs, in order. */ tabKeys: string[] }>) {
   const [activeTab, setActiveTab] = useState(0);
   const [questionFilters, setQuestionFilters] = useState<FilterState>(DEFAULT_QUESTION_FILTERS);
-  const [questionsMode, setQuestionsMode] = useState<QuestionsMode>('create');
+  const [questionsMode, setQuestionsMode] = useState<QuestionsMode>('pdfs');
   const [papersSegment, setPapersSegment] = useState<PapersSegment>('papers');
   const pagerRef = useRef<PagerController | null>(null);
 
