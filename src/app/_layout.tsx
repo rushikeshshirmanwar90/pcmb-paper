@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -8,6 +8,9 @@ import { AuthProvider, useAuth } from '@/context/auth-context';
 import { TabProvider, useTabNavigation } from '@/context/tab-context';
 import { RoomsProvider } from '@/context/rooms-context';
 import { getPalette } from '@/constants/theme';
+import { ToastProvider } from '@/components/states';
+import { EngagementProvider } from '@/engagement/engagement-provider';
+import { useTabBarHeight } from '@/hooks/use-tab-bar-height';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { tabsFor } from '@/navigation/role-tabs';
@@ -56,14 +59,23 @@ function SignedInGate() {
   // Keyed by the user and workspace, so logging in as someone else, or switching an admin to the
   // Teacher workspace, starts on a fresh first tab with none of the other one's screens left over.
   const tabs = tabsFor(user.role);
+  const stack = <Stack screenOptions={{ headerShown: false }} />;
   return (
     <TabProvider key={`${user.id}:${user.role}`} tabKeys={tabs.map((t) => t.key)}>
       <RoomsProvider>
-        <NotificationTaps />
-        <Stack screenOptions={{ headerShown: false }} />
+        <ToastLayer>
+          <NotificationTaps />
+          {/* Student progress (streak, goal, level) for every student screen, tabs and pushed ones alike. */}
+          {user.role === 'student' ? <EngagementProvider>{stack}</EngagementProvider> : stack}
+        </ToastLayer>
       </RoomsProvider>
     </TabProvider>
   );
+}
+
+/** Toasts sit just above the floating tab bar. */
+function ToastLayer({ children }: { children: React.ReactNode }) {
+  return <ToastProvider bottomOffset={useTabBarHeight()}>{children}</ToastProvider>;
 }
 
 function NavigationShell() {

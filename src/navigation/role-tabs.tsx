@@ -12,7 +12,6 @@ import { TeacherBatchesScreen } from '@/screens/teacher/teacher-batches';
 import { TeacherTestsScreen } from '@/screens/teacher/teacher-tests';
 import { TeacherProfileScreen } from '@/screens/teacher/teacher-profile';
 import { StudentHomeScreen } from '@/screens/student/student-home';
-import { EngagementProvider } from '@/engagement/engagement-provider';
 import { StudentTestsScreen } from '@/screens/student/student-tests';
 import { StudentRoadmapScreen } from '@/screens/student/student-roadmap';
 import { PRACTICE_TAB, StudentPracticeScreen } from '@/screens/student/student-practice';
@@ -82,22 +81,9 @@ const TUITION_TABS: AppTab[] = [
   { ...PROFILE_TAB, render: () => <TuitionProfileScreen /> },
 ];
 
-/**
- * Student login: their day, tests, syllabus roadmap and topic practice (past-year questions).
- * Home carries the progress header, so it mounts the engagement provider (student login only).
- * The progress store itself is shared, so answers given in other tabs still update it.
- */
+/** Student login: their day, tests, syllabus roadmap and topic practice (past-year questions). */
 const STUDENT_TABS: AppTab[] = [
-  {
-    key: 'home',
-    label: 'Home',
-    icon: HOME_ICON,
-    render: () => (
-      <EngagementProvider>
-        <StudentHomeScreen />
-      </EngagementProvider>
-    ),
-  },
+  { key: 'home', label: 'Home', icon: HOME_ICON, render: () => <StudentHomeScreen /> },
   {
     key: 'tests',
     label: 'Tests',
