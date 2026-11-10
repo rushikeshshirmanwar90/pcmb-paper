@@ -1,16 +1,22 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Badge, Card, Chips, ErrorView, Icon, LoadingView, Muted, ProgressBar, Screen, StatGrid, StatTile, useLoad, usePalette } from '@/components/kit';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Badge, Card, Chips, DetailSheet, ErrorView, Icon, ListRow, Muted, ProgressBar, Screen, SectionTitle, StatGrid, StatTile, useLoad, usePalette } from '@/components/kit';
+import { SkeletonCard, StaleNotice } from '@/components/states';
 import { programOf, programSubjects, type SchoolSubject } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
 import { useTabDataVersion } from '@/context/data-version';
 import { dayLabel } from '@/services/school-api';
-import { LEVEL_LABEL, LEVEL_TONE, studentApi, type RoadmapChapter } from '@/services/student-api';
+import { LEVEL_LABEL, LEVEL_TONE, studentApi, type RoadmapChapter, type StudentOverview } from '@/services/student-api';
+
+const RECENT_SHOWN = 3;
+/** From this text size up, a subject's coverage bar goes under its name instead of beside it. */
+const STACK_FROM_FONT_SCALE = 1.3;
 
 /**
- * The student's syllabus roadmap, subject by subject: every chapter with its
- * marks weightage, what the tuition has covered, and their strong and weak
- * topics in it.
+ * The student's syllabus: how much the tuition has covered in each subject and
+ * what was covered lately (moved here from Home), then the roadmap subject by
+ * subject: every chapter with its marks weightage, what's covered, and their
+ * strong and weak topics in it.
  */
 export function StudentRoadmapScreen() {
   const user = useSignedInUser();
@@ -18,17 +24,41 @@ export function StudentRoadmapScreen() {
   const subjects = programSubjects(programOf(user));
   const [subject, setSubject] = useState<SchoolSubject>(subjects[0]);
   const { data, error, loading, refreshing, refresh, reload } = useLoad(() => studentApi.roadmap(subject), [subject, version]);
+  // The batch's coverage and recent topics; the roadmap below works without it.
+  const overview = useLoad(() => studentApi.overview(), [version]);
   const [open, setOpen] = useState<string | null>(null);
+  const [showRecent, setShowRecent] = useState(false);
+  const batch = overview.data?.batch ?? null;
+  const recent = overview.data?.recent ?? [];
 
   return (
-    <Screen title="Syllabus" subtitle="Your roadmap, chapter by chapter" onRefresh={refresh} refreshing={refreshing}>
+    <Screen
+      title="Syllabus"
+      subtitle="What's covered, chapter by chapter"
+      onRefresh={() => {
+        refresh();
+        overview.refresh();
+      }}
+      refreshing={refreshing || overview.refreshing}
+    >
+      {batch ? (
+        <>
+          <SectionTitle title="Covered in class" />
+          <CoverageCard batch={batch} recent={recent} onShowRecent={() => setShowRecent(true)} />
+        </>
+      ) : overview.loading ? (
+        <SkeletonCard rows={3} label="syllabus coverage" />
+      ) : null}
+
+      <SectionTitle title="Roadmap" />
       <Chips choices={subjects} selected={subject} onChange={setSubject} />
       {loading ? (
-        <LoadingView />
+        <SkeletonCard rows={4} label={`${subject} chapters`} />
       ) : error && !data ? (
         <ErrorView message={error} onRetry={reload} />
       ) : data ? (
         <>
+          {error ? <StaleNotice message={error} onRetry={reload} /> : null}
           <StatGrid>
             <StatTile label="Covered" value={`${data.summary.coveredPercent}%`} icon={{ ios: 'checkmark.circle', android: 'check_circle' }} tone="success" />
             <StatTile label="Strong topics" value={data.summary.strongTopics} icon={{ ios: 'bolt.fill', android: 'bolt' }} />
@@ -42,7 +72,84 @@ export function StudentRoadmapScreen() {
           })}
         </>
       ) : null}
+
+      <DetailSheet visible={showRecent} title="Covered in class lately" onClose={() => setShowRecent(false)}>
+        <Card style={styles.flush}>
+          {recent.map((r, i) => (
+            <ListRow key={r.id} title={r.topic || r.chapter} subtitle={`${r.subject}${r.topic ? ` · ${r.chapter}` : ''} · ${dayLabel(r.coveredOn)}`} last={i === recent.length - 1} />
+          ))}
+        </Card>
+      </DetailSheet>
     </Screen>
+  );
+}
+
+/** Each subject's coverage as a gauge (name, bar, percent), then the last few topics covered in class. */
+function CoverageCard({ batch, recent, onShowRecent }: { batch: NonNullable<StudentOverview['batch']>; recent: StudentOverview['recent']; onShowRecent: () => void }) {
+  const palette = usePalette();
+  // One line per subject reads like a gauge; large text stacks it.
+  const { fontScale } = useWindowDimensions();
+  const inline = fontScale < STACK_FROM_FONT_SCALE;
+  return (
+    <Card style={styles.coverageCard}>
+      <View style={styles.coverageList}>
+        {batch.subjects.map((s) => {
+          const c = batch.coverage[s];
+          const pct = c?.total ? `${c.percent}%` : '–';
+          return (
+            <View
+              key={s}
+              style={inline ? styles.coverageInline : styles.coverageStacked}
+              accessible
+              accessibilityLabel={`${s}, ${c?.total ? `${c.percent} percent covered, ${c.covered} of ${c.total} topics` : 'no syllabus'}`}
+            >
+              {inline ? (
+                <>
+                  <Text style={[styles.subjectName, { color: palette.foreground }]} numberOfLines={1}>
+                    {s}
+                  </Text>
+                  <View style={styles.flex}>
+                    <ProgressBar value={c?.percent ?? 0} tone="success" />
+                  </View>
+                  <Text style={[styles.pct, { color: palette.mutedForeground }]}>{pct}</Text>
+                </>
+              ) : (
+                <>
+                  <View style={styles.coverageTop}>
+                    <Text style={[styles.subjectStacked, { color: palette.foreground }]}>{s}</Text>
+                    <Text style={[styles.pct, { color: palette.mutedForeground }]}>{pct}</Text>
+                  </View>
+                  <ProgressBar value={c?.percent ?? 0} tone="success" />
+                </>
+              )}
+            </View>
+          );
+        })}
+      </View>
+      {recent.length ? (
+        <View style={[styles.recent, { borderTopColor: palette.border }]}>
+          <Text style={[styles.label, { color: palette.mutedForeground }]}>Covered lately</Text>
+          {recent.slice(0, RECENT_SHOWN).map((r) => (
+            <Text key={r.id} style={[styles.recentLine, { color: palette.foreground }]} numberOfLines={1}>
+              {r.topic || r.chapter} <Text style={{ color: palette.mutedForeground }}>· {r.subject} · {dayLabel(r.coveredOn)}</Text>
+            </Text>
+          ))}
+          {recent.length > RECENT_SHOWN ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`See all ${recent.length} topics covered lately`}
+              onPress={onShowRecent}
+              style={({ pressed }) => [styles.seeAll, pressed && styles.pressed]}
+            >
+              <Text style={[styles.seeAllText, { color: palette.primary }]}>See all {recent.length}</Text>
+              <Icon name={{ ios: 'chevron.right', android: 'chevron_right' }} color={palette.primary} size={14} />
+            </Pressable>
+          ) : null}
+        </View>
+      ) : (
+        <Muted>Your teachers mark topics here as they teach them.</Muted>
+      )}
+    </Card>
   );
 }
 
@@ -100,7 +207,21 @@ function ChapterCard({ chapter, open, onToggle, mine }: { chapter: RoadmapChapte
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
+  flex: { flex: 1, minWidth: 0 },
+  flush: { padding: 0, gap: 0 },
+  coverageCard: { gap: 12, padding: 16 },
+  coverageList: { gap: 12 },
+  coverageInline: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  coverageStacked: { gap: 5 },
+  coverageTop: { flexDirection: 'row', justifyContent: 'space-between' },
+  subjectName: { fontSize: 14, fontWeight: '600', width: 96 },
+  subjectStacked: { fontSize: 15, fontWeight: '700', flexShrink: 1 },
+  pct: { fontSize: 13, fontWeight: '600', minWidth: 36, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  label: { fontSize: 12, fontWeight: '600' },
+  recent: { gap: 4, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
+  recentLine: { fontSize: 13, lineHeight: 19 },
+  seeAll: { flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-start', minHeight: 44 },
+  seeAllText: { fontSize: 15, fontWeight: '700' },
   summary: { gap: 10 },
   pressed: { opacity: 0.7 },
   head: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
