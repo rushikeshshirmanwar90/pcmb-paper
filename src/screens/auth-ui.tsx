@@ -1,7 +1,8 @@
 import React, { type PropsWithChildren, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
+import { KeyboardAvoidingView, Pressable, StyleSheet, Text, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Icon, usePalette } from '@/components/kit';
+import { KeyboardAwareScrollView } from '@/components/keyboard-safe-view';
 
 // Shared pieces for the screens before someone is in a tuition: log in,
 // create account, verify email, join tuition and forgot password. One
@@ -18,10 +19,10 @@ export function AuthScreen({ children, centered = false }: PropsWithChildren<{ c
   const palette = usePalette();
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
-        <ScrollView contentContainerStyle={[styles.content, centered && styles.centered]} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView behavior="padding" style={styles.root}>
+        <KeyboardAwareScrollView contentContainerStyle={[styles.content, centered && styles.centered]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           {children}
-        </ScrollView>
+        </KeyboardAwareScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

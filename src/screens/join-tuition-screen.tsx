@@ -1,15 +1,7 @@
 import React, { useEffect, useState } from 'react';
-<<<<<<< HEAD
 import { StyleSheet, Text, View } from 'react-native';
 import { confirmAction } from '@/components/account-section';
 import { Button, ErrorText, Field, LoadingView, MultiChips, Notice, usePalette, useLoad } from '@/components/kit';
-=======
-import { KeyboardAvoidingView, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { confirmAction } from '@/components/account-section';
-import { Button, ErrorText, Field, Icon, LoadingView, MultiChips, usePalette, useLoad } from '@/components/kit';
-import { KeyboardAwareScrollView } from '@/components/keyboard-safe-view';
->>>>>>> 8ce38ca54eb9706ddc3736c1b82fd445f3e61052
 import { useAuth, useSignedInUser } from '@/context/auth-context';
 import { PROGRAM_LABELS, SCHOOL_SUBJECTS, type SchoolSubject } from '@/constants/school';
 import { myJoinApi, timeAgo, type JoinPreview, type MyJoinRequest } from '@/services/tuition-api';
@@ -128,7 +120,6 @@ export function JoinTuitionScreen() {
   }
 
   return (
-<<<<<<< HEAD
     <AuthScreen>
       <AuthTopBar leading={<StepProgress step={waiting ? 4 : 3} />} trailing={<TextLink label="Log out" onPress={logOut} />} />
       <AuthTitle title={title} lead={loading ? undefined : lead} />
@@ -158,20 +149,8 @@ export function JoinTuitionScreen() {
           {request?.status === 'rejected' && !askAgain ? (
             <View style={styles.notice}>
               <Notice tone="danger" title={`${request.tuition.name} didn't approve your request`} text="Check with them, or enter another joining code." />
-=======
-    <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
-      <KeyboardAvoidingView behavior="padding" style={styles.root}>
-        <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-          <View style={styles.header}>
-            <View style={styles.flex}>
-              <Text style={[styles.hello, { color: palette.mutedForeground }]}>Hi, {user.name.split(' ')[0]}</Text>
-              <Text accessibilityRole="header" style={[styles.title, { color: palette.foreground }]}>
-                {pending && !askAgain ? 'Waiting for approval' : 'Join tuition'}
-              </Text>
->>>>>>> 8ce38ca54eb9706ddc3736c1b82fd445f3e61052
             </View>
           ) : null}
-<<<<<<< HEAD
           <AuthCard>
             <Field
               label="Joining code"
@@ -194,66 +173,6 @@ export function JoinTuitionScreen() {
         </>
       )}
     </AuthScreen>
-=======
-
-          {!loading && showForm ? (
-            <>
-              {request?.status === 'rejected' && !askAgain ? (
-                <View style={[styles.notice, { backgroundColor: palette.dangerSoft, borderColor: palette.dangerBorder }]}>
-                  <Text style={[styles.noticeText, { color: palette.dangerInk }]}>
-                    {request.tuition.name} didn&apos;t approve your request. Check with them, or enter another joining code.
-                  </Text>
-                </View>
-              ) : null}
-              {preview ? (
-                <Confirm
-                  preview={preview}
-                  subjects={subjects}
-                  onSubjects={(next) => {
-                    setSubjects(next);
-                    setError(null);
-                  }}
-                  busy={busy}
-                  error={error}
-                  onConfirm={confirm}
-                  onBack={() => {
-                    setPreview(null);
-                    setError(null);
-                  }}
-                />
-              ) : (
-                <View style={[styles.card, { backgroundColor: palette.card, borderColor: palette.border }]}>
-                  <Text style={[styles.body, { color: palette.foreground }]}>Enter the joining code provided by your tuition institute.</Text>
-                  <Field
-                    label="Joining code"
-                    value={code}
-                    onChangeText={typeCode}
-                    placeholder="8-character joining code"
-                    autoCapitalize="characters"
-                    autoCorrect={false}
-                    maxLength={8}
-                    returnKeyType="go"
-                    onSubmitEditing={check}
-                    style={styles.codeInput}
-                  />
-                  <ErrorText message={error} />
-                  <Button label="Continue" onPress={check} loading={busy} />
-                  {askAgain ? <Button label="Keep my current request" variant="secondary" onPress={() => setAskAgain(false)} /> : null}
-                </View>
-              )}
-              <Steps step={1} />
-            </>
-          ) : null}
-          {pending && !askAgain ? (
-            <Pressable accessibilityRole="button" onPress={() => setAskAgain(true)} style={styles.center}>
-              <Text style={[styles.link, { color: palette.primary }]}>Wrong code? Use another one</Text>
-            </Pressable>
-          ) : null}
-          <ErrorText message={pending && !askAgain ? error : null} />
-        </KeyboardAwareScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
->>>>>>> 8ce38ca54eb9706ddc3736c1b82fd445f3e61052
   );
 }
 

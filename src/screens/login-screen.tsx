@@ -1,14 +1,7 @@
 import React, { useRef, useState } from 'react';
-<<<<<<< HEAD
 import { StyleSheet, Text, type TextInputInstance, View } from 'react-native';
 import { Button, ErrorText, Field, Icon, PasswordField, usePalette } from '@/components/kit';
 import { SCHOOL_SUBJECTS } from '@/constants/school';
-=======
-import { KeyboardAvoidingView, Pressable, StyleSheet, Text, type TextInputInstance, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, ErrorText, Field, Icon, PasswordField, usePalette } from '@/components/kit';
-import { KeyboardAwareScrollView } from '@/components/keyboard-safe-view';
->>>>>>> 8ce38ca54eb9706ddc3736c1b82fd445f3e61052
 import { useAuth } from '@/context/auth-context';
 import { AuthCard, AuthScreen, AuthTitle, Bubble, BubbleText, TextLink } from '@/screens/auth-ui';
 import { ForgotPasswordScreen } from '@/screens/forgot-password-screen';
@@ -72,24 +65,9 @@ function LoginForm({
   };
 
   return (
-<<<<<<< HEAD
     <AuthScreen centered>
       <SubjectMark />
       <AuthTitle title="Log in" lead="Your tuition's tests, timetable and results." />
-=======
-    <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
-      <KeyboardAvoidingView behavior="padding" style={styles.root}>
-        <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-          <View style={[styles.mark, { backgroundColor: palette.primary }]}>
-            <Icon name={{ ios: 'graduationcap.fill', android: 'school' }} color={palette.onPrimary} size={30} />
-          </View>
-          <Text accessibilityRole="header" style={[styles.title, { color: palette.foreground }]}>
-            Log in
-          </Text>
-          <Text style={[styles.subtitle, { color: palette.mutedForeground }]}>
-            For tuitions, teachers and students.
-          </Text>
->>>>>>> 8ce38ca54eb9706ddc3736c1b82fd445f3e61052
 
       <AuthCard>
         <Field
@@ -160,7 +138,6 @@ function LoginForm({
   );
 }
 
-<<<<<<< HEAD
 /**
  * The app's mark: a row of answer bubbles, as on an OMR sheet, one for each
  * subject in the bank (Physics, Chemistry, Mathematics, Biology).
@@ -174,11 +151,6 @@ function SubjectMark() {
         </Bubble>
       ))}
     </View>
-=======
-        </KeyboardAwareScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
->>>>>>> 8ce38ca54eb9706ddc3736c1b82fd445f3e61052
   );
 }
 

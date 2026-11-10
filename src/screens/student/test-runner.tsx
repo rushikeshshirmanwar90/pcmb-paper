@@ -1,4 +1,3 @@
-import { useIsFocused } from 'expo-router';
 import { reopenVisibility } from '@/screens/student/exam-visibility';
 import { useExamVisibility } from '@/screens/student/use-exam-visibility';
 import { acceptsAttemptStatus } from '@/screens/student/attempt-status';
@@ -11,6 +10,7 @@ import {
   Badge,
   Button,
   Card,
+  Chips,
   DetailRow,
   EmptyView,
   ErrorText,
@@ -32,6 +32,8 @@ import { bumpDataVersion } from '@/context/data-version';
 import { AWAY_LIMIT_MS, backAction, cellStatus, examCounts, type MultiWindowReading, secondsLeft, skewOf, type CellStatus } from '@/screens/student/exam-guard';
 import { useExamSecurity, useMultiWindow } from '@/screens/student/exam-security';
 import { createAnswerSaver, type AnswerSaver, type SaveState } from '@/screens/student/answer-saver';
+import { mergeSavedAnswers, restorableAnswers, type SavedAnswer } from '@/screens/student/answer-sync';
+import { ApiError } from '@/services/api-client';
 import { RESULT_SECTIONS, numberLabel, percentLabel, resultFigures, type ResultSection } from '@/screens/shared/result-format';
 
 import { TopicPerformanceList, WeakTopicsSection } from '@/screens/shared/topic-performance';
@@ -50,8 +52,8 @@ type Phase =
   | { kind: 'review'; test: TestSummary; attempt: Attempt | null; questions: TestQuestion[]; analytics?: TestAnalytics | null; justSubmitted: boolean };
 
 const SCREEN_KEY = 'secure-exam';
-// Short labels, so the three fit one row of a segmented control.
-const SECTION_OPTIONS = RESULT_SECTIONS.map((s) => ({ value: s.value, label: s.label }));
+const SECTION_KEYS = RESULT_SECTIONS.map((s) => s.value);
+const SECTION_LABELS = Object.fromEntries(RESULT_SECTIONS.map((s) => [s.value, s.label]));
 
 /**
  * Screenshots and screen recording are blocked while a test is being taken,
@@ -85,7 +87,6 @@ export function TestRunner({ testId, onClose }: { testId: string; onClose: () =>
   const palette = usePalette();
   const insets = useSafeAreaInsets();
   const user = useSignedInUser();
-  const focused = useIsFocused();
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
   const [busy, setBusy] = useState(false);
   const [round, setRound] = useState(0);
@@ -182,7 +183,6 @@ export function TestRunner({ testId, onClose }: { testId: string; onClose: () =>
         ) : phase.kind === 'running' ? (
           <Runner
             test={phase.test}
-            focused={focused}
             attempt={phase.attempt}
             questions={phase.questions}
             blockedBackRef={blockedBackRef}
@@ -256,8 +256,9 @@ function Intro({ test, busy, splitScreen, onStart, onClose }: { test: TestSummar
 
   return (
     <View style={styles.flex}>
-      <Header title="Before you start" onClose={onClose} />
+      <Header title="Secure examination" onClose={onClose} />
       <ScrollView contentContainerStyle={[styles.body, column]}>
+        <Text style={[styles.eyebrow, { color: palette.primary }]}>SECURE EXAMINATION</Text>
         <View style={styles.hero}>
           <View style={[styles.heroTile, { backgroundColor: palette.primarySoft }]}>
             <Icon name={subjectIcon(test.subject)} color={palette.primary} size={24} />
@@ -291,9 +292,6 @@ function Intro({ test, busy, splitScreen, onStart, onClose }: { test: TestSummar
           />
         ) : null}
 
-<<<<<<< HEAD
-        <SectionTitle title="How it works" />
-=======
         {splitScreen.inMultiWindow ? (
           <Notice
             tone="warning"
@@ -305,31 +303,18 @@ function Intro({ test, busy, splitScreen, onStart, onClose }: { test: TestSummar
         ) : null}
 
         <SectionTitle title="Examination instructions" />
->>>>>>> 8ce38ca54eb9706ddc3736c1b82fd445f3e61052
         <Card>
-          <Tip icon={{ ios: 'timer', android: 'timer' }} text="The timer starts when you tap Start test. It keeps running through calls, a lost connection or closing the app." />
+          <Tip icon={{ ios: 'timer', android: 'timer' }} text="The timer starts when you tap the button below and runs on the server's clock. Closing or restarting the app does not pause or reset it." />
           <Tip icon={{ ios: 'checkmark.icloud', android: 'cloud_done' }} text="Your answers save as you go. The bar at the top shows when they're saved." />
-          <Tip icon={{ ios: 'bookmark', android: 'bookmark' }} text="Mark questions for review, and use the question palette to move around." />
-          <Tip icon={{ ios: 'paperplane', android: 'send' }} text="Submit when you're done. When time runs out, your answers are submitted for you." />
-          <Tip icon={{ ios: 'chart.bar', android: 'bar_chart' }} text="Results show after the test closes." />
+          <Tip icon={{ ios: 'bookmark', android: 'bookmark' }} text="Mark questions for review and use the question palette to move around." />
+          <Tip icon={{ ios: 'paperplane', android: 'send' }} text="Submit when you are done. When time runs out, your answers are submitted for you." />
         </Card>
 
-        <SectionTitle title="Exam rules" />
+        <SectionTitle title="Security restrictions" />
         <Card>
-<<<<<<< HEAD
-          <Tip icon={{ ios: 'lock', android: 'lock' }} text="You can't leave the test until you submit or time runs out." />
-          <Tip icon={{ ios: 'rectangle.on.rectangle.slash', android: 'block' }} text={`Don't switch apps. If you leave the app for more than ${AWAY_LIMIT_MS / 1000} seconds, the test ends and the answers saved so far are submitted.`} />
-          <Tip icon={{ ios: 'camera.viewfinder', android: 'screenshot' }} text="Screenshots and screen recording are restricted." />
-          <Tip icon={{ ios: 'exclamationmark.shield', android: 'gpp_maybe' }} text="Breaking these rules can end your test, and an ended test can't be restarted." />
-        </Card>
-      </ScrollView>
-      <Footer>
-        <Text style={[styles.footerNote, { color: palette.mutedForeground }]}>By starting, you agree to the exam rules.</Text>
-        <Button label="Start test" icon={{ ios: 'play.fill', android: 'play_arrow' }} onPress={onStart} loading={busy} />
-=======
           <Tip icon={{ ios: 'lock', android: 'lock' }} text="In-app navigation is disabled during the examination. You can't leave it until you submit or time runs out." />
           <Tip icon={{ ios: 'rectangle.on.rectangle.slash', android: 'block' }} text={`Switching applications is prohibited. If you leave the app for more than ${AWAY_LIMIT_MS / 1000} seconds, your test is paused for a teacher decision with your saved answers preserved.`} />
-          <Tip icon={{ ios: 'rectangle.split.2x1', android: 'splitscreen' }} text={`Split-screen and floating windows aren't allowed. On Android, time spent in split-screen counts as leaving the app (more than ${AWAY_LIMIT_MS / 1000} seconds pauses the test for teacher review), and other apps' floating overlays are hidden where your device supports it.`} />
+          <Tip icon={{ ios: 'rectangle.split.2x1', android: 'splitscreen' }} text="Use full screen to answer questions. Split-screen alone does not count as leaving the app. Other apps' floating overlays are hidden where your device supports it." />
           <Tip icon={{ ios: 'camera.viewfinder', android: 'screenshot' }} text="Screenshots and screen recording are blocked while the test is open." />
           <Tip icon={{ ios: 'hourglass', android: 'hourglass_top' }} text="The examination timer continues during interruptions such as calls or a lost connection." />
           <Tip icon={{ ios: 'exclamationmark.shield', android: 'gpp_maybe' }} text="Confirmed security violations may automatically pause the attempt. A violation-paused attempt requires a teacher decision." />
@@ -338,7 +323,6 @@ function Intro({ test, busy, splitScreen, onStart, onClose }: { test: TestSummar
       </ScrollView>
       <Footer>
         <Button label="I Understand — Start Test" icon={{ ios: 'play.fill', android: 'play_arrow' }} onPress={onStart} loading={busy} disabled={splitScreen.inMultiWindow && splitScreen.authoritative} />
->>>>>>> 8ce38ca54eb9706ddc3736c1b82fd445f3e61052
       </Footer>
     </View>
   );
@@ -358,7 +342,7 @@ function Tip({ icon, text }: { icon: IconName; text: string }) {
   const palette = usePalette();
   return (
     <View style={styles.tip}>
-      <Icon name={icon} color={palette.inkSoft} size={18} />
+      <Icon name={icon} color={palette.primary} size={18} />
       <Text style={[styles.tipText, { color: palette.foreground }]}>{text}</Text>
     </View>
   );
@@ -377,7 +361,6 @@ function Footer({ children }: { children: React.ReactNode }) {
 
 function Runner({
   test,
-  focused,
   attempt: initialAttempt,
   questions,
   blockedBackRef,
@@ -385,7 +368,6 @@ function Runner({
   onSubmitted,
 }: {
   test: TestSummary;
-  focused: boolean;
   attempt: Attempt;
   questions: TestQuestion[];
   blockedBackRef: React.RefObject<(() => void) | null>;
@@ -398,7 +380,7 @@ function Runner({
   const [attempt, setAttempt] = useState(initialAttempt);
   const liveAttempt = useRef(initialAttempt);
   const suspended = attempt.state === 'suspended';
-  const applyStatusRef = useRef<(value: Attempt, reviewQuestions?: TestQuestion[]) => void>(() => {});
+  const applyStatusRef = useRef<(value: Attempt, reviewQuestions?: TestQuestion[], mergeDuringSave?: boolean) => void>(() => {});
   const statusRequest = useRef<Promise<Attempt | null> | null>(null);
   const refreshStatus = useCallback(() => {
     if (statusRequest.current) return statusRequest.current;
@@ -432,6 +414,7 @@ function Runner({
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [warning, setWarning] = useState<{ minutes: number } | null>(null);
   const answersRef = useRef(answers);
+  const savedAnswers = useRef(new Map<number, SavedAnswer>(initialAttempt.answers.map(a => [a.index, a])));
   const submittedRef = useRef(false);
   const scrollRef = useRef<ScrollViewInstance>(null);
 
@@ -442,8 +425,22 @@ function Runner({
     const latest = answersRef;
     const done = submittedRef;
     const saver = createAnswerSaver({
-      save: (changed) => studentApi.saveAnswers(test.id, changed, liveAttempt.current.resumeVersion ?? 0),
+      save: async (changed) => {
+        try {
+          const result = await studentApi.saveAnswers(test.id, changed, liveAttempt.current.resumeVersion ?? 0);
+          for (const answer of result.answers) {
+            if ((answer.version ?? 0) >= (savedAnswers.current.get(answer.index)?.version ?? 0)) savedAnswers.current.set(answer.index, answer);
+          }
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 409) {
+            const status = await studentApi.attemptStatus(test.id);
+            if (status.attempt) applyStatusRef.current(status.attempt, status.questions, true);
+          }
+          throw error;
+        }
+      },
       read: (index) => latest.current.get(index) ?? null,
+      readVersion: (index) => savedAnswers.current.get(index)?.version ?? 0,
       onState: setSaveState,
     });
     saverRef.current = saver;
@@ -473,7 +470,7 @@ function Runner({
         const marks = new Set([...draft.marks.filter((i) => known.has(i)), ...markedRef.current]);
         markedRef.current = marks;
         setMarked(marks);
-        const pending = draft.pending.filter((p) => known.has(p.index) && !touched.current.has(p.index));
+        const pending = restorableAnswers(draft.pending, [...savedAnswers.current.values()]).filter((p) => known.has(p.index) && !touched.current.has(p.index));
         if (pending.length) {
           const next = new Map(answersRef.current);
           pending.forEach((p) => next.set(p.index, p.selected));
@@ -508,7 +505,7 @@ function Runner({
     return () => clearTimeout(timer);
   }, [marked, answers, saveState, current, restored, persistDraft]);
 
-  const all = () => questions.map((q) => ({ index: q.index, selected: answersRef.current.get(q.index) ?? null }));
+  const all = () => questions.map((q) => ({ index: q.index, selected: answersRef.current.get(q.index) ?? null, baseVersion: savedAnswers.current.get(q.index)?.version ?? 0 }));
 
   const warned = useRef({ five: false, one: false });
   const lastExpiryTry = useRef(0);
@@ -568,9 +565,18 @@ function Runner({
   // attempt if it was too long; the exam stays frozen until it answers. A
   // report that can't be sent (no connection) is kept and retried, and a
   // dropped connection by itself is never treated as leaving.
-  const applyStatus = useCallback((value: Attempt, reviewQuestions?: TestQuestion[]) => {
+  const applyStatus = useCallback((value: Attempt, reviewQuestions?: TestQuestion[], mergeDuringSave = false) => {
     const previous = liveAttempt.current;
     if (!acceptsAttemptStatus(previous, value)) return;
+    // Acknowledgement of our own in-flight save may precede its HTTP response.
+    // Wait for that response before merging, preserving edits made meanwhile.
+    if (mergeDuringSave || !saverRef.current?.saving || value.state === 'submitted') {
+      const saved = value.answers.filter(a => (a.version ?? 0) >= (savedAnswers.current.get(a.index)?.version ?? 0));
+      const next = mergeSavedAnswers(answersRef.current, saverRef.current?.unconfirmed() ?? [], saved);
+      answersRef.current = next;
+      setAnswers(next);
+      for (const answer of saved) savedAnswers.current.set(answer.index, answer);
+    }
     liveAttempt.current = value;
     skewRef.current = skewOf(value.serverTime);
     setAttempt(value);
@@ -592,13 +598,13 @@ function Runner({
 
   const split = useMultiWindow(true);
   const splitBlocked = split.inMultiWindow && split.authoritative;
-  const { blocked: visibilityBlocked, visible: isExamVisible, canAnswer: canAnswerExam } = useExamVisibility({ userId: user.id, testId: test.id, attempt, focused, splitBlocked,
+  const { blocked: visibilityBlocked, visible: isExamVisible, canAnswer: canAnswerExam } = useExamVisibility({ userId: user.id, testId: test.id, attempt,
     skew: skewRef, onStatus: applyStatus, onLoss: persistDraftNow });
   useEffect(() => {
     const interval = setInterval(() => { if (isExamVisible()) void refreshStatus(); }, 5000);
     return () => clearInterval(interval);
   }, [refreshStatus, isExamVisible]);
-  const holdSaving = suspended || frozen || visibilityBlocked || remaining === 0;
+  const holdSaving = !restored || suspended || frozen || visibilityBlocked || remaining === 0;
   useEffect(() => {
     if (holdSaving) saverRef.current?.pause();
     else saverRef.current?.resume();
@@ -611,6 +617,8 @@ function Runner({
     setSubmitting(true);
     setError(null);
     try {
+      // Wait for an autosave acknowledgement before building final versions.
+      await saverRef.current?.flush();
       // Every answer goes with the submission, saved or not.
       const result = await studentApi.submit(test.id, all(), liveAttempt.current.resumeVersion ?? 0);
       if (result.attempt.state !== 'submitted') {
@@ -619,6 +627,7 @@ function Runner({
       } else onSubmitted(result.attempt, result.questions);
     } catch (e) {
       submittedRef.current = false;
+      if (e instanceof ApiError && e.status === 409) await refreshStatus();
       setError(e instanceof Error ? e.message : "Couldn't submit. Check your internet and try again.");
       if (liveAttempt.current.state === 'in-progress') saverRef.current?.resume();
     } finally {
@@ -645,7 +654,7 @@ function Runner({
   }, [hint]);
 
   const select = (value: string | null) => {
-    if (liveAttempt.current.state !== 'in-progress' || frozen || !canAnswerExam() || remaining === 0 || submitting || splitBlocked) return;
+    if (!restored || liveAttempt.current.state !== 'in-progress' || frozen || !canAnswerExam() || remaining === 0 || submitting || splitBlocked) return;
     const index = questions[current].index;
     answersRef.current = new Map(answersRef.current).set(index, value);
     setAnswers(answersRef.current);
@@ -819,7 +828,7 @@ ${message}`)) void submit();
             Return to full screen
           </Text>
           <Text style={[styles.frozenText, { color: palette.mutedForeground }]}>
-            {`The exam can't be taken in split-screen. Close the other window to continue. Time in split-screen counts as leaving the app: more than ${AWAY_LIMIT_MS / 1000} seconds pauses your test for teacher review. The timer keeps running until the server confirms a pause.`}
+            The exam cannot be taken in split-screen. Close the other window to continue. Split-screen alone does not count as leaving the app. The timer keeps running.
           </Text>
         </View>
       ) : null}
@@ -1027,7 +1036,7 @@ function Review({
           <Notice
             tone="success"
             icon={{ ios: 'checkmark.seal', android: 'verified' }}
-            title="Test submitted"
+            title="✓ TEST SUBMITTED SUCCESSFULLY"
             text={result && 'score' in result ? "Your answers are in. Here's how you did." : 'Your answers are in. Your results will be available after the test closes.'}
             live
           />
@@ -1039,7 +1048,7 @@ function Review({
 
         {result ? (
           <>
-            <Segmented label="Result sections" options={SECTION_OPTIONS} value={section} onChange={setSection} />
+            <Chips label="Result sections" choices={SECTION_KEYS} selected={section} onChange={setSection} labels={SECTION_LABELS} />
             {section === 'overview' ? (
               <>
                 <ScoreCard test={test} result={result} analytics={analytics} />
@@ -1128,7 +1137,7 @@ function Submitted({ test, attempt, total, justSubmitted, onClose }: { test: Tes
             live
           />
         ) : (
-          <Notice tone="success" icon={{ ios: 'checkmark.seal', android: 'verified' }} title="Test submitted" text="Your answers are in." live={justSubmitted} />
+          <Notice tone="success" icon={{ ios: 'checkmark.seal', android: 'verified' }} title="✓ TEST SUBMITTED SUCCESSFULLY" text="Your answers are in." live={justSubmitted} />
         )}
         <Text accessibilityRole="header" style={[styles.reviewTitle, { color: palette.foreground }]}>
           {test.title}
@@ -1155,7 +1164,7 @@ function ScoreCard({ test, result, analytics }: { test: TestSummary; result: Non
   return (
     <Card style={styles.scoreCard}>
       <Text accessibilityRole="header" style={[styles.eyebrow, { color: palette.mutedForeground }]}>
-        Your score
+        YOUR TEST RESULT
       </Text>
       <View style={styles.scoreRow} accessible accessibilityLabel={`Score ${numberLabel(result.score)} out of ${numberLabel(result.maxScore)}, ${percentLabel(figures.percentage)}`}>
         <Text style={[styles.scoreBig, { color: palette.foreground }]}>
@@ -1174,6 +1183,7 @@ function ScoreCard({ test, result, analytics }: { test: TestSummary; result: Non
         {result.skipped ? <View style={{ flex: result.skipped / total, backgroundColor: palette.borderStrong }} /> : null}
       </View>
       <View style={[styles.divider, { backgroundColor: palette.border }]} />
+      <DetailRow label="Percentage" value={percentLabel(figures.percentage)} />
       <DetailRow label="Accuracy" value={figures.accuracy === null ? 'None answered' : `${percentLabel(figures.accuracy)} of answered`} />
       <DetailRow label="Marks" value={`+${numberLabel(result.correct * test.marksPerQuestion)} for correct`} />
       <DetailRow label="Negative marking" value={test.negativeMarks ? (figures.negativeDeducted ? `−${numberLabel(figures.negativeDeducted)} deducted` : 'Nothing deducted') : 'None in this test'} />
@@ -1206,9 +1216,8 @@ const styles = StyleSheet.create({
   body: { padding: 16, gap: 14, paddingBottom: 24 },
   footer: { borderTopWidth: 1 },
   footerInner: { padding: 16, paddingBottom: 12, gap: 6 },
-  footerNote: { fontSize: 13, lineHeight: 18, textAlign: 'center' },
 
-  eyebrow: { fontSize: 13, fontWeight: '700' },
+  eyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 1.1 },
   frozen: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 32 },
   frozenTitle: { fontSize: 20, fontWeight: '800', textAlign: 'center' },
   frozenText: { fontSize: 14, lineHeight: 21, textAlign: 'center', maxWidth: 360 },

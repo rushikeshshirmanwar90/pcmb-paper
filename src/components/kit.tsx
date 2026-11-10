@@ -317,9 +317,10 @@ type FieldProps = TextInputProps & {
   ref?: React.Ref<TextInputInstance>;
 };
 
-<<<<<<< HEAD
 export function Field({ label, hint, error, accessory, style, onFocus, onBlur, ...input }: FieldProps) {
   const palette = usePalette();
+  const scrollIntoView = useScrollIntoView();
+  const group = useRef<ViewInstance>(null);
   const [focused, setFocused] = useState(false);
   const borderColor = error ? palette.danger : focused ? palette.primary : palette.input;
   const box = (
@@ -330,6 +331,8 @@ export function Field({ label, hint, error, accessory, style, onFocus, onBlur, .
       {...input}
       onFocus={(e) => {
         setFocused(true);
+        // The whole group (label, input, helper or error), not just the input, is brought into view.
+        scrollIntoView?.(group.current);
         onFocus?.(e);
       }}
       onBlur={(e) => {
@@ -339,16 +342,9 @@ export function Field({ label, hint, error, accessory, style, onFocus, onBlur, .
       style={[styles.input, { backgroundColor: palette.background, borderColor, color: palette.foreground }, style]}
     />
   );
-=======
-export function Field({ label, hint, error, style, onFocus, ...input }: FieldProps) {
-  const palette = usePalette();
-  const scrollIntoView = useScrollIntoView();
-  const group = useRef<ViewInstance>(null);
->>>>>>> 8ce38ca54eb9706ddc3736c1b82fd445f3e61052
   return (
     <View ref={group} style={styles.field}>
       <Text style={[styles.fieldLabel, { color: palette.mutedForeground }]}>{label}</Text>
-<<<<<<< HEAD
       {accessory ? (
         <View>
           {box}
@@ -357,23 +353,6 @@ export function Field({ label, hint, error, style, onFocus, ...input }: FieldPro
       ) : (
         box
       )}
-=======
-      <TextInput
-        accessibilityLabel={label}
-        placeholderTextColor={palette.mutedForeground}
-        {...input}
-        onFocus={(event) => {
-          // The whole group (label, input, helper or error), not just the input, is brought into view.
-          scrollIntoView?.(group.current);
-          onFocus?.(event);
-        }}
-        style={[
-          styles.input,
-          { backgroundColor: palette.background, borderColor: error ? palette.danger : palette.border, color: palette.foreground },
-          style,
-        ]}
-      />
->>>>>>> 8ce38ca54eb9706ddc3736c1b82fd445f3e61052
       {error ? <ErrorText message={error} /> : hint ? <Text style={[styles.hint, { color: palette.mutedForeground }]}>{hint}</Text> : null}
     </View>
   );
