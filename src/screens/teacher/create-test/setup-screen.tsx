@@ -62,6 +62,7 @@ export function SetupScreen() {
     setError(null);
     try {
       const test = await schoolApi.createTest({
+        requestId: draft.requestId,
         batchId: draft.batchIds[0],
         batchIds: draft.batchIds,
         audienceMode: draft.audienceMode,
@@ -140,7 +141,11 @@ export function SetupScreen() {
         </View>
       }
     >
-      {!ready ? (
+      {!batches.data && batches.loading ? (
+        <LoadingView label="Loading test details…" />
+      ) : !batches.data && batches.error ? (
+        <ErrorView message={batches.error} onRetry={batches.reload} />
+      ) : !ready ? (
         <Notice tone="warning" title="Finish page 1 first" text="Choose batches, a subject and at least one question, then come back." />
       ) : (
         <>
@@ -170,7 +175,7 @@ export function SetupScreen() {
                 placeholder={allowedOnly ? 'Select multiple' : 'None excluded'}
                 emptyText="No students"
                 selectedLabel={(n) => `${n} Student${n === 1 ? '' : 's'} Selected`}
-                applyOnDone searchable
+                applyOnDone searchable showSelectedChips
                 icon={{ ios: 'person.2', android: 'group', web: 'group' }}
               />
             ) : <Notice tone="warning" text="No activated students are enrolled in these batches." />

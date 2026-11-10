@@ -269,6 +269,7 @@ export interface TeacherOverview {
 
 /** A test to set or change. `startNow` opens it at the server's clock; otherwise `opensAt` (in the future) is needed. */
 export type NewTest = {
+  requestId?: string;
   batchId: string;
   batchIds?: string[];
   audienceMode?: 'all' | 'selected';

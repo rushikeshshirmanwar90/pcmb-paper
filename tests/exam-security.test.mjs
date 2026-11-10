@@ -95,9 +95,9 @@ describe('unsupported-platform fallback', () => {
 describe('away and interruption tracking', () => {
   test('the limit is the existing 10 seconds, and matches the server', () => {
     assert.equal(AWAY_LIMIT_MS, 10_000);
-    const server = '../../papers/src/lib/attempts.ts';
+    const server = '../../papers/src/lib/exam-visibility-policy.ts';
     const path = new URL(server, import.meta.url);
-    if (existsSync(path)) assert.match(readFileSync(path, 'utf8'), /export const AWAY_LIMIT_MS = 10_000;/);
+    if (existsSync(path)) assert.match(readFileSync(path, 'utf8'), /export const VISIBILITY_GRACE_MS = 10_000;/);
   });
 
   test('repeated background events do not restart the clock', () => {

@@ -34,6 +34,7 @@ type MultiSelectDropdownProps = {
   applyOnDone?: boolean;
   /** Summarises the picks as e.g. "3 Batches Selected" instead of listing names. */
   selectedLabel?: (count: number) => string;
+  showSelectedChips?: boolean;
 };
 
 const formatCount = (n: number) => n.toLocaleString();
@@ -52,6 +53,7 @@ export function MultiSelectDropdown({
   allWhenNone = false,
   applyOnDone = false,
   selectedLabel,
+  showSelectedChips = false,
 }: MultiSelectDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState<string[]>([]);
@@ -146,6 +148,15 @@ export function MultiSelectDropdown({
           size={16}
         />
       </Pressable>
+
+      {showSelectedChips && committed.length ? <View style={styles.selectedChips}>
+        {committed.map(value => <Pressable key={value} accessibilityRole="button" accessibilityLabel={`Remove ${value}`}
+          onPress={() => commit(committed.filter(item => item !== value))}
+          style={({ pressed }) => [styles.selectedChip, { backgroundColor: palette.primarySoft, borderColor: palette.primary, opacity: pressed ? 0.7 : 1 }]}>
+          <Text style={[styles.selectedChipText, { color: palette.primaryInk }]}>{value}</Text>
+          <Text accessibilityElementsHidden importantForAccessibility="no" style={{ color: palette.primaryInk }}>×</Text>
+        </Pressable>)}
+      </View> : null}
 
       <Modal
         visible={isOpen}
@@ -306,6 +317,9 @@ export function MultiSelectDropdown({
 }
 
 const styles = StyleSheet.create({
+  selectedChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  selectedChip: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, maxWidth: '100%', paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderRadius: 20 },
+  selectedChipText: { flexShrink: 1, fontSize: 13, fontWeight: '600' },
   container: { gap: 6 },
   label: { fontSize: 12, fontWeight: '700', letterSpacing: 0.3, textTransform: 'uppercase' },
   trigger: {

@@ -1,4 +1,6 @@
 import type { VisibilityPacket } from '@/screens/student/exam-visibility';
+import type { AnswerUpdate } from '@/screens/student/answer-saver';
+import type { SavedAnswer } from '@/screens/student/answer-sync';
 import { api, ApiError } from '@/services/api-client';
 import type { Program, SchoolStandard, SchoolSubject, Track } from '@/constants/school';
 import type { TestSummary, TimetableEntry, TopicPerformance, WeakTopic } from '@/services/school-api';
@@ -35,7 +37,7 @@ export interface StudentOverview {
   pendingBatchName?: string | null;
 }
 
-export type StudentTest = TestSummary & { mine: { state: 'in-progress' | 'submitted'; score: number | null } | null };
+export type StudentTest = TestSummary & { mine: { state: 'in-progress' | 'suspended' | 'submitted'; score: number | null } | null };
 
 export interface TestQuestion {
   index: number;
@@ -70,7 +72,7 @@ export interface Attempt {
   deadline: string;
   /** The server's clock when it answered, so the time left doesn't depend on the phone's clock. */
   serverTime?: string;
-  answers: { index: number; selected: string | null; correct: boolean | null }[];
+  answers: { index: number; selected: string | null; correct: boolean | null; version?: number }[];
   result: { score: number; maxScore: number; correct: number; wrong: number; skipped: number; timeTakenSeconds: number; submittedAt: string } | null;
 }
 
@@ -360,10 +362,10 @@ export const studentApi = {
   requestTestAccess: (id: string) => api('/tests/' + id + '/access', { method: 'POST', body: { action: 'request' } }),
   reportVisibility: (id: string, body: VisibilityPacket) => api<{ attempt: Attempt; questions?: TestQuestion[] }>(`/tests/${id}/visibility`, { method: 'POST', body }),
   attemptStatus: (id: string) => api<{ attempt: Attempt | null; questions?: TestQuestion[] }>(`/tests/${id}/status`),
-  start: (id: string) => api<{ attempt: Attempt; questions: TestQuestion[] }>(`/tests/${id}/start`, { method: 'POST', body: { visibility: true } }),
-  saveAnswers: (id: string, answers: { index: number; selected: string | null }[], resumeVersion = 0) =>
-    api<{ saved: number }>(`/tests/${id}/answers`, { method: 'PUT', body: { answers, resumeVersion } }),
-  submit: (id: string, answers: { index: number; selected: string | null }[], resumeVersion = 0) =>
+  start: (id: string) => api<{ attempt: Attempt; questions: TestQuestion[] }>(`/tests/${id}/start`, { method: 'POST', body: { visibility: true, answerVersions: true } }),
+  saveAnswers: (id: string, answers: AnswerUpdate[], resumeVersion = 0) =>
+    api<{ saved: number; answers: SavedAnswer[] }>(`/tests/${id}/answers`, { method: 'PUT', body: { answers, resumeVersion } }),
+  submit: (id: string, answers: AnswerUpdate[], resumeVersion = 0) =>
     api<{ attempt: Attempt; questions: TestQuestion[] }>(`/tests/${id}/submit`, { method: 'POST', body: { answers, resumeVersion } }),
 
   /** The app came back after `awayMs` out of the foreground. The server records it and ends the attempt if that was too long. */

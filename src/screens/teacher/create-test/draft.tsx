@@ -5,6 +5,7 @@ import type { Question } from '@/types/pcmb';
 
 /** Everything the two Create Test pages hold. It lives in the flow's layout, so Back and Next never lose it. */
 export interface TestDraft {
+  requestId: string;
   title: string;
   batchIds: string[];
   subject: string;
@@ -31,6 +32,7 @@ export function newDraft(): TestDraft {
   date.setDate(date.getDate() + 1);
   date.setHours(10, 0, 0, 0);
   return {
+    requestId: `create_${Date.now()}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`,
     title: '', batchIds: [], subject: '', source: EMPTY_BANK_SCOPE.source, chapters: [], topics: [], years: [], count: 30, questions: [],
     audienceMode: 'all', studentIds: [], excludedStudentIds: [], date, start: timeOf(date), end: null, minutes: '60', correct: '4', wrong: '0',
   };

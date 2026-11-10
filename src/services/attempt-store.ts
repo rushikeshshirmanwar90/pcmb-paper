@@ -42,8 +42,10 @@ function write(key: string, value: string | null) {
   }
   const dir = draftsDir();
   if (!dir.exists) dir.create({ intermediates: true });
-  file.create({ overwrite: true });
-  file.write(value);
+  // SDK 58's write() is async. These small lifecycle snapshots must finish
+  // before returning, so queued saves cannot overlap or escape our catch blocks.
+  // writeSync creates missing files and replaces existing contents itself.
+  file.writeSync(value);
 }
 
 /** The draft of this attempt, if the phone has one. */

@@ -21,7 +21,8 @@ test('access requests overlap not-allowed without changing participation state',
   assert.equal(matchesAccess(access('pending', { request: 'pending' }), 'restricted'), true);
   assert.equal(matchesAccess(access('pending', { request: 'pending' }), 'requests'), true);
   assert.equal(matchesAccess(access('started', { request: 'pending', started: true }), 'requests'), false);
-  assert.deepEqual(participationCounts(monitor), { taking: 1, waiting: 2, submitted: 3, violations: 1, restricted: 3, requests: 1 });
+  assert.deepEqual(participationCounts(monitor), { taking: 1, allowed: 1, waiting: 2, submitted: 3, violations: 1, restricted: 3, requests: 1 });
+  assert.equal(matchesAccess(access('allowed', { allowed: true, started: true }), 'allowed'), true);
 });
 
 test('add students includes a newly admitted or requesting student, excludes inactive and started students', () => {
