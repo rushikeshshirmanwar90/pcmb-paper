@@ -22,7 +22,6 @@ import {
   Field,
   Icon,
   ListRow,
-  LoadingView,
   Muted,
   Notice,
   Screen,
@@ -31,6 +30,7 @@ import {
   useLoad,
   usePalette,
 } from '@/components/kit';
+import { SkeletonCard, StaleNotice } from '@/components/states';
 import { PROGRAM_LABELS, SCHOOL_STANDARDS, programOf, questionBankOf, type SchoolStandard, type SchoolSubject } from '@/constants/school';
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
 import { DateField } from '@/screens/teacher/date-field';
@@ -119,8 +119,9 @@ export function TeacherTestsScreen() {
         </View>
       </ScrollView>
 
+      {data && error ? <StaleNotice message={error} onRetry={reload} /> : null}
       {loading ? (
-        <LoadingView />
+        <SkeletonCard rows={4} label="your tests" />
       ) : error && !data ? (
         <ErrorView message={error} onRetry={reload} />
       ) : !shown.length ? (
