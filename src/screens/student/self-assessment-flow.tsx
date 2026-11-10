@@ -23,7 +23,8 @@ import { KeyboardSafeView } from '@/components/keyboard-safe-view';
 import { programOf, programSubjects, type SchoolSubject } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
 import { bumpDataVersion } from '@/context/data-version';
-import { openPracticeAt } from '@/context/practice-target';
+import { useRouter } from 'expo-router';
+import { practiceChapterHref } from '@/screens/student/practice/practice-links';
 import { AssessmentSession, column, DifficultyBar, SheetFooter, SheetHeader, type TopicPick } from '@/screens/student/assessment-session';
 import {
   basisText,
@@ -82,6 +83,7 @@ export function SelfAssessmentFlow({
 }) {
   const palette = usePalette();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [view, setView] = useState<FlowView>(start);
   const [listRound, setListRound] = useState(0);
   // What Android's back button does inside a session (the session sets it).
@@ -127,8 +129,8 @@ export function SelfAssessmentFlow({
             backRef={backRef}
             onBack={home}
             onPractise={(s, t) => {
-              openPracticeAt({ subject: s, chapter: t.chapter, topic: t.topic || null });
               close();
+              router.push(practiceChapterHref({ subject: s, chapter: t.chapter, standard: t.standard, topic: t.topic || null }));
             }}
             onRetake={(s, topics) => setView({ kind: 'build', subject: s, preset: topics })}
           />

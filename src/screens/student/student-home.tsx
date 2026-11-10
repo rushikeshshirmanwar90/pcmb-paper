@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Badge, Button, Card, DetailSheet, EmptyView, ErrorView, Icon, Muted, Notice, Screen, SectionTitle, useLoad, usePalette, type IconName } from '@/components/kit';
 import { SkeletonCard, StaleNotice } from '@/components/states';
 import { programOf, questionBankOf, SCHOOL_SUBJECTS, WEEKDAY_NAMES, type SchoolSubject } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
 import { useTabDataVersion } from '@/context/data-version';
-import { openPracticeAt } from '@/context/practice-target';
 import { useTabNavigation } from '@/context/tab-context';
 import { useEngagement } from '@/engagement/engagement-provider';
 import { syncClassReminders } from '@/services/notifications';
@@ -13,7 +13,8 @@ import { AnnouncementsSection } from '@/screens/shared/announcements';
 import { WeekTimetable } from '@/screens/shared/timetable';
 import { Bubble } from '@/screens/auth-ui';
 import { nextClass, todayStates, type ClassState, type NextClass } from '@/screens/student/home-next-up';
-import { PRACTICE_TAB } from '@/screens/student/student-practice';
+import { ContinueCard } from '@/screens/student/practice/continue-card';
+import { practiceChapterHref } from '@/screens/student/practice/practice-links';
 import { ProgressHeader } from '@/screens/student/progress-header';
 import { byUrgency, closesSoon, kindOf, subjectIcon, untilLabel, whenLabel, type ListedTest, type TestKind } from '@/screens/student/test-format';
 import { TestRunner } from '@/screens/student/test-runner';
@@ -46,6 +47,7 @@ export function StudentHomeScreen() {
   const user = useSignedInUser();
   const version = useTabDataVersion('home');
   const { goToTab } = useTabNavigation();
+  const router = useRouter();
   const clock = useNow();
   // The overview's open tests don't say whether one is under way, so the
   // student's test list (which does) loads alongside it. If that list fails,
@@ -68,13 +70,10 @@ export function StudentHomeScreen() {
   }, [week]);
   const [openTest, setOpenTest] = useState<string | null>(null);
   const [showWeek, setShowWeek] = useState(false);
-  // A weak topic's Practise opens it in the Practice tab (topic practice),
+  // A weak topic's Practise opens that chapter (or topic) in topic practice,
   // for programs with a question bank only.
   const practise = questionBankOf(programOf(user))
-    ? (subject: SchoolSubject, chapter: string, topic: string) => {
-        openPracticeAt({ subject, chapter, topic: topic || null });
-        goToTab(PRACTICE_TAB);
-      }
+    ? (subject: SchoolSubject, chapter: string, topic: string) => router.push(practiceChapterHref({ subject, chapter, topic: topic || null }))
     : null;
 
   // "Now" is when the data loaded, so Next up matches what was fetched.
@@ -136,6 +135,9 @@ export function StudentHomeScreen() {
               />
             </Card>
           )}
+
+          {/* Unfinished practice comes back here, unless a test is waiting (the test always wins). */}
+          {!toTake.length ? <ContinueCard /> : null}
 
           {/* Today: where the day stands, class by class; the week is a tap away. */}
           {data.batch ? (
