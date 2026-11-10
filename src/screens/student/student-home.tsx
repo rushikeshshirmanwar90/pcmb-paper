@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { Badge, Button, Card, DetailSheet, EmptyView, ErrorView, Icon, ListRow, LoadingView, Muted, Notice, ProgressBar, Screen, SectionTitle, useLoad, usePalette, type IconName } from '@/components/kit';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Badge, Button, Card, DetailSheet, EmptyView, ErrorView, Icon, Muted, Notice, Screen, SectionTitle, useLoad, usePalette, type IconName } from '@/components/kit';
+import { SkeletonCard, StaleNotice } from '@/components/states';
 import { programOf, questionBankOf, SCHOOL_SUBJECTS, WEEKDAY_NAMES, type SchoolSubject } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
 import { useTabDataVersion } from '@/context/data-version';
@@ -14,16 +15,13 @@ import { Bubble } from '@/screens/auth-ui';
 import { nextClass, todayStates, type ClassState, type NextClass } from '@/screens/student/home-next-up';
 import { PRACTICE_TAB } from '@/screens/student/student-practice';
 import { ProgressHeader } from '@/screens/student/progress-header';
-import { byUrgency, closesSoon, kindOf, percentOf, resultTone, subjectIcon, untilLabel, whenLabel, type ListedTest, type TestKind } from '@/screens/student/test-format';
+import { byUrgency, closesSoon, kindOf, subjectIcon, untilLabel, whenLabel, type ListedTest, type TestKind } from '@/screens/student/test-format';
 import { TestRunner } from '@/screens/student/test-runner';
 import { dayLabel, type TimetableEntry } from '@/services/school-api';
 import { studentApi, type StudentOverview, type TopicStat } from '@/services/student-api';
 import { formatTime } from '@/services/tuition-api';
 
-const RECENT_ON_HOME = 3;
 const WEAK_ON_HOME = 3;
-/** From this text size up, a subject's coverage bar goes under its name instead of beside it. */
-const STACK_FROM_FONT_SCALE = 1.3;
 
 const asSubject = (s: string): SchoolSubject | null => ((SCHOOL_SUBJECTS as readonly string[]).includes(s) ? (s as SchoolSubject) : null);
 
@@ -38,9 +36,11 @@ function useNow(everyMs = 60_000) {
 }
 
 /**
- * A student's day, most useful first: what to do next (a test, or the next
- * class), today's classes, how they're doing, then announcements. The whole
- * week and every topic covered lately are a tap away.
+ * A student's day, most useful first (Home answers "what should I do now?"):
+ * the progress header, what to do next (a test, or the next class), today's
+ * classes, the topics to fix, then announcements. The week is a tap away; the
+ * syllabus gauge and what was covered lately live on the Syllabus tab, with a
+ * one-line link here.
  */
 export function StudentHomeScreen() {
   const user = useSignedInUser();
@@ -68,7 +68,6 @@ export function StudentHomeScreen() {
   }, [week]);
   const [openTest, setOpenTest] = useState<string | null>(null);
   const [showWeek, setShowWeek] = useState(false);
-  const [showRecent, setShowRecent] = useState(false);
   // A weak topic's Practise opens it in the Practice tab (topic practice),
   // for programs with a question bank only.
   const practise = questionBankOf(programOf(user))
@@ -100,11 +99,12 @@ export function StudentHomeScreen() {
       {/* Streak · today's goal · level: loads on its own, hidden when the tuition has it off. */}
       <ProgressHeader />
       {loading ? (
-        <LoadingView />
+        <HomeSkeleton />
       ) : error && !data ? (
         <ErrorView message={error} onRetry={reload} />
       ) : data ? (
         <>
+          {error ? <StaleNotice message={error} onRetry={reload} /> : null}
           {!data.batch ? (
             data.enrollmentStatus === 'approval_pending' ? (
               <Notice
@@ -145,22 +145,15 @@ export function StudentHomeScreen() {
             </>
           ) : null}
 
-          {/* Your progress: last result, weak topics to practise, syllabus. */}
-          <SectionTitle title="Your progress" />
-          <ResultCard insight={data.insight} onPractise={practise} />
-          {data.batch ? <SyllabusCard batch={data.batch} recent={data.recent} onShowRecent={() => setShowRecent(true)} /> : null}
+          {/* Needs work: the next step first; the last test is a calm line, never the loudest thing here. */}
+          <SectionTitle title="Needs work" />
+          <NeedsWorkCard insight={data.insight} onPractise={practise} />
+          {data.batch ? <SyllabusLink batch={data.batch} onOpen={() => goToTab('syllabus')} /> : null}
 
           <AnnouncementsSection batches={[]} canPost={false} allowAllBatches={false} limit={2} tabKey="home" />
 
           <DetailSheet visible={showWeek} title="Weekly timetable" onClose={() => setShowWeek(false)}>
             <WeekTimetable entries={data.week} showBatch={false} emptyText="Your teachers haven't added classes yet." />
-          </DetailSheet>
-          <DetailSheet visible={showRecent} title="Covered in class lately" onClose={() => setShowRecent(false)}>
-            <Card style={styles.flush}>
-              {data.recent.map((r, i) => (
-                <ListRow key={r.id} title={r.topic || r.chapter} subtitle={`${r.subject}${r.topic ? ` · ${r.chapter}` : ''} · ${dayLabel(r.coveredOn)}`} last={i === data.recent.length - 1} />
-              ))}
-            </Card>
           </DetailSheet>
         </>
       ) : null}
@@ -254,14 +247,14 @@ function NextClassCard({ next }: { next: NextClass }) {
 }
 
 /** A tappable row across the foot of a card, under a hairline. */
-function FooterRow({ icon, title, subtitle, onPress, accessibilityLabel }: { icon?: IconName; title: string; subtitle?: string; onPress: () => void; accessibilityLabel?: string }) {
+function FooterRow({ icon, title, subtitle, onPress, accessibilityLabel, bare = false }: { icon?: IconName; title: string; subtitle?: string; onPress: () => void; accessibilityLabel?: string; /** The card's only row: no hairline above. */ bare?: boolean }) {
   const palette = usePalette();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
-      style={({ pressed }) => [styles.footerRow, { borderTopColor: palette.border }, pressed && { backgroundColor: palette.muted }]}
+      style={({ pressed }) => [styles.footerRow, { borderTopColor: palette.border }, bare && styles.bare, pressed && { backgroundColor: palette.muted }]}
     >
       {icon ? <Icon name={icon} color={palette.inkSoft} size={18} /> : null}
       <View style={styles.flex}>
@@ -364,51 +357,77 @@ function TodayRow({ entry, state, last }: { entry: TimetableEntry; state: ClassS
   );
 }
 
-// ─── Your progress ─────────────────────────────────────────────────────────
+// ─── Loading ───────────────────────────────────────────────────────────────
+
+/** First load: the shape of Next up and Today, so nothing jumps when they land. */
+function HomeSkeleton() {
+  return (
+    <>
+      <SkeletonCard rows={2} label="what's next" />
+      <SkeletonCard rows={3} label="today's classes" />
+    </>
+  );
+}
+
+// ─── Needs work ────────────────────────────────────────────────────────────
 
 type Practise = ((subject: SchoolSubject, chapter: string, topic: string) => void) | null;
 
-function ResultCard({ insight, onPractise }: { insight: StudentOverview['insight']; onPractise: Practise }) {
+/**
+ * What to work on, next step first: "3 topics to fix" with one Practise button,
+ * the topics (each opens its practice), then the last test as a small neutral
+ * line. Scores are never red or big here (student-psychology: no alarm states).
+ */
+function NeedsWorkCard({ insight, onPractise }: { insight: StudentOverview['insight']; onPractise: Practise }) {
   const palette = usePalette();
   const last = insight.lastResult;
-  const percent = last ? percentOf(last.score, last.maxScore) : null;
   const weak = insight.weak.slice(0, WEAK_ON_HOME);
+  const total = insight.weak.length;
+  const first = weak[0];
+  const firstSubject = first ? asSubject(first.subject) : null;
+  const practiseFirst = first && firstSubject && onPractise ? () => onPractise(firstSubject, first.chapter, first.topic) : null;
   return (
     <Card style={styles.progressCard}>
-      {last && percent !== null ? (
-        <View accessible accessibilityLabel={`Last test, ${last.title}: ${last.score} of ${last.maxScore}, ${percent} percent`} style={styles.lastRow}>
-          <View style={styles.flex}>
-            <Text style={[styles.label, { color: palette.mutedForeground }]}>Last test · {dayLabel(last.submittedAt)}</Text>
-            <Text style={[styles.rowTitle, { color: palette.foreground }]} numberOfLines={2}>
-              {last.title}
-            </Text>
-          </View>
-          <View style={styles.scoreCol}>
-            <Text style={[styles.score, { color: palette.foreground }]}>
-              {last.score}
-              <Text style={[styles.scoreOf, { color: palette.mutedForeground }]}>/{last.maxScore}</Text>
-            </Text>
-            <Badge label={`${percent}%`} tone={resultTone(percent)} />
-          </View>
+      {first ? (
+        <View style={styles.fixHead}>
+          <Text accessibilityRole="header" style={[styles.fixTitle, { color: palette.foreground }]}>
+            {total} topic{total === 1 ? '' : 's'} to fix
+          </Text>
+          <Text style={[styles.meta, { color: palette.mutedForeground }]}>Start with {first.topic || first.chapter}. A few PYQs a day moves it.</Text>
+          {practiseFirst ? (
+            <Button
+              label="Practise"
+              variant="tonal"
+              icon={{ ios: 'play.fill', android: 'play_arrow' }}
+              onPress={practiseFirst}
+              accessibilityLabel={`Practise ${first.topic || first.chapter}`}
+              style={styles.fixButton}
+            />
+          ) : null}
         </View>
       ) : (
-        <Muted>Take tests and practise PYQs; your results and weak topics show here.</Muted>
+        <Muted>{last ? 'Nothing to fix right now. Keep practising to stay sharp.' : 'Practise PYQs and take tests; the topics worth fixing show here.'}</Muted>
       )}
 
       {weak.length ? (
         <View>
-          <Text style={[styles.cardHeading, { color: palette.foreground }]}>Needs work</Text>
           {weak.map((t) => (
             <WeakTopicRow key={`${t.subject}|${t.chapter}|${t.topic}`} stat={t} onPractise={onPractise} />
           ))}
         </View>
       ) : null}
 
-      {insight.strong.length ? (
-        <View style={styles.strongRow}>
-          <Icon name={{ ios: 'checkmark.circle', android: 'check_circle' }} color={palette.success} size={16} />
-          <Text style={[styles.meta, styles.flex, { color: palette.successInk }]}>
-            Strong: {insight.strong.slice(0, 3).map((s) => s.topic || s.chapter).join(', ')}
+      {last ? (
+        <View
+          accessible
+          accessibilityLabel={`Last test, ${last.title}, ${dayLabel(last.submittedAt)}: ${last.score} of ${last.maxScore}`}
+          style={[styles.lastLine, { borderTopColor: palette.border }]}
+        >
+          <Text style={[styles.lastText, { color: palette.mutedForeground }]} numberOfLines={1}>
+            Last test · {last.title}
+          </Text>
+          <Text style={[styles.lastScore, { color: palette.mutedForeground }]}>
+            {last.score}/{last.maxScore}
           </Text>
         </View>
       ) : null}
@@ -423,7 +442,6 @@ function WeakTopicRow({ stat, onPractise }: { stat: TopicStat; onPractise: Pract
   // The chapter says the subject well enough on screen; the spoken label names both.
   const where = stat.topic ? stat.chapter : stat.subject;
   const practise = subject && onPractise ? () => onPractise(subject, stat.chapter, stat.topic) : null;
-  // The score comes first, so it never gets cut off; the whole row opens practice.
   const body = (
     <>
       <View style={styles.flex}>
@@ -431,24 +449,19 @@ function WeakTopicRow({ stat, onPractise }: { stat: TopicStat; onPractise: Pract
           {name}
         </Text>
         <Text style={[styles.meta, { color: palette.mutedForeground }]} numberOfLines={1}>
-          <Text style={{ color: palette.dangerInk, fontWeight: '700' }}>{stat.accuracy}% right</Text> · {where}
+          {where} · {stat.accuracy}% right so far
         </Text>
       </View>
-      {practise ? (
-        <View style={styles.practise}>
-          <Text style={[styles.practiseText, { color: palette.primary }]}>Practise</Text>
-          <Icon name={{ ios: 'chevron.right', android: 'chevron_right' }} color={palette.primary} size={14} />
-        </View>
-      ) : null}
+      {practise ? <Icon name={{ ios: 'chevron.right', android: 'chevron_right' }} color={palette.mutedForeground} size={16} /> : null}
     </>
   );
-  const label = `${name}, ${stat.subject}${stat.topic ? `, ${stat.chapter}` : ''}, ${stat.accuracy} percent right`;
+  const label = `${name}, ${stat.subject}${stat.topic ? `, ${stat.chapter}` : ''}, ${stat.accuracy} percent right so far`;
   return practise ? (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${label}. Practise in Practice`}
       onPress={practise}
-      style={({ pressed }) => [styles.weakRow, { borderTopColor: palette.border }, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.weakRow, { borderTopColor: palette.border }, pressed && { backgroundColor: palette.muted }]}
     >
       {body}
     </Pressable>
@@ -459,71 +472,26 @@ function WeakTopicRow({ stat, onPractise }: { stat: TopicStat; onPractise: Pract
   );
 }
 
-function SyllabusCard({ batch, recent, onShowRecent }: { batch: NonNullable<StudentOverview['batch']>; recent: StudentOverview['recent']; onShowRecent: () => void }) {
-  const palette = usePalette();
-  // One line per subject (name, bar, percent) reads like a gauge; large text stacks it.
-  const { fontScale } = useWindowDimensions();
-  const inline = fontScale < STACK_FROM_FONT_SCALE;
+/** The syllabus in one line; the gauge per subject and what was covered lately are on the Syllabus tab. */
+function SyllabusLink({ batch, onOpen }: { batch: NonNullable<StudentOverview['batch']>; onOpen: () => void }) {
+  const totals = batch.subjects.reduce(
+    (acc, s) => {
+      const c = batch.coverage[s];
+      return c?.total ? { covered: acc.covered + c.covered, total: acc.total + c.total } : acc;
+    },
+    { covered: 0, total: 0 }
+  );
+  const pct = totals.total ? Math.round((totals.covered / totals.total) * 100) : null;
   return (
-    <Card style={styles.progressCard}>
-      <Text style={[styles.cardHeading, { color: palette.foreground }]}>Syllabus covered</Text>
-      <View style={styles.coverageList}>
-        {batch.subjects.map((s) => {
-          const c = batch.coverage[s];
-          const pct = c?.total ? `${c.percent}%` : '–';
-          return (
-            <View
-              key={s}
-              style={inline ? styles.coverageInline : styles.coverageStacked}
-              accessible
-              accessibilityLabel={`${s}, ${c?.total ? `${c.percent} percent covered, ${c.covered} of ${c.total} topics` : 'no syllabus'}`}
-            >
-              {inline ? (
-                <>
-                  <Text style={[styles.subjectName, { color: palette.foreground }]} numberOfLines={1}>
-                    {s}
-                  </Text>
-                  <View style={styles.flex}>
-                    <ProgressBar value={c?.percent ?? 0} tone="success" />
-                  </View>
-                  <Text style={[styles.pct, { color: palette.mutedForeground }]}>{pct}</Text>
-                </>
-              ) : (
-                <>
-                  <View style={styles.coverageTop}>
-                    <Text style={[styles.subject, { color: palette.foreground }]}>{s}</Text>
-                    <Text style={[styles.pct, { color: palette.mutedForeground }]}>{pct}</Text>
-                  </View>
-                  <ProgressBar value={c?.percent ?? 0} tone="success" />
-                </>
-              )}
-            </View>
-          );
-        })}
-      </View>
-      {recent.length ? (
-        <View style={[styles.recent, { borderTopColor: palette.border }]}>
-          <Text style={[styles.label, { color: palette.mutedForeground }]}>Covered in class lately</Text>
-          {recent.slice(0, RECENT_ON_HOME).map((r) => (
-            <Text key={r.id} style={[styles.recentLine, { color: palette.foreground }]} numberOfLines={1}>
-              {r.topic || r.chapter} <Text style={{ color: palette.mutedForeground }}>· {r.subject} · {dayLabel(r.coveredOn)}</Text>
-            </Text>
-          ))}
-          {recent.length > RECENT_ON_HOME ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`See all ${recent.length} topics covered lately`}
-              onPress={onShowRecent}
-              style={({ pressed }) => [styles.seeAll, pressed && styles.pressed]}
-            >
-              <Text style={[styles.practiseText, { color: palette.primary }]}>See all {recent.length}</Text>
-              <Icon name={{ ios: 'chevron.right', android: 'chevron_right' }} color={palette.primary} size={14} />
-            </Pressable>
-          ) : null}
-        </View>
-      ) : (
-        <Muted>Your teachers mark topics here as they teach them.</Muted>
-      )}
+    <Card style={styles.flush}>
+      <FooterRow
+        icon={{ ios: 'map', android: 'map' }}
+        title={pct === null ? 'Syllabus' : `Syllabus covered ${pct}%`}
+        subtitle="By subject, and what was covered in class lately"
+        onPress={onOpen}
+        accessibilityLabel={`${pct === null ? 'Syllabus' : `Syllabus covered ${pct} percent`}. Opens the Syllabus tab`}
+        bare
+      />
     </Card>
   );
 }
@@ -556,26 +524,14 @@ const styles = StyleSheet.create({
   subjectRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   subject: { fontSize: 15, fontWeight: '700', flexShrink: 1 },
 
+  bare: { borderTopWidth: 0 },
   progressCard: { gap: 12, padding: 16 },
-  label: { fontSize: 12, fontWeight: '600' },
-  lastRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  fixHead: { gap: 4 },
+  fixTitle: { fontSize: 17, lineHeight: 22, fontWeight: '700' },
+  fixButton: { marginTop: 8 },
   rowTitle: { fontSize: 15, lineHeight: 20, fontWeight: '600', marginTop: 2 },
-  scoreCol: { alignItems: 'flex-end', gap: 4 },
-  score: { fontSize: 24, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  scoreOf: { fontSize: 14, fontWeight: '600' },
-  cardHeading: { fontSize: 15, fontWeight: '700', marginBottom: 4 },
   weakRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, minHeight: 56, borderTopWidth: StyleSheet.hairlineWidth },
-  practise: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  practiseText: { fontSize: 15, fontWeight: '700' },
-  strongRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
-
-  coverageList: { gap: 12 },
-  coverageInline: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  coverageStacked: { gap: 5 },
-  coverageTop: { flexDirection: 'row', justifyContent: 'space-between' },
-  subjectName: { fontSize: 14, fontWeight: '600', width: 96 },
-  pct: { fontSize: 13, fontWeight: '600', minWidth: 36, textAlign: 'right', fontVariant: ['tabular-nums'] },
-  recent: { gap: 4, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
-  recentLine: { fontSize: 13, lineHeight: 19 },
-  seeAll: { flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-start', minHeight: 44 },
+  lastLine: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
+  lastText: { flex: 1, fontSize: 13, lineHeight: 18 },
+  lastScore: { fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'] },
 });
