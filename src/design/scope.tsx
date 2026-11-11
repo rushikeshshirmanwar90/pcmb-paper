@@ -11,8 +11,10 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 export type Design = 'classic' | 'neo';
 
 /**
- * The student look is on (approved). Switch it off and every role renders
- * classic again, pixel for pixel.
+ * The student look is on (approved). Teacher and tuition are classic either
+ * way. Switched off, the kit and shared screens render classic for students
+ * too, but the student-only screens keep their student-look details (Chivo
+ * faces, 2px ink lines, status and score chips).
  */
 export const STUDENT_LOOK_LIVE = true;
 
