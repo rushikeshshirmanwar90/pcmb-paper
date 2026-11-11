@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
+// Prose between formulas uses the viewer's font (Chivo in the student look, untouched for teachers); formulas keep their own renderer.
+import { Text } from '@/components/app-text';
 import katex from 'katex';
 import { hasLatex, splitLatex } from '@/shared/latex';
 import { NativeLatexText } from '@/components/native-math';

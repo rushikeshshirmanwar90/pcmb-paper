@@ -15,6 +15,8 @@ import { getPalette, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTabNavigation } from '@/context/tab-context';
 import { TAB_BAR_HEIGHT } from '@/hooks/use-tab-bar-height';
+import { useDesign } from '@/design/scope';
+import { NeoTabBar, useNeoPalette } from '@/design/neo-kit';
 
 import type { AppTab } from '@/navigation/tabs';
 
@@ -28,6 +30,7 @@ export default function AppTabs({ tabs }: { tabs: AppTab[] }) {
   const palette = getPalette(scheme === 'dark');
   const insets = useSafeAreaInsets();
   const { activeTab, setActiveTab, pagerRef } = useTabNavigation();
+  const neo = useDesign() === 'neo';
 
   const [translateX] = useState(() => new Animated.Value(0));
   const [containerWidth, setContainerWidth] = useState(0);
@@ -144,6 +147,9 @@ export default function AppTabs({ tabs }: { tabs: AppTab[] }) {
       </View>
 
       {/* ── Bottom Navigation Bar ── */}
+      {neo ? (
+        <NeoWebTabs tabs={tabs} active={activeTab} onPress={(i) => scrollToTab(i, false)} bottom={Math.max(insets.bottom, 8) + 8} />
+      ) : (
       <View
         style={[
           styles.tabBarContainer,
@@ -217,11 +223,31 @@ export default function AppTabs({ tabs }: { tabs: AppTab[] }) {
           })}
         </View>
       </View>
+      )}
     </View>
   );
 }
 
+/** Student look on the web: the same floating ink pill as on phones. */
+function NeoWebTabs({ tabs, active, onPress, bottom }: { tabs: AppTab[]; active: number; onPress: (index: number) => void; bottom: number }) {
+  const p = useNeoPalette();
+  const items = tabs.map((t, i) => ({ key: String(i), label: t.label, icon: { ios: i === active ? t.icon.sf.selected : t.icon.sf.default, android: t.icon.md } }));
+  return (
+    <>
+      <View pointerEvents="none" style={[styles.neoBand, { height: bottom + 32, backgroundColor: p.canvas }]} />
+      <View pointerEvents="box-none" style={[styles.neoBarWrap, { bottom }]}>
+        <View style={styles.neoBar}>
+          <NeoTabBar tabs={items} value={String(active)} onChange={(k) => onPress(Number(k))} />
+        </View>
+      </View>
+    </>
+  );
+}
+
 const styles = StyleSheet.create({
+  neoBarWrap: { position: 'absolute', left: 16, right: 16, alignItems: 'center' },
+  neoBar: { width: '100%', maxWidth: 520 },
+  neoBand: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   container: {
     flex: 1,
     overflow: 'hidden',

@@ -881,7 +881,7 @@ const styles = StyleSheet.create({
   noPad: Platform.OS === 'android' ? { includeFontPadding: false } : {},
   softOnFill: { opacity: 0.8 },
   card: { borderWidth: Neo.border.width, borderRadius: Neo.radius.lg, padding: Neo.space.lg, gap: Neo.space.md },
-  sectionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 },
+  sectionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8, marginBottom: -4, minHeight: 32 },
   buttonFace: { minHeight: 48, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   buttonSm: { minHeight: 44, paddingHorizontal: 12, gap: 8 },
   buttonLg: { minHeight: 56 },

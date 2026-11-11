@@ -2,6 +2,8 @@ import React, { type PropsWithChildren, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Pressable, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from '@/components/app-text';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { useIsDark } from '@/design/scope';
 import { Icon, usePalette } from '@/components/kit';
 import { KeyboardAwareScrollView } from '@/components/keyboard-safe-view';
 import { PatternBackdrop } from '@/design/illustrations';
@@ -25,8 +27,10 @@ const BUBBLE_MAX_SCALE = 1.4;
 export function AuthScreen({ children, centered = false, hero }: PropsWithChildren<{ centered?: boolean; hero?: ReactNode }>) {
   const palette = usePalette();
   const look = useLook();
+  const dark = useIsDark();
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
+      {look.neo ? <StatusBar style={dark ? 'light' : 'dark'} /> : null}
       <KeyboardAvoidingView behavior="padding" style={styles.root}>
         <KeyboardAwareScrollView contentContainerStyle={[styles.content, centered && styles.centered]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           {look.neo && hero ? (

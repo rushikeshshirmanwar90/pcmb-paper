@@ -4,6 +4,8 @@ import { Text } from '@/components/app-text';
 import { usePreventRemove, useRouter } from 'expo-router';
 import { confirmAction } from '@/components/account-section';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { useIsDark } from '@/design/scope';
 import { Button, ErrorText, Icon, NeoSheetHeader, usePalette } from '@/components/kit';
 import { useLook } from '@/design/look';
 import { KeyboardAwareScrollView, KeyboardSafeView, useKeyboardVisible } from '@/components/keyboard-safe-view';
@@ -84,10 +86,12 @@ export function StackScreen({
   const goBack = useGoBack();
   const keyboardVisible = useKeyboardVisible();
   const look = useLook();
+  const dark = useIsDark();
   return (
     <SafeAreaView edges={['top']} style={[styles.flex, { backgroundColor: palette.background }]}>
       {look.neo ? (
         <View>
+          <StatusBar style={dark ? 'light' : 'dark'} />
           <NeoSheetHeader title={title} onClose={onBack ?? goBack} closeIcon="back" />
           {subtitle ? (
             <Text style={[styles.neoSubtitle, { color: palette.mutedForeground }]} numberOfLines={2}>
