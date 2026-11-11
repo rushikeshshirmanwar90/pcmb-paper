@@ -9,16 +9,18 @@ import {
   EmptyView,
   ErrorView,
   ListRow,
-  LoadingView,
   Muted,
   ProgressBar,
   Screen,
   SectionTitle,
+  SkeletonCards,
+  SkeletonRows,
   useLoad,
   usePalette,
 } from '@/components/kit';
 import { PROGRAM_LABELS, programOf } from '@/constants/school';
 import { useDataVersion } from '@/context/data-version';
+import { useCacheKeys } from '@/hooks/use-cache-keys';
 import { SyllabusProgressView } from '@/screens/shared/syllabus-progress';
 import { BatchAnalysisSection } from '@/screens/shared/batch-analysis';
 import { dayLabel, schoolApi } from '@/services/school-api';
@@ -27,13 +29,15 @@ import { describeSchedule } from '@/services/tuition-api';
 /** The batches a teacher teaches: timings, students, and marking topics covered. */
 export function TeacherBatchesScreen() {
   const version = useDataVersion();
-  const { data, error, loading, refreshing, refresh, reload } = useLoad(() => schoolApi.teacherOverview(), [version]);
+  const keys = useCacheKeys();
+  // The cards need only the overview's batch summaries (counts, coverage), shared with Home, Tests and Profile.
+  const { data, error, loading, refreshing, refresh, reload } = useLoad(() => schoolApi.teacherOverview(), [version, keys.teacherOverview], { cacheKey: keys.teacherOverview });
   const [openId, setOpenId] = useState<string | null>(null);
 
   return (
     <Screen title="Your batches" subtitle="Students, timings and syllabus progress" onRefresh={refresh} refreshing={refreshing}>
       {loading ? (
-        <LoadingView />
+        <SkeletonCards count={3} lines={3} label="Loading your batches" />
       ) : error && !data ? (
         <ErrorView message={error} onRetry={reload} />
       ) : !data?.batches.length ? (
@@ -69,7 +73,9 @@ export function TeacherBatchesScreen() {
 function TeacherBatchDetail({ id, onClose }: { id: string; onClose: () => void }) {
   const palette = usePalette();
   const version = useDataVersion();
-  const { data, error, loading, reload } = useLoad(() => Promise.all([schoolApi.batch(id), schoolApi.progress(id)]), [id, version]);
+  const keys = useCacheKeys();
+  // Loaded only when a batch is opened; both requests go together, and reopening it shows the last answer at once.
+  const { data, error, loading, reload } = useLoad(() => Promise.all([schoolApi.batch(id), schoolApi.progress(id)]), [id, version, keys.batch(id)], { cacheKey: keys.batch(id) });
   const [marking, setMarking] = useState(false);
   const [view, recentProgress] = data ?? [null, null];
   const batch = view?.batch;
@@ -77,7 +83,10 @@ function TeacherBatchDetail({ id, onClose }: { id: string; onClose: () => void }
   return (
     <DetailSheet visible title={batch?.name ?? 'Batch'} onClose={onClose}>
       {loading ? (
-        <LoadingView />
+        <>
+          <SkeletonCards count={1} lines={3} label="Loading batch" />
+          <SkeletonRows rows={3} label="Loading recently covered topics" />
+        </>
       ) : error && !data ? (
         <ErrorView message={error} onRetry={reload} />
       ) : batch && view && recentProgress ? (

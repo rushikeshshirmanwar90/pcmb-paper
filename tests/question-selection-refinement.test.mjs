@@ -56,6 +56,7 @@ function harness(path, mocks = {}, expose = '') {
     './reorder-list': { SelectedReorderList: 'SelectedReorderList' },
     './action-menu': { QuestionActionMenu: 'QuestionActionMenu' },
     '@/components/kit': kit,
+    '@/hooks/use-cache-keys': { useCacheKeys: () => ({ bankOptions: (k) => `bank-options:${k}`, testBatches: 'test-batches' }) },
     '@/components/explanation': { Explanation: 'Explanation' },
     '@/components/diagrams': { Diagrams: 'Diagrams' },
     '@/components/math-text': { MathText: 'MathText' },

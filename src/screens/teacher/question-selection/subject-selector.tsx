@@ -4,7 +4,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QuestionActionMenu, type MenuAnchor, type QuestionAction } from './action-menu';
 import { SelectedReorderList } from './reorder-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, DetailSheet, ErrorView, Field, Icon, Muted, Notice, useLoad, usePalette } from '@/components/kit';
+import { Button, DetailSheet, ErrorView, Field, Icon, Muted, Notice, SkeletonCards, useLoad, usePalette } from '@/components/kit';
+import { useCacheKeys } from '@/hooks/use-cache-keys';
 import { Explanation } from '@/components/explanation';
 import { Diagrams } from '@/components/diagrams';
 import { confirmAction } from '@/components/confirm-action';
@@ -75,7 +76,9 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
   const liveKey = useRef(key);
   useEffect(() => { liveKey.current = key; }, [key]);
   const body = useMemo(() => bankBody(scope), [scope]);
-  const options = useLoad(async () => ({ key, data: await fetchBankOptions(body) }), [key]);
+  // Kept per scope: going back to filters already seen shows their lists at once, without a new request.
+  const optionsKey = useCacheKeys().bankOptions(key);
+  const options = useLoad(async () => ({ key, data: await fetchBankOptions(body) }), [key, optionsKey], { cacheKey: optionsKey });
   const [pages, setPages] = useState<{ key: string; items: Question[]; total: number; page: number; more: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -252,9 +255,9 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
           {error ? <ErrorView message={error} onRetry={() => { setError(null); setRetry(n => n + 1); }} /> : null}
           {message ? <Notice text={message} /> : null}
           {removed ? <Button label="Undo Remove" variant="secondary" style={compactButton} onPress={undo} disabled={working} /> : null}
-          {!review && loading ? <ActivityIndicator color={palette.primary} /> : null}
+          {!review && loading && items.length ? <ActivityIndicator color={palette.primary} /> : null}
         </View>}
-        ListEmptyComponent={!loading ? <Muted>{review ? 'No questions selected. Browse questions or fill the remaining target.' : error ? '' : 'No questions match these filters.'}</Muted> : undefined}
+        ListEmptyComponent={loading ? (review ? undefined : <SkeletonCards count={3} lines={4} label="Loading questions" />) : !loading ? <Muted>{review ? 'No questions selected. Browse questions or fill the remaining target.' : error ? '' : 'No questions match these filters.'}</Muted> : undefined}
         ListFooterComponent={loadingMore ? <ActivityIndicator color={palette.primary} /> : undefined}
         renderItem={({ item, index: at }) => review
           ? <SelectedQuestionRow question={item} index={at} onDetails={setPreview} onMenu={(question, anchor) => setMenu({ question, anchor })} />

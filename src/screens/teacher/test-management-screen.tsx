@@ -1,12 +1,13 @@
 import { AttemptControls } from '@/screens/teacher/attempt-controls';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useIsFocused } from 'expo-router';
-import { Badge, Button, Card, DetailSheet, DetailRow, EmptyView, ErrorText, ErrorView, Icon, ListRow, LoadingView, Muted, Notice, SectionTitle, useLoad, usePalette } from '@/components/kit';
+import { Badge, Button, Card, DetailSheet, DetailRow, EmptyView, ErrorText, ErrorView, Icon, ListRow, Muted, Notice, SectionTitle, SkeletonCards, SkeletonGroup, SkeletonLine, SkeletonRows, useLoad, usePalette } from '@/components/kit';
 import { confirmAction } from '@/components/account-section';
 import { StackScreen, useGoBack } from '@/components/stack-screen';
 import { useSignedInUser } from '@/context/auth-context';
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
+import { useCacheKeys } from '@/hooks/use-cache-keys';
 import { AddTestStudents } from '@/screens/teacher/add-test-students';
 import { TestWizard } from '@/screens/teacher/teacher-tests';
 import { TestLiveManagement } from '@/screens/teacher/test-live-management';
@@ -28,8 +29,11 @@ function TeacherTestPage({ testId }: { testId: string }) {
   const goBack = useGoBack();
   const focused = useIsFocused();
   const version = useDataVersion();
+  const keys = useCacheKeys();
+  // Not cached: the status and controls must come from the server every time the page opens.
   const { data, error, loading, refreshing, refresh, reload } = useLoad(() => schoolApi.test(testId), [testId, version]);
-  const overview = useLoad(() => schoolApi.teacherOverview(), [], { enabled: !!data?.canEdit });
+  // Only for Edit test's batch list; usually already loaded by the tabs.
+  const overview = useLoad(() => schoolApi.teacherOverview(), [keys.teacherOverview], { enabled: !!data?.canEdit, cacheKey: keys.teacherOverview });
   const test = data?.test;
   const monitor = useLiveMonitor(testId, !focused || !test ? 'off' : test.status === 'closed' ? 'off' : test.status === 'open' ? 'poll' : 'once', reload);
   const [group, setGroup] = useState<ParticipationGroup>('taking');
@@ -59,8 +63,17 @@ function TeacherTestPage({ testId }: { testId: string }) {
     if (action === 'revoke') confirmAction('Remove test access?', `${row.student.name} will not be able to start this test. Already-started attempts are protected.`, 'Remove access', run);
     else run();
   };
-  const studentRows = (monitor.data?.students ?? []).filter(row => matchesParticipation(row, group) && row.student.name.toLowerCase().includes(query.trim().toLowerCase()));
-  const accessRows = (monitor.data?.accessStudents ?? []).filter(row => matchesAccess(row, group) && row.student.name.toLowerCase().includes(query.trim().toLowerCase()));
+  // Worked out once per monitor update, search or group change, not on every render (the
+  // monitor refreshes every 15 seconds); permissions are looked up by id instead of a scan per row.
+  const needle = query.trim().toLowerCase();
+  const studentRows = useMemo(() => (monitor.data?.students ?? []).filter(row => matchesParticipation(row, group) && row.student.name.toLowerCase().includes(needle)), [monitor.data, group, needle]);
+  const accessRows = useMemo(() => (monitor.data?.accessStudents ?? []).filter(row => matchesAccess(row, group) && row.student.name.toLowerCase().includes(needle)), [monitor.data, group, needle]);
+  const permissions = useMemo(() => {
+    const byId = new Map<string, AccessStudent>();
+    // The first record per student wins, as the earlier per-row find did.
+    for (const r of monitor.data?.accessStudents ?? []) if (!byId.has(r.student.id)) byId.set(r.student.id, r);
+    return byId;
+  }, [monitor.data]);
   const footer = !closed && data?.canEdit && test && can && (can.edit || can.cancel || can.closeNow) ? <View style={styles.actions}>
     {can.edit ? <Button label="Edit test" variant="secondary" disabled={!!busy || overview.loading || !overview.data} onPress={() => setEditing(true)} /> : null}
     {can.cancel ? <Button label="Cancel test" variant="danger" disabled={!!busy} onPress={() => confirmAction('Cancel this test?', 'This upcoming test will be removed. Its question bank stays unchanged.', 'Cancel test', () => void act('cancel', async () => { await schoolApi.deleteTest(testId); goBack(); }, 'Test cancelled.'))} /> : null}
@@ -69,7 +82,7 @@ function TeacherTestPage({ testId }: { testId: string }) {
 
   return <>
     <StackScreen title="Test management" subtitle={test?.status === 'open' ? 'Live participation and student access' : closed ? 'Results and analysis' : 'Schedule and student access'} onRefresh={() => { refresh(); void monitor.refresh(); }} refreshing={refreshing} footer={footer}>
-      {loading ? <LoadingView label="Loading test…" /> : error && !data ? <ErrorView message={error} onRetry={reload} /> : test && data ? <>
+      {loading ? <TestPageSkeleton /> : error && !data ? <ErrorView message={error} onRetry={reload} /> : test && data ? <>
         <View style={styles.heading}>
           <Badge label={STATUS_WORDS[test.status].label} tone={STATUS_WORDS[test.status].tone} />
           <Text accessibilityRole="header" style={[styles.title, { color: palette.foreground }]}>{test.title}</Text>
@@ -82,7 +95,7 @@ function TeacherTestPage({ testId }: { testId: string }) {
           <Button label="Add students" icon={{ ios: 'person.badge.plus', android: 'person_add' }} disabled={!!busy} onPress={() => setAddOpen(true)} />
           {managed ? <Muted>Allow students from the selected batches to join{test.status === 'open' ? ' the ongoing test' : ''}, even without an access request.</Muted> : <Muted>This older test allows students through batch enrollment. Individual access controls are available for newly created tests.</Muted>}
         </> : null}
-        {!closed ? !monitor.data ? (monitor.error ? <ErrorView message={monitor.error} onRetry={monitor.refresh} /> : <LoadingView label="Loading students…" />) : <>
+        {!closed ? !monitor.data ? (monitor.error ? <ErrorView message={monitor.error} onRetry={monitor.refresh} /> : <SkeletonRows rows={4} label="Loading students" />) : <>
           <TestLiveManagement monitor={monitor.data} group={group} onGroup={setGroup} query={query} onQuery={setQuery} />
           {monitor.lastOk ? <Muted>Updated {refreshedLabel(monitor.lastOk)}{test.status === 'open' ? ' · refreshes every 15 seconds' : ''}</Muted> : null}
           {monitor.error ? <ErrorText message={`Could not refresh. Showing the last update. ${monitor.error}`} /> : null}
@@ -91,7 +104,7 @@ function TeacherTestPage({ testId }: { testId: string }) {
           <Muted>{selectedGroup.description}</Muted>
           {studentRows.length || accessRows.length ? <Card style={styles.list}>
             {studentRows.map((row, index) => {
-              const permission = monitor.data?.accessStudents?.find(r => r.student.id === row.student.id);
+              const permission = permissions.get(row.student.id);
               const lines = rowLines(row);
               return <View key={row.student.id}>
                 <ListRow onPress={() => setStudentDetail(row)} title={row.student.name} subtitle={row.state === 'not-started' ? 'Allowed to take this test · Not started' : lines.filter(Boolean).join('\n')} last={index === studentRows.length - 1} right={<Badge label={participationLabel(row)} tone={row.state === 'violation' ? 'danger' : row.state === 'in-progress' ? 'primary' : 'neutral'} />} />
@@ -120,12 +133,26 @@ function TeacherTestPage({ testId }: { testId: string }) {
   </>;
 }
 
+/** The page's first load: the heading's shape, then the student list's. */
+function TestPageSkeleton() {
+  return <View style={styles.skeleton}>
+    <SkeletonGroup label="Loading test details" style={styles.heading}>
+      <SkeletonLine width={72} height={20} />
+      <SkeletonLine width="75%" height={22} />
+      <SkeletonLine width="55%" height={14} />
+    </SkeletonGroup>
+    <SkeletonCards count={1} lines={1} label="Loading test controls" />
+    <SkeletonRows rows={4} label="Loading students" />
+  </View>;
+}
+
 function participationLabel(row: TestMonitorRow) {
   return row.state === 'in-progress' ? 'In progress' : row.state === 'not-started' ? 'Not started' : row.state === 'violation' ? 'Violation' : row.state === 'auto-submitted' ? 'Auto-submitted' : 'Submitted';
 }
 
 const styles = StyleSheet.create({
   heading: { gap: 4, alignItems: 'flex-start' },
+  skeleton: { gap: 14 },
   title: { fontSize: 20, fontWeight: '700', lineHeight: 26 },
   subtitle: { fontSize: 14, lineHeight: 21 },
   list: { paddingVertical: 0 },

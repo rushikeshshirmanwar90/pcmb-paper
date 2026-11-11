@@ -3,7 +3,8 @@ import { useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { DropdownSelect } from '@/components/dropdown-select';
 import { MultiSelectDropdown } from '@/components/multi-select-dropdown';
-import { Button, Card, DetailRow, ErrorView, Field, Icon, LoadingView, Muted, Notice, SectionTitle, Segmented, useLoad, usePalette } from '@/components/kit';
+import { Button, Card, DetailRow, ErrorView, Field, Icon, Muted, Notice, SectionTitle, Segmented, SkeletonCards, SkeletonRows, useLoad, usePalette } from '@/components/kit';
+import { useCacheKeys } from '@/hooks/use-cache-keys';
 import { bumpDataVersion } from '@/context/data-version';
 import { FlowPage } from '@/screens/teacher/create-test/flow-page';
 import { useTestDraft } from '@/screens/teacher/create-test/draft';
@@ -21,7 +22,9 @@ export function SetupScreen() {
   const router = useRouter();
   const palette = usePalette();
   const { draft, update, markSaved } = useTestDraft();
-  const batches = useLoad(() => schoolApi.testBatches(), []);
+  // Shared by both pages of Create Test: the second page doesn't ask again.
+  const { testBatches: batchesKey } = useCacheKeys();
+  const batches = useLoad(() => schoolApi.testBatches(), [batchesKey], { cacheKey: batchesKey });
   const derivation = deriveScope((batches.data ?? []).filter((b) => draft.batchIds.includes(b.id)));
   const derived = isDerived(derivation) ? derivation : null;
   const subjects = draft.selections.map(s => s.subject);
@@ -151,7 +154,7 @@ export function SetupScreen() {
       }
     >
       {!batches.data && batches.loading ? (
-        <LoadingView label="Loading test details…" />
+        <SkeletonCards count={2} lines={2} label="Loading test details" />
       ) : !batches.data && batches.error ? (
         <ErrorView message={batches.error} onRetry={batches.reload} />
       ) : !ready ? (
@@ -168,7 +171,7 @@ export function SetupScreen() {
             onSelect={(v) => update({ audienceMode: v === MODES.selected ? 'selected' : 'all' })}
           />
           <Muted>{allowedOnly ? 'Only the students you choose can start. Others can request access.' : 'All students in the selected batches, except those you exclude.'}</Muted>
-          {audience.loading && !audience.data ? <LoadingView label="Loading students…" /> : null}
+          {audience.loading && !audience.data ? <SkeletonRows rows={3} label="Loading students" /> : null}
           {audience.error && !audience.data ? <ErrorView message={audience.error} onRetry={audience.reload} /> : null}
           {audience.data ? (
             students.length ? (
