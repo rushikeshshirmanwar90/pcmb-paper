@@ -701,6 +701,9 @@ export function StudentForm({ onClose, student, batches, initialBatchId, onSaved
   const [enrollmentMethod, setEnrollmentMethod] = useState<EnrollmentMethod>('require_approval');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Adding a student is 2 short steps (chunking: who they are, then studies and login); editing stays one page.
+  const stepped = !student;
+  const [step, setStep] = useState<1 | 2>(1);
   const password = passwordMode === 'generate' ? generatedPassword : manualPassword;
   const dirty = JSON.stringify({ name, email, phone, parentPhone, program, standard, batchId, password }) !== JSON.stringify(initial);
   const feedback = usePersonFeedback('student', student?.id);
@@ -764,6 +767,14 @@ export function StudentForm({ onClose, student, batches, initialBatchId, onSaved
     keepsBatch({ program, standard: next === 'none' ? null : next });
   };
 
+  /** Step 1 → 2: the same checks the save makes for these fields, shown now. */
+  const next = () => {
+    if (!name.trim() || !email.trim()) return setError("Enter the student's name and email.");
+    if (emailStatus.msg) return setError(emailStatus.msg);
+    setError(null);
+    setStep(2);
+  };
+
   const submitLabel = student
     ? 'Save changes'
     : !hasBatch
@@ -819,13 +830,14 @@ export function StudentForm({ onClose, student, batches, initialBatchId, onSaved
 
   return (
     <PersonFormPage
-      title={student ? `Edit ${student.name}` : 'Add student'}
-      onBack={onClose}
-      submitLabel={submitLabel}
-      onSubmit={save}
+      title={student ? `Edit ${student.name}` : `Add student · Step ${step} of 2`}
+      onBack={stepped && step === 2 ? () => { setError(null); setStep(1); } : onClose}
+      submitLabel={stepped && step === 1 ? 'Next: studies and login' : submitLabel}
+      onSubmit={stepped && step === 1 ? next : save}
       submitting={saving}
       error={error}
     >
+      {!stepped || step === 1 ? (
       <View style={styles.group}>
         <SectionTitle title="Student" />
         <Field label="Name" value={name} onChangeText={setName} autoComplete="name" maxLength={100} />
@@ -843,7 +855,11 @@ export function StudentForm({ onClose, student, batches, initialBatchId, onSaved
           <Field label="Parent's phone" value={parentPhone} onChangeText={setParentPhone} keyboardType="phone-pad" maxLength={20} />
         ) : null}
       </View>
+      ) : null}
 
+      {!stepped || step === 2 ? (
+      <>
+      {stepped ? <Muted>{`${name.trim() || 'New student'} · ${email.trim()}`}</Muted> : null}
       <View style={styles.group}>
         <SectionTitle title="Studies" />
         <Chips label="Program" choices={programs} selected={program ?? null} onChange={pickProgram} labels={PROGRAM_LABELS} />
@@ -902,12 +918,14 @@ export function StudentForm({ onClose, student, batches, initialBatchId, onSaved
                   <Text style={[styles.infoCardTitle, { color: palette.foreground }]}>Batch Assignment Pending</Text>
                 </View>
                 <Muted>
-                  The student account will be created now. A request will appear in Pending Approvals, where you can select a batch and complete enrollment later.
+                  The student account will be created now. A request will appear in Join requests (Home → waiting to join), where you can pick a batch and complete enrollment later.
                 </Muted>
               </Card>
             </View>
           )}
         </>
+      ) : null}
+      </>
       ) : null}
     </PersonFormPage>
   );
