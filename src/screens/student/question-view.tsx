@@ -4,8 +4,7 @@ import { Diagrams } from '@/components/diagrams';
 import { Explanation } from '@/components/explanation';
 import { Icon, usePalette } from '@/components/kit';
 import { MathText } from '@/components/math-text';
-
-const KEYS = ['A', 'B', 'C', 'D'] as const;
+import { MISSING_OPTION_NOTE, optionSlots } from '@/screens/student/question-options';
 
 export interface QuestionLike {
   questionText: string;
@@ -62,10 +61,7 @@ export function QuestionView({
         <NumericalAnswer question={question} selected={selected} onSelect={interactive ? onSelect : undefined} reveal={reveal} verdict={answerCorrect} />
       ) : (
         <View style={styles.options} accessibilityRole={interactive ? 'radiogroup' : undefined}>
-          {KEYS.map((k) => {
-            const text = question[`option${k}`];
-            const figures = question.optionDiagramUrls?.[k] ?? [];
-            if (!text && !figures.length) return null;
+          {optionSlots(question, reveal ? question.correctAnswer : null).map(({ key: k, text, figures, missing }) => {
             const isSelected = selected === k;
             const isRight = reveal && key === k;
             const isWrong = reveal && isSelected && key !== k;
@@ -79,7 +75,11 @@ export function QuestionView({
                   <Text style={[styles.keyText, { color: filled ? palette.onPrimary : palette.foreground }]}>{k}</Text>
                 </View>
                 <View style={styles.optionBody}>
-                  <MathText text={text} fontSize={15} color={palette.foreground} />
+                  {missing ? (
+                    <Text style={[styles.missing, { color: palette.mutedForeground }]}>{MISSING_OPTION_NOTE}</Text>
+                  ) : (
+                    <MathText text={text} fontSize={15} color={palette.foreground} />
+                  )}
                   <Diagrams urls={figures} maxHeight={160} />
                   {tag ? <Text style={[styles.tag, { color: isRight ? palette.successInk : palette.dangerInk }]}>{tag}</Text> : null}
                 </View>
@@ -98,7 +98,7 @@ export function QuestionView({
                 key={k}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: isSelected }}
-                accessibilityLabel={`Option ${k}`}
+                accessibilityLabel={missing ? `Option ${k}. ${MISSING_OPTION_NOTE}` : `Option ${k}`}
                 accessibilityHint={isSelected ? 'Tap again to clear your answer' : undefined}
                 // Tapping the chosen option again clears it.
                 onPress={() => onSelect(isSelected ? null : k)}
@@ -107,7 +107,7 @@ export function QuestionView({
                 {body}
               </Pressable>
             ) : (
-              <View key={k} accessible accessibilityLabel={`Option ${k}${tag ? `, ${tag}` : ''}`} style={style}>
+              <View key={k} accessible accessibilityLabel={`Option ${k}${missing ? `. ${MISSING_OPTION_NOTE}` : ''}${tag ? `, ${tag}` : ''}`} style={style}>
                 {body}
               </View>
             );
@@ -185,11 +185,13 @@ function sameNumber(a: string, b: string) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 14 },
+  wrap: { gap: 14, minWidth: 0 },
   number: { fontSize: 13, fontWeight: '800', letterSpacing: 0.4 },
   options: { gap: 10 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14, minHeight: 56 },
-  optionBody: { flex: 1, gap: 6 },
+  // minWidth 0 lets long option text and maths wrap instead of pushing the row wider than the screen.
+  optionBody: { flex: 1, minWidth: 0, gap: 6 },
+  missing: { fontSize: 14, lineHeight: 20, fontStyle: 'italic' },
   key: { width: 32, height: 32, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   keyText: { fontSize: 14, fontWeight: '800' },
   tag: { fontSize: 12, fontWeight: '700', letterSpacing: 0.2 },

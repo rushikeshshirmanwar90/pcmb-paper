@@ -10,9 +10,10 @@
  * space, and inside a formula after a relation (=, →) or binary operator (+).
  */
 import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { splitLatex } from '@/shared/latex';
 import { mathTree, type MNode } from '@/shared/mathml-tree';
+import { fitColumns } from '@/shared/table-fit';
 
 // ─── Sizes (as fractions of the font size) ──────────────────────────────────
 
@@ -24,7 +25,16 @@ const MIN_SIZE = 9;
 const REL_SPACE = 0.28;
 const BIN_SPACE = 0.22;
 
-type Ctx = { fs: number; color: string; display: boolean; script: boolean };
+type Ctx = {
+  fs: number;
+  color: string;
+  display: boolean;
+  script: boolean;
+  /** Width of the box a display formula sits in, so a table can fit its columns to it. */
+  avail?: number;
+  /** Inside a width-limited table cell: rows and words wrap instead of running off the edge. */
+  wrap?: boolean;
+};
 
 const shrink = (fs: number, k: number) => Math.max(MIN_SIZE, fs * k);
 const stroke = (fs: number) => Math.max(1, fs / 13);
@@ -125,6 +135,7 @@ function Leaf({ text, ctx, italic, bold, style }: { text: string; ctx: Ctx; ital
           fontStyle: italic ? 'italic' : 'normal',
           fontWeight: bold ? '700' : '400',
         },
+        ctx.wrap ? styles.shrink : null,
         style,
       ]}
     >
@@ -338,7 +349,7 @@ function Row({ nodes, ctx }: { nodes: MNode[]; ctx: Ctx }) {
   if (nodes.some(isStretchyFence)) return <FencedRow nodes={nodes} ctx={ctx} />;
   if (nodes.length === 1) return <Node node={nodes[0]} ctx={ctx} />;
   return (
-    <View style={styles.row}>
+    <View style={ctx.wrap ? styles.wrapRow : styles.row}>
       {nodes.map((n, i) => (
         <Node key={i} node={n} ctx={ctx} prev={nodes[i - 1]} />
       ))}
@@ -478,29 +489,41 @@ function OverUnder({ node, ctx }: { node: MNode; ctx: Ctx }) {
   );
 }
 
+/**
+ * A math table (array, matrix, match-the-column). Its cells are first measured
+ * at their natural width; when the table is wider than the box it sits in
+ * (ctx.avail), the columns are fitted to the box (fitColumns) and long cell
+ * text wraps. Lines between rows and columns follow the TeX source.
+ */
 function Table({ node, ctx }: { node: MNode; ctx: Ctx }) {
   const rows = node.children.filter((c) => c.tag === 'mtr');
   const columns = Math.max(0, ...rows.map((r) => r.children.length));
   const rowLines = (node.attrs.rowlines ?? '').split(/\s+/);
   const colLines = (node.attrs.columnlines ?? '').split(/\s+/);
   const aligns = (node.attrs.columnalign ?? '').split(/\s+/);
-  const cellCtx: Ctx = { ...ctx, display: false };
   const pad = ctx.fs * 0.35;
   const w = stroke(ctx.fs);
+  const frame = (node.attrs.frame ?? 'none') === 'solid';
 
-  // Columns line up once every cell has reported its width.
-  const [widths, setWidths] = useState<number[]>([]);
+  // Natural column widths, measured once with nothing constrained.
+  const [natural, setNatural] = useState<number[] | null>(null);
   const sizes = useRef<number[][]>(rows.map(() => []));
   const report = (r: number, c: number, width: number) => {
+    if (natural) return;
     sizes.current[r][c] = width;
     const all = rows.every((row, ri) => row.children.every((_, ci) => sizes.current[ri][ci] !== undefined));
     if (!all) return;
-    const next = Array.from({ length: columns }, (_, ci) => Math.ceil(Math.max(0, ...rows.map((_, ri) => sizes.current[ri][ci] ?? 0))));
-    setWidths((old) => (old.length === next.length && old.every((v, i) => v === next[i]) ? old : next));
+    setNatural(Array.from({ length: columns }, (_, ci) => Math.ceil(Math.max(0, ...rows.map((_, ri) => sizes.current[ri][ci] ?? 0)))));
   };
+  const box = ctx.avail ? ctx.avail - ctx.fs * 0.1 - (frame ? 2 * w : 0) : 0;
+  const widths = natural ? fitColumns(natural, box, { min: ctx.fs * 4, extra: 2 * pad + w }) : null;
+  const fitted = !!widths && !!natural && widths.some((x, i) => x < natural[i]);
+  // Cells wrap only when a column was narrowed; nested tables aren't fitted again.
+  const cellCtx: Ctx = { ...ctx, display: false, avail: undefined, wrap: fitted };
 
   return (
-    <View style={{ marginHorizontal: ctx.fs * 0.05 }}>
+    // Hidden until measured, so the wide first pass never flashes.
+    <View style={[{ marginHorizontal: ctx.fs * 0.05, opacity: widths ? 1 : 0 }, frame ? { borderWidth: w, borderColor: ctx.color } : null]}>
       {rows.map((row, r) => (
         <View
           key={r}
@@ -514,7 +537,7 @@ function Table({ node, ctx }: { node: MNode; ctx: Ctx }) {
                 onLayout={(e) => report(r, c, e.nativeEvent.layout.width)}
                 style={[
                   {
-                    minWidth: widths[c] ?? 0,
+                    ...(widths ? { width: widths[c] } : null),
                     paddingHorizontal: pad,
                     paddingVertical: ctx.fs * 0.12,
                     justifyContent: 'center',
@@ -713,10 +736,87 @@ function AtomView({ atom, ctx }: { atom: Atom; ctx: Ctx }) {
     );
   }
   if (atom.kind === 'math') {
-    const node = <Node node={atom.node} ctx={atom.display ? { ...ctx, display: true } : ctx} prev={atom.prev} />;
-    return atom.spaceAfter ? <View style={{ marginRight: ctx.fs * 0.28 }}>{node}</View> : node;
+    let node = <Node node={atom.node} ctx={atom.display ? { ...ctx, display: true } : ctx} prev={atom.prev} />;
+    // A formula that can't break (cases, a matrix, a bracketed block) mustn't run off the line.
+    if (!atom.display && unbreakable(atom.node)) node = <InlineBox>{node}</InlineBox>;
+    return atom.spaceAfter ? <View style={{ marginRight: ctx.fs * 0.28, maxWidth: '100%' }}>{node}</View> : node;
   }
   return null;
+}
+
+/** A formula with a stretchy bracket or a table: drawn as one piece, so it can't wrap. */
+function unbreakable(node: MNode): boolean {
+  const has = (n: MNode): boolean => n.tag === 'mtable' || isStretchyFence(n) || n.children.some(has);
+  return has(node);
+}
+
+/**
+ * An inline formula that can't wrap: never wider than the line it's on; when
+ * it doesn't fit, it scrolls sideways inside its own box (scroll bar shown)
+ * instead of running off the screen.
+ */
+function InlineBox({ children }: { children: React.ReactNode }) {
+  const [box, setBox] = useState(0);
+  const [content, setContent] = useState(0);
+  const overflow = box > 0 && content > box + 1;
+  return (
+    <View style={styles.inlineBox} onLayout={(e) => setBox(Math.floor(e.nativeEvent.layout.width))}>
+      <ScrollView
+        horizontal
+        scrollEnabled={overflow}
+        showsHorizontalScrollIndicator={overflow}
+        persistentScrollbar={overflow}
+        onContentSizeChange={(w) => setContent(Math.ceil(w))}
+        style={styles.shrink}
+      >
+        {children}
+      </ScrollView>
+    </View>
+  );
+}
+
+/**
+ * A display formula in its own box, as wide as the text. Its pieces wrap onto
+ * new lines; a table fits its columns to the box. Anything still wider (a long
+ * unbreakable piece, many columns on a small phone) scrolls sideways inside the
+ * box, with a hint, so nothing is ever cut off at the screen edge.
+ */
+function DisplayBox({ nodes, ctx }: { nodes: MNode[]; ctx: Ctx }) {
+  const [box, setBox] = useState(0);
+  const [widest, setWidest] = useState(0);
+  const sizes = useRef<number[]>([]);
+  const report = (j: number, width: number) => {
+    sizes.current[j] = width;
+    const max = Math.ceil(Math.max(0, ...sizes.current.filter((x) => x !== undefined)));
+    setWidest((old) => (Math.abs(old - max) < 1 ? old : max));
+  };
+  const overflow = box > 0 && widest > box + 1;
+  const width = box > 0 ? Math.max(box, widest) : undefined;
+  const inner: Ctx = { ...ctx, avail: box > 0 ? box : undefined };
+  return (
+    <View style={styles.displayBox} onLayout={(e) => setBox(Math.floor(e.nativeEvent.layout.width))}>
+      <ScrollView
+        horizontal
+        scrollEnabled={overflow}
+        showsHorizontalScrollIndicator={overflow}
+        contentContainerStyle={width ? { width } : undefined}
+        style={{ opacity: box > 0 ? 1 : 0 }}
+      >
+        <View style={[styles.display, width ? { width } : null]}>
+          {nodes.map((n, j) => (
+            <View key={j} onLayout={(e) => report(j, e.nativeEvent.layout.width)}>
+              <Node node={n} ctx={inner} prev={nodes[j - 1]} />
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+      {overflow ? (
+        <Text allowFontScaling={false} style={[styles.hint, { color: ctx.color, fontSize: Math.max(12, ctx.fs * 0.78) }]}>
+          Scroll sideways to see all ↔
+        </Text>
+      ) : null}
+    </View>
+  );
 }
 
 export type NativeLatexTextProps = {
@@ -743,26 +843,13 @@ export const NativeLatexText = memo(function NativeLatexText({ text, fontSize, c
         if (first.kind === 'break') return <View key={i} style={{ width: '100%', height: first.blank ? fs * 0.5 : 0 }} />;
         if (first.kind === 'math' && first.display) {
           // Centred on its own line; a long one wraps between its top-level pieces.
-          const dctx = { ...ctx, display: true };
           const nodes = topLevel(first.node);
-          if (nodes.some(isStretchyFence)) {
-            return (
-              <View key={i} style={styles.display}>
-                <Node node={first.node} ctx={dctx} />
-              </View>
-            );
-          }
-          return (
-            <View key={i} style={styles.display}>
-              {nodes.map((n, j) => (
-                <Node key={j} node={n} ctx={dctx} prev={nodes[j - 1]} />
-              ))}
-            </View>
-          );
+          return <DisplayBox key={i} nodes={nodes.some(isStretchyFence) ? [first.node] : nodes} ctx={{ ...ctx, display: true }} />;
         }
         if (group.length === 1) return <AtomView key={i} atom={first} ctx={ctx} />;
         return (
-          <View key={i} style={styles.row}>
+          // Never wider than the line: an unbreakable formula in the group scrolls in its own box.
+          <View key={i} style={[styles.row, styles.capped]}>
             {group.map((atom, j) => (
               <AtomView key={j} atom={atom} ctx={ctx} />
             ))}
@@ -784,11 +871,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   display: {
-    width: '100%',
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 4,
+  },
+  displayBox: {
+    width: '100%',
+  },
+  // A row of maths inside a width-limited table cell: wraps between its pieces.
+  wrapRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    flexShrink: 1,
+    maxWidth: '100%',
+  },
+  shrink: {
+    flexShrink: 1,
+  },
+  inlineBox: {
+    maxWidth: '100%',
+    flexShrink: 1,
+  },
+  capped: {
+    maxWidth: '100%',
+  },
+  hint: {
+    opacity: 0.7,
+    textAlign: 'center',
+    marginTop: 2,
   },
 });
