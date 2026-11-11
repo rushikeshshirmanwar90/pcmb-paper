@@ -1,18 +1,15 @@
 import { useNavigation, usePreventRemove, useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
-import { DropdownSelect } from '@/components/dropdown-select';
 import { confirmAction } from '@/components/account-section';
 import { MultiSelectDropdown } from '@/components/multi-select-dropdown';
 import { Button, DetailRow, ErrorView, Field, LoadingView, Muted, Notice, SectionTitle, useLoad } from '@/components/kit';
 import { FlowPage } from '@/screens/teacher/create-test/flow-page';
-import { useTestDraft, type TestDraft } from '@/screens/teacher/create-test/draft';
-import { QuestionPicker } from '@/screens/teacher/create-test/question-picker';
+import { useTestDraft } from '@/screens/teacher/create-test/draft';
+import { SubjectSelector } from '@/screens/teacher/question-selection/subject-selector';
+import { selectedQuestions, selectionProblem } from '@/screens/teacher/question-selection/model';
 import { deriveScope, isDerived, scopeId, uniqueLabels } from '@/screens/teacher/create-test/scope';
-import type { BankScope } from '@/screens/teacher/make-pdf/bank-scope';
+import { EMPTY_BANK_SCOPE, type BankScope } from '@/screens/teacher/make-pdf/bank-scope';
 import { schoolApi } from '@/services/school-api';
-
-/** What no longer applies once the batches or subject change: filters, picked questions and student choices. */
-const CLEARED: Partial<TestDraft> = { chapters: [], topics: [], years: [], questions: [], studentIds: [], excludedStudentIds: [] };
 
 /** Create Test, page 1 of 2: the test's name, batches and subject, and its questions. */
 export function DetailsScreen() {
@@ -28,7 +25,6 @@ export function DetailsScreen() {
   const chosen = all.filter((b) => draft.batchIds.includes(b.id));
   const derivation = deriveScope(chosen);
   const derived = isDerived(derivation) ? derivation : null;
-  const subject = derived?.subjects.includes(draft.subject) ? draft.subject : '';
 
   usePreventRemove(dirty, ({ data }) => confirmAction('Discard this test?', 'Nothing has been created yet.', 'Discard', () => navigation.dispatch(data.action)));
 
@@ -36,27 +32,24 @@ export function DetailsScreen() {
     const ids = labels.filter((l) => labelsPicked.includes(l.label)).map((l) => l.id);
     const next = deriveScope(all.filter((b) => ids.includes(b.id)));
     const nextDerived = isDerived(next) ? next : null;
-    const keepSubject = nextDerived?.subjects.includes(draft.subject) ? draft.subject : '';
-    const changed = scopeId(nextDerived, keepSubject) !== scopeId(derived, subject);
-    if (changed && (draft.questions.length || draft.chapters.length)) setNotice('The batches changed what can be asked, so the picked questions and filters were cleared.');
-    else setNotice(null);
+    const baseChanged = scopeId(nextDerived, '') !== scopeId(derived, '');
+    const changed = baseChanged || draft.selections.some(s => !nextDerived?.subjects.includes(s.subject));
     const audienceChanged = ids.length !== draft.batchIds.length || ids.some(id => !draft.batchIds.includes(id));
-    update({ batchIds: ids, subject: keepSubject, ...(audienceChanged ? { studentIds: [], excludedStudentIds: [] } : {}), ...(changed ? CLEARED : {}) });
-  };
-
-  const onSubject = (value: string) => {
-    if (value === subject) return;
-    setNotice(draft.questions.length ? 'The subject changed, so the picked questions were cleared.' : null);
-    update({ subject: value, ...CLEARED });
+    const apply = () => {
+      const selections = baseChanged ? [] : draft.selections.filter(s => nextDerived?.subjects.includes(s.subject));
+      update({ batchIds: ids, ...(audienceChanged ? { studentIds: [], excludedStudentIds: [] } : {}), ...(changed ? { selections, questions: selectedQuestions(selections), subject: selections.map(s => s.subject).join(', '), chapters: [], topics: [], years: [] } : {}) });
+      setNotice(changed ? 'Choose subjects for the new batch scope.' : null);
+    };
+    if (changed && draft.questions.length) confirmAction('Change batch scope?', 'This clears selected questions because the exam, class or permitted subjects changed.', 'Change batches', apply);
+    else apply();
   };
 
   const problem = !draft.title.trim()
     ? 'Give the test a name.'
     : !draft.batchIds.length ? 'Select at least one batch.'
     : !derived ? (isDerived(derivation) || !derivation ? 'Select at least one batch.' : derivation.error)
-    : !subject ? 'Select a subject.'
-    : !draft.questions.length ? 'Select at least one question.'
-    : null;
+    : draft.selections.some(s => !derived.subjects.includes(s.subject)) ? 'Select subjects allowed by every chosen batch.'
+    : selectionProblem(draft.selections);
 
   const next = () => {
     setTried(true);
@@ -64,8 +57,8 @@ export function DetailsScreen() {
     router.push('/create-test/setup' as Href);
   };
 
-  const scope: BankScope | null = derived && subject
-    ? { course: derived.course, standard: derived.standard, exam: derived.exam, subject, source: draft.source, chapters: draft.chapters, topics: draft.topics, years: draft.years }
+  const scope: BankScope | null = derived
+    ? { ...EMPTY_BANK_SCOPE, course: derived.course, standard: derived.standard, exam: derived.exam }
     : null;
 
   return (
@@ -98,7 +91,6 @@ export function DetailsScreen() {
 
       {derived ? (
         <>
-          <DropdownSelect label="Subject" required options={derived.subjects} selected={subject} placeholder="Select Subject" emptyText="No subject shared by these batches" onSelect={onSubject} searchable={false} />
           <DetailRow label="Course / Exam / Class" value={derived.label} />
         </>
       ) : null}
@@ -107,15 +99,11 @@ export function DetailsScreen() {
       {scope ? (
         <>
           <SectionTitle title="Select questions" />
-          <QuestionPicker
-            key={scopeId(derived, subject)}
-            scope={scope}
-            onScope={(s) => update({ source: s.source, chapters: s.chapters, topics: s.topics, years: s.years })}
-            selected={draft.questions}
-            onSelected={(questions) => update({ questions })}
-            count={draft.count}
-            onCount={(count) => update({ count })}
-          />
+          <SubjectSelector sessions={draft.selections} base={scope} subjects={derived?.subjects ?? []} total={draft.count}
+            onChange={selections => {
+              const subjectsChanged = selections.length !== draft.selections.length || selections.some(s => !draft.selections.some(old => old.subject === s.subject));
+              update({ selections, questions: selectedQuestions(selections), subject: selections.map(s => s.subject).join(', '), ...(subjectsChanged ? { studentIds: [], excludedStudentIds: [] } : {}) });
+            }} />
         </>
       ) : derived ? <Muted>Choose a subject to pick questions.</Muted> : null}
     </FlowPage>

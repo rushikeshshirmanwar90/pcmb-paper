@@ -35,6 +35,7 @@ import { PROGRAM_LABELS, SCHOOL_STANDARDS, programOf, questionBankOf, type Schoo
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
 import { DateField } from '@/screens/teacher/date-field';
 import { pickerQuestions, stepBack } from '@/screens/teacher/test-questions';
+import { TestEditSelection } from '@/screens/teacher/question-selection/test-edit-selection';
 import {
   FILTER_LABELS,
   STATUS_FILTER,
@@ -247,6 +248,10 @@ export function TestWizard({
   const [standardPick, setStandardPick] = useState<SchoolStandard | null>((edit?.test.standard as SchoolStandard) || null);
   const standard = batch?.standard ?? standardPick;
   const bank = batch ? questionBankOf(programOf(batch)) : null;
+  const editSubjects = edit?.test.subject.split(',').map(s => s.trim()) ?? [];
+  const combinedEdit = !!edit && editSubjects.length > 1;
+  const editBatches = useLoad(() => schoolApi.testBatches(), [], { enabled: combinedEdit });
+  const editBank = editBatches.data?.find(b => b.id === edit?.test.batch.id)?.questionBank;
 
   // Step 2: questions
   // An edited test's questions start picked, matched to the bank by their source id.
@@ -423,7 +428,9 @@ export function TestWizard({
         {/* The question picker stays mounted once opened, so going back to it keeps the picks. */}
         {pickerOpened && (edit || (bank && standard && subject)) ? (
           <View style={[styles.flex, step !== 2 && styles.hidden]}>
-            <QuestionSetFlow
+            {combinedEdit ? (editBank ? <TestEditSelection questions={questions} subjects={editSubjects} exam={editBank}
+              standard={edit?.test.standard || '11th'} onChange={setQuestions} onNext={() => goTo(3)} />
+              : editBatches.error ? <ErrorView message={editBatches.error} onRetry={editBatches.reload} /> : <LoadingView label="Loading question scope…" />) : <QuestionSetFlow
               key={edit ? edit.test.id : `${batchId}|${subject}|${standard}`}
               purpose="room"
               active={step === 2}
@@ -439,7 +446,7 @@ export function TestWizard({
                 setQuestions(picked);
                 goTo(3);
               }}
-            />
+            />}
           </View>
         ) : null}
 

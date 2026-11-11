@@ -7,6 +7,13 @@ export type Course = 'Foundation' | 'Competitive';
 export type QuestionSource = 'regular' | 'pyq';
 export type CompetitiveExam = 'JEE' | 'NEET';
 
+// These are API selectors, not Question.source provenance strings. Keep in sync
+// with papers/readScope: regular is the superset, pyq narrows by exam and year.
+export const sourceOptions = (scope: Pick<BankScope, 'course'>) => [
+  { value: 'regular' as const, label: 'Regular Questions' },
+  ...(scope.course === 'Competitive' ? [{ value: 'pyq' as const, label: 'PYQs' }] : []),
+];
+
 export const COURSES: readonly Course[] = ['Foundation', 'Competitive'];
 export const CLASSES: Record<Course, readonly string[]> = { Foundation: ['9th', '10th'], Competitive: ['11th', '12th'] };
 export const COMPETITIVE_EXAMS: readonly CompetitiveExam[] = ['JEE', 'NEET'];
@@ -23,6 +30,8 @@ export interface BankScope {
   exam: CompetitiveExam | '';
   subject: string;
   source: QuestionSource;
+  sources?: QuestionSource[];
+  search?: string;
   chapters: string[];
   topics: string[];
   years: string[];
@@ -94,10 +103,11 @@ export function bankBody(scope: BankScope): Record<string, unknown> {
     standard: scope.standard,
     exam: scope.exam || undefined,
     subject: scope.subject,
-    source: scope.source,
+    source: scope.sources?.length ? scope.sources : scope.source,
     chapters: scope.chapters,
     topics: scope.topics,
-    years: scope.source === 'pyq' ? scope.years : [],
+    years: (scope.sources ? scope.sources.length === 1 && scope.sources[0] === 'pyq' : scope.source === 'pyq') ? scope.years : [],
+    ...(scope.search?.trim() ? { search: scope.search.trim() } : {}),
   };
 }
 

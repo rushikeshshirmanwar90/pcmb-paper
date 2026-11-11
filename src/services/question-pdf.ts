@@ -117,6 +117,8 @@ function requestBody(opts: QuestionPdfOptions, marksPerQuestion: number): string
       correctAnswer: q.correctAnswer,
       explanation: solutions ? q.explanation : '',
       chapter: q.chapter,
+      subject: q.subject,
+      topic: q.topic,
       source: q.source ?? '',
       diagramUrls: q.diagramUrls ?? [],
       optionDiagramUrls: {
