@@ -29,7 +29,7 @@ import { bumpDataVersion, useDataVersion } from '@/context/data-version';
 import { ALL, filterTeachers, groupTeacherBatches, NO_SUBJECTS, plural, type TeacherFilter } from '@/screens/tuition/admin-filters';
 import { ActionRow, Avatar, ClearFilters, FilterRow, FlashNotice, InfoRow, LoginStatus, PanelScroll, PersonHeader, SearchBox, useFlash } from '@/screens/tuition/admin-ui';
 import { InviteTeachersSheet } from '@/screens/tuition/invite-students';
-import { PendingTeachers } from '@/screens/tuition/join-requests';
+import { WaitingToJoinRow } from '@/screens/tuition/requests-screen';
 import { ResetPasswordSheet } from '@/screens/tuition/reset-password-sheet';
 import { timeAgo, tuitionApi, type Teacher } from '@/services/tuition-api';
 
@@ -64,7 +64,7 @@ export function TeachersPanel() {
       <Button label="Add teacher" variant="secondary" icon={{ ios: 'person.badge.plus', android: 'person_add' }} onPress={() => setAdding(true)} />
       <FlashNotice flash={flash} onDismiss={clear} />
       <PersonNotice kind="teacher" />
-      <PendingTeachers onDone={(message, tone) => show(message, tone)} />
+      <WaitingToJoinRow side="teachers" />
       {loading ? (
         <LoadingView label="Loading teachers…" />
       ) : error && !data ? (

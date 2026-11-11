@@ -48,7 +48,7 @@ import {
   type PickerOption,
 } from '@/screens/tuition/admin-ui';
 import { InviteStudentsPicker } from '@/screens/tuition/invite-students';
-import { PendingEnrollments } from '@/screens/tuition/pending-enrollments';
+import { WaitingToJoinRow } from '@/screens/tuition/requests-screen';
 import { usePeopleNav } from '@/screens/tuition/people-nav';
 import { ResetPasswordSheet } from '@/screens/tuition/reset-password-sheet';
 import { timeAgo, tuitionApi, type Batch, type CreateStudentResult, type EnrollmentMethod, type Student } from '@/services/tuition-api';
@@ -139,7 +139,8 @@ export function StudentsPanel() {
       <Button label="Add student" variant="secondary" icon={{ ios: 'person.badge.plus', android: 'person_add' }} onPress={() => router.push({ pathname: '/student/new', params: { batchId: filter.batch !== ALL && filter.batch !== NO_BATCH ? filter.batch : '' } })} />
       <FlashNotice flash={flash} onDismiss={clear} />
       <PersonNotice kind="student" />
-      <PendingEnrollments onDone={(message, tone) => show(message, tone)} />
+      {/* Requests to join are handled in one inbox; here, one row while anyone is waiting. */}
+      <WaitingToJoinRow side="students" />
 
       <Segmented label="Student category" options={categoryOptions} value={category} onChange={(c) => { setCategory(c); setFilter(EMPTY_STUDENT_FILTER); }} />
 
