@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
-import { Badge, Button, Card, EmptyView, ErrorView, ListRow, Muted, SectionTitle, Segmented, useLoad, usePalette } from '@/components/kit';
+import { Badge, Button, Card, EmptyView, ErrorView, Icon, ListRow, Muted, SectionTitle, Segmented, useLoad, usePalette } from '@/components/kit';
+import { SubjectChips } from '@/components/subject-chips';
 import { SkeletonCard, StaleNotice } from '@/components/states';
 import { StackScreen } from '@/components/stack-screen';
 import { PROGRAM_LABELS, programOf } from '@/constants/school';
@@ -12,6 +13,9 @@ import { dateTimeLabel, dayLabel, schoolApi, type TestSummary } from '@/services
 import { describeSchedule } from '@/services/tuition-api';
 
 type BatchViewKey = 'syllabus' | 'students' | 'tests';
+/** The view each batch was last left on (this session), so coming back lands there. */
+const lastView = new Map<string, BatchViewKey>();
+
 const VIEWS: { value: BatchViewKey; label: string }[] = [
   { value: 'syllabus', label: 'Syllabus' },
   { value: 'students', label: 'Students' },
@@ -28,7 +32,11 @@ const VIEWS: { value: BatchViewKey; label: string }[] = [
 export function TeachBatchScreen({ batchId }: { batchId: string }) {
   const palette = usePalette();
   const version = useDataVersion();
-  const [view, setView] = useState<BatchViewKey>('syllabus');
+  const [view, setViewState] = useState<BatchViewKey>(() => lastView.get(batchId) ?? 'syllabus');
+  const setView = (v: BatchViewKey) => {
+    lastView.set(batchId, v);
+    setViewState(v);
+  };
   const { data, error, loading, refreshing, refresh, reload } = useLoad(() => Promise.all([schoolApi.batch(batchId), schoolApi.progress(batchId)]), [batchId, version]);
   const [batchView, progress] = data ?? [null, null];
   const batch = batchView?.batch;
@@ -102,15 +110,7 @@ function BatchTests({ batchId }: { batchId: string }) {
       {list.length ? (
         <Card style={styles.listCard}>
           {list.map((t, i) => (
-            <ListRow
-              key={t.id}
-              title={t.title}
-              subtitle={`${STATUS[t.status]} · ${
-                t.status === 'scheduled' ? `opens ${dateTimeLabel(t.opensAt)}` : t.status === 'open' ? `${t.submitted}/${t.batchStudents} submitted · closes ${dateTimeLabel(t.closesAt)}` : `${t.submitted} took it`
-              }${t.pendingResolution ? ' · students waiting for you' : ''}`}
-              onPress={() => router.push({ pathname: '/test/[testId]', params: { testId: t.id } } as Href)}
-              last={i === list.length - 1}
-            />
+            <TestRow key={t.id} test={t} last={i === list.length - 1} onPress={() => router.push({ pathname: '/test/[testId]', params: { testId: t.id } } as Href)} />
           ))}
         </Card>
       ) : (
@@ -122,7 +122,39 @@ function BatchTests({ batchId }: { batchId: string }) {
   );
 }
 
+/** One test: title, subject chips, and where it stands (students waiting first, in amber words). */
+function TestRow({ test: t, last, onPress }: { test: TestSummary; last: boolean; onPress: () => void }) {
+  const palette = usePalette();
+  const status = `${STATUS[t.status]} · ${
+    t.status === 'scheduled' ? `opens ${dateTimeLabel(t.opensAt)}` : t.status === 'open' ? `${t.submitted}/${t.batchStudents} submitted · closes ${dateTimeLabel(t.closesAt)}` : `${t.submitted} took it`
+  }`;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${t.title}. ${status}${t.pendingResolution ? '. Students waiting for you' : ''}. Opens the test`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.testRow, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }, pressed && styles.pressed]}
+    >
+      <View style={styles.flex}>
+        <Text style={[styles.testTitle, { color: palette.foreground }]} numberOfLines={2}>
+          {t.title}
+        </Text>
+        <SubjectChips subjects={t.subject} />
+        <Text style={[styles.meta, { color: palette.mutedForeground }]}>{status}</Text>
+        {t.pendingResolution ? <Text style={[styles.meta, styles.waiting, { color: palette.warningInk }]}>Students waiting for you</Text> : null}
+      </View>
+      <Icon name={{ ios: 'chevron.right', android: 'chevron_right' }} color={palette.mutedForeground} size={16} />
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  flex: { flex: 1, minWidth: 0, gap: 4 },
+  pressed: { opacity: 0.7 },
+  testRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, minHeight: 60 },
+  testTitle: { fontSize: 15, lineHeight: 20, fontWeight: '600' },
+  meta: { fontSize: 13, lineHeight: 18 },
+  waiting: { fontWeight: '700' },
   listCard: { paddingVertical: 0 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   schedule: { fontSize: 14, lineHeight: 22, marginTop: 4 },

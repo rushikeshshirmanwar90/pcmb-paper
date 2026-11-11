@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
 import { Button, Card, DetailSheet, EmptyView, ErrorView, Icon, Muted, Screen, SectionTitle, useLoad, usePalette, type IconName } from '@/components/kit';
 import { SkeletonCard, StaleNotice, useToast } from '@/components/states';
+import { SubjectChips } from '@/components/subject-chips';
 import { useSignedInUser } from '@/context/auth-context';
 import { useDataVersion } from '@/context/data-version';
 import { useTabNavigation } from '@/context/tab-context';
@@ -130,7 +131,7 @@ export function TeacherHomeScreen() {
               <SectionTitle title="Needs attention" action={attention.length > ATTENTION_ON_HOME ? <SeeAll label={`All ${attention.length}`} onPress={() => goToTab('tests')} /> : null} />
               <Card style={styles.flush}>
                 {attention.slice(0, ATTENTION_ON_HOME).map((a, i) => (
-                  <AttentionItem key={`${a.kind}-${a.testId}`} kind={a.kind} title={a.title} detail={a.detail} first={i === 0} onPress={() => openTest(a.testId)} />
+                  <AttentionItem key={`${a.kind}-${a.testId}`} kind={a.kind} title={a.title} detail={a.detail} subjects={a.subjects} first={i === 0} onPress={() => openTest(a.testId)} />
                 ))}
               </Card>
             </>
@@ -176,7 +177,7 @@ function WeekLine({ count }: { count: number }) {
   );
 }
 
-function AttentionItem({ kind, title, detail, first, onPress }: { kind: AttentionKind; title: string; detail: string; first: boolean; onPress: () => void }) {
+function AttentionItem({ kind, title, detail, subjects, first, onPress }: { kind: AttentionKind; title: string; detail: string; subjects: string; first: boolean; onPress: () => void }) {
   const p = usePalette();
   const urgent = kind === 'waiting';
   return (
@@ -191,6 +192,7 @@ function AttentionItem({ kind, title, detail, first, onPress }: { kind: Attentio
         <Text style={[styles.rowTitle, { color: urgent ? p.warningInk : p.foreground }]} numberOfLines={2}>
           {title}
         </Text>
+        <SubjectChips subjects={subjects} />
         <Text style={[styles.meta, { color: p.mutedForeground }]} numberOfLines={2}>
           {detail}
         </Text>

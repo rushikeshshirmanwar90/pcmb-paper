@@ -31,6 +31,7 @@ import {
   useLoad,
   usePalette,
 } from '@/components/kit';
+import { SubjectChips } from '@/components/subject-chips';
 import { SkeletonCard, StaleNotice } from '@/components/states';
 import { PROGRAM_LABELS, SCHOOL_STANDARDS, programOf, questionBankOf, type SchoolStandard, type SchoolSubject } from '@/constants/school';
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
@@ -190,8 +191,8 @@ function TestCard({ test: t, onPress }: { test: TestSummary; onPress: () => void
       </View>
       <Text style={[styles.cardLine, { color: palette.foreground }]} numberOfLines={2}>
         {(t.batches ?? [t.batch]).map(b => b.name).join(', ')}
-        {t.subject ? ` · ${t.subject}` : ''}
       </Text>
+      <SubjectChips subjects={t.subject} />
       <Text style={[styles.cardLine, { color: palette.mutedForeground }]} numberOfLines={1}>
         {t.questionCount} Q · {t.maxScore} marks · {t.durationMinutes} min
       </Text>

@@ -11,6 +11,8 @@ export interface AttentionRow {
   testId: string;
   title: string;
   detail: string;
+  /** The test's subject text ("Physics, Chemistry" for a multi-subject test), shown as chips. */
+  subjects: string;
 }
 
 /** Results stay "ready" this long after a test closes. */
@@ -33,19 +35,20 @@ const num = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 export function attentionRows(tests: TestSummary[], now: number): AttentionRow[] {
   const rows: (AttentionRow & { at: number })[] = [];
   for (const t of tests) {
+    const subjects = t.subject;
     const opens = new Date(t.opensAt).getTime();
     const closes = new Date(t.closesAt).getTime();
     if (t.pendingResolution) {
-      rows.push({ kind: 'waiting', testId: t.id, title: `Students waiting for you · ${t.title}`, detail: 'Paused in the test. Decide whether they continue.', at: closes });
+      rows.push({ kind: 'waiting', testId: t.id, title: `Students waiting for you · ${t.title}`, detail: 'Paused in the test. Decide whether they continue.', subjects, at: closes });
       continue;
     }
     if (t.status === 'open') {
-      rows.push({ kind: 'live', testId: t.id, title: `Live: ${t.title}`, detail: `${t.submitted}/${t.batchStudents} submitted · closes ${day(t.closesAt, now)}`, at: closes });
+      rows.push({ kind: 'live', testId: t.id, title: `Live: ${t.title}`, detail: `${t.submitted}/${t.batchStudents} submitted · closes ${day(t.closesAt, now)}`, subjects, at: closes });
     } else if (t.status === 'closed' && t.submitted > 0 && now - closes <= RESULTS_FRESH_MS) {
       const avg = t.averageScore === null ? '' : ` · average ${num(t.averageScore)}/${num(t.maxScore)}`;
-      rows.push({ kind: 'results', testId: t.id, title: `Results ready: ${t.title}`, detail: `${t.submitted} took it${avg}`, at: -closes });
+      rows.push({ kind: 'results', testId: t.id, title: `Results ready: ${t.title}`, detail: `${t.submitted} took it${avg}`, subjects, at: -closes });
     } else if (t.status === 'scheduled' && opens - now <= OPENING_SOON_MS) {
-      rows.push({ kind: 'opening', testId: t.id, title: `Opens ${day(t.opensAt, now)}: ${t.title}`, detail: `${t.batch.name} · ${t.questionCount} questions · ${t.durationMinutes} min`, at: opens });
+      rows.push({ kind: 'opening', testId: t.id, title: `Opens ${day(t.opensAt, now)}: ${t.title}`, detail: `${t.batch.name} · ${t.questionCount} questions · ${t.durationMinutes} min`, subjects, at: opens });
     }
   }
   return rows.sort((a, b) => ORDER[a.kind] - ORDER[b.kind] || a.at - b.at).map(({ at: _at, ...row }) => row);

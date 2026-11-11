@@ -15,6 +15,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 import { AppHeader } from '@/components/app-header';
+import { SubjectChips } from '@/components/subject-chips';
+import { subjectsOf } from '@/shared/subjects';
 import { KeyboardSafeView } from '@/components/keyboard-safe-view';
 import { getPalette, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -91,7 +93,8 @@ const PdfCard = memo(function PdfCard({
   onMore: (pdf: SavedPdf) => void;
 }) {
   const badge = contentColors(pdf.content, palette);
-  const classLine = [pdf.standard, pdf.subject].filter(Boolean).join(' · ');
+  // Subjects show as chips (a multi-subject paper lists each), so the line keeps the class and chapters.
+  const classLine = pdf.standard ?? '';
   const detailLine = [
     `${pdf.questionCount} question${pdf.questionCount === 1 ? '' : 's'}`,
     pdf.totalMarks ? `${pdf.totalMarks} marks` : null,
@@ -121,10 +124,10 @@ const PdfCard = memo(function PdfCard({
           <Text style={[styles.cardTitle, { color: palette.foreground }]} numberOfLines={2}>
             {pdf.name}
           </Text>
-          {classLine ? (
+          <SubjectChips subjects={pdf.subject} />
+          {classLine || pdf.chapters.length ? (
             <Text style={[styles.cardMeta, { color: palette.foreground }]} numberOfLines={1}>
-              {classLine}
-              {pdf.chapters.length === 1 ? `  ·  ${pdf.chapters[0]}` : pdf.chapters.length > 1 ? `  ·  ${pdf.chapters.length} chapters` : ''}
+              {[classLine, pdf.chapters.length === 1 ? pdf.chapters[0] : pdf.chapters.length > 1 ? `${pdf.chapters.length} chapters` : ''].filter(Boolean).join('  ·  ')}
             </Text>
           ) : null}
           <Text style={[styles.cardMeta, { color: palette.mutedForeground }]} numberOfLines={1}>
@@ -388,7 +391,8 @@ export function MyPdfsScreen({ onCreate, onBank }: { onCreate: () => void; onBan
   const [notice, setNotice] = useState<SavedPdf | null>(null);
 
   const subjects = useMemo(
-    () => [...new Set(library.map((pdf) => pdf.subject).filter((s): s is string => !!s))].sort(),
+    // Each subject of a multi-subject paper counts on its own.
+    () => [...new Set(library.flatMap((pdf) => subjectsOf(pdf.subject)))].sort(),
     [library]
   );
   const activeSubject = subjects.includes(subject) ? subject : ALL;
@@ -396,7 +400,7 @@ export function MyPdfsScreen({ onCreate, onBank }: { onCreate: () => void; onBan
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
     const list = library.filter((pdf) => {
-      if (activeSubject !== ALL && pdf.subject !== activeSubject) return false;
+      if (activeSubject !== ALL && !subjectsOf(pdf.subject).includes(activeSubject)) return false;
       if (!q) return true;
       return [pdf.name, pdf.subject, pdf.standard, ...pdf.chapters].some((s) => s?.toLowerCase().includes(q));
     });
