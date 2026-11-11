@@ -1,6 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { usePalette } from '@/components/kit';
+import { NeoSubjectChips } from '@/design/neo-kit';
+import { useDesign } from '@/design/scope';
 import { chipsFor, subjectsLabel, subjectsOf } from '@/shared/subjects';
 
 /**
@@ -8,7 +10,11 @@ import { chipsFor, subjectsLabel, subjectsOf } from '@/shared/subjects';
  * instead of one joined name that gets cut off. Takes the server's text
  * ("Physics, Chemistry") or a list. Read out as one label.
  */
-export function SubjectChips({ subjects, max = 3 }: { subjects: string | string[] | null | undefined; max?: number }) {
+export function SubjectChips(props: { subjects: string | string[] | null | undefined; max?: number }) {
+  return useDesign() === 'neo' ? <NeoSubjectChips {...props} /> : <ClassicSubjectChips {...props} />;
+}
+
+function ClassicSubjectChips({ subjects, max = 3 }: { subjects: string | string[] | null | undefined; max?: number }) {
   const palette = usePalette();
   const list = Array.isArray(subjects) ? subjects : subjectsOf(subjects);
   if (!list.length) return null;

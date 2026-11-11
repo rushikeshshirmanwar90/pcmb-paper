@@ -24,18 +24,47 @@ import { WorkspaceSwitcher } from '@/components/workspace-switcher';
 import { confirmAction } from '@/components/confirm-action';
 import { KeyboardAwareScrollView, KeyboardSafeView, useKeyboardVisible, useScrollIntoView } from '@/components/keyboard-safe-view';
 import { getPalette, MaxContentWidth } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { cachedLoad, loadShared } from '@/services/load-cache';
 import { useTabBarHeight } from '@/hooks/use-tab-bar-height';
+import { neoAppPalette } from '@/design/palette';
+import { useDesign, useIsDark } from '@/design/scope';
+import { statusWord, type StatusKind } from '@/design/status';
+import {
+  NeoBadge,
+  NeoButton,
+  NeoCard,
+  NeoChipRow,
+  NeoEmptyView,
+  NeoErrorView,
+  NeoListRow,
+  NeoMuted,
+  NeoNotice,
+  NeoProgressBar,
+  NeoSectionTitle,
+  NeoSegmented,
+  NeoStatTile,
+  NeoStatusChip,
+} from '@/design/neo-kit';
 
 // Building blocks for the tuition, teacher and student screens, so they share
 // one look: a screen with a header, cards, form fields, buttons, chips and
 // list rows, in the app's palette (light and dark).
+//
+// Two looks, one kit: inside the student design scope (design/scope.tsx) each
+// component below renders its neobrutalism version from design/neo-kit.tsx;
+// everywhere else it renders the classic version, unchanged.
 
 export type Palette = ReturnType<typeof getPalette>;
 
 export function usePalette(): Palette {
-  return getPalette(useColorScheme() === 'dark');
+  const neo = useDesign() === 'neo';
+  const dark = useIsDark();
+  return neo ? neoAppPalette(dark) : getPalette(dark);
+}
+
+/** Picks the look for this part of the app (classic, or neo in the student scope). */
+function useNeo() {
+  return useDesign() === 'neo';
 }
 
 export type IconName = { ios: SFSymbol; android: AndroidSymbol };
@@ -104,12 +133,56 @@ export function Screen({
 
 // ─── Layout pieces ─────────────────────────────────────────────────────────
 
-export function Card({ children, style }: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) {
+export function Card(props: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) {
+  return useNeo() ? <NeoCard {...props} /> : <ClassicCard {...props} />;
+}
+export function SectionTitle(props: { title: string; action?: ReactNode }) {
+  return useNeo() ? <NeoSectionTitle {...props} /> : <ClassicSectionTitle {...props} />;
+}
+export function Muted(props: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) {
+  return useNeo() ? <NeoMuted {...props} /> : <ClassicMuted {...props} />;
+}
+export function StatTile(props: React.ComponentProps<typeof ClassicStatTile>) {
+  return useNeo() ? <NeoStatTile {...props} /> : <ClassicStatTile {...props} />;
+}
+export function ListRow(props: React.ComponentProps<typeof ClassicListRow>) {
+  return useNeo() ? <NeoListRow {...props} /> : <ClassicListRow {...props} />;
+}
+export function Badge(props: React.ComponentProps<typeof ClassicBadge>) {
+  return useNeo() ? <NeoBadge {...props} /> : <ClassicBadge {...props} />;
+}
+export function ProgressBar(props: React.ComponentProps<typeof ClassicProgressBar>) {
+  return useNeo() ? <NeoProgressBar {...props} /> : <ClassicProgressBar {...props} />;
+}
+
+/**
+ * A status on a card ("Due today", "Done", "Missed"): colour + word + icon,
+ * never colour alone, and the same everywhere (design/status.ts).
+ */
+export function StatusChip(props: { kind: StatusKind; word?: string }) {
+  return useNeo() ? <NeoStatusChip {...props} /> : <ClassicStatusChip {...props} />;
+}
+
+const CLASSIC_STATUS_TONE: Record<StatusKind, 'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'violet'> = {
+  live: 'success',
+  due: 'warning',
+  new: 'primary',
+  upcoming: 'neutral',
+  done: 'success',
+  missed: 'danger',
+  locked: 'neutral',
+};
+
+function ClassicStatusChip({ kind, word }: { kind: StatusKind; word?: string }) {
+  return <ClassicBadge label={statusWord(kind, word)} tone={CLASSIC_STATUS_TONE[kind]} />;
+}
+
+function ClassicCard({ children, style }: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) {
   const palette = usePalette();
   return <View style={[styles.card, { backgroundColor: palette.card, borderColor: palette.border }, style]}>{children}</View>;
 }
 
-export function SectionTitle({ title, action }: { title: string; action?: ReactNode }) {
+function ClassicSectionTitle({ title, action }: { title: string; action?: ReactNode }) {
   const palette = usePalette();
   return (
     <View style={styles.sectionTitleRow}>
@@ -121,13 +194,13 @@ export function SectionTitle({ title, action }: { title: string; action?: ReactN
   );
 }
 
-export function Muted({ children, style }: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) {
+function ClassicMuted({ children, style }: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) {
   const palette = usePalette();
   return <Text style={[styles.muted, { color: palette.mutedForeground }, style as object]}>{children}</Text>;
 }
 
 /** A number with its label, for dashboards. */
-export function StatTile({
+function ClassicStatTile({
   label,
   value,
   icon,
@@ -167,7 +240,7 @@ export function StatGrid({ children }: PropsWithChildren) {
 }
 
 /** A tappable row: icon, title, details and a chevron. */
-export function ListRow({
+function ClassicListRow({
   title,
   subtitle,
   icon,
@@ -222,7 +295,7 @@ export function ListRow({
 }
 
 /** A small coloured label, e.g. "NEET" or "Weak". */
-export function Badge({ label, tone = 'neutral' }: { label: string; tone?: 'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'violet' }) {
+function ClassicBadge({ label, tone = 'neutral' }: { label: string; tone?: 'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'violet' }) {
   const palette = usePalette();
   const [bg, fg] = {
     neutral: [palette.secondary, palette.foreground],
@@ -240,7 +313,7 @@ export function Badge({ label, tone = 'neutral' }: { label: string; tone?: 'neut
 }
 
 /** A thin bar for "x% covered". */
-export function ProgressBar({ value, tone = 'primary' }: { value: number; tone?: 'primary' | 'success' | 'danger' }) {
+function ClassicProgressBar({ value, tone = 'primary' }: { value: number; tone?: 'primary' | 'success' | 'danger' }) {
   const palette = usePalette();
   const pct = Math.max(0, Math.min(100, Math.round(value)));
   return (
@@ -256,6 +329,13 @@ export function ProgressBar({ value, tone = 'primary' }: { value: number; tone?:
 
 // ─── States ────────────────────────────────────────────────────────────────
 
+export function ErrorView(props: { message: string; onRetry?: () => void }) {
+  return useNeo() ? <NeoErrorView {...props} /> : <ClassicErrorView {...props} />;
+}
+export function EmptyView(props: { icon: IconName; title: string; text: string; action?: ReactNode }) {
+  return useNeo() ? <NeoEmptyView {...props} /> : <ClassicEmptyView {...props} />;
+}
+
 export function LoadingView({ label = 'Loading…' }: { label?: string }) {
   const palette = usePalette();
   return (
@@ -266,7 +346,7 @@ export function LoadingView({ label = 'Loading…' }: { label?: string }) {
   );
 }
 
-export function ErrorView({ message, onRetry }: { message: string; onRetry?: () => void }) {
+function ClassicErrorView({ message, onRetry }: { message: string; onRetry?: () => void }) {
   const palette = usePalette();
   return (
     <View style={styles.centered}>
@@ -278,7 +358,7 @@ export function ErrorView({ message, onRetry }: { message: string; onRetry?: () 
   );
 }
 
-export function EmptyView({ icon, title, text, action }: { icon: IconName; title: string; text: string; action?: ReactNode }) {
+function ClassicEmptyView({ icon, title, text, action }: { icon: IconName; title: string; text: string; action?: ReactNode }) {
   const palette = usePalette();
   return (
     <View style={styles.empty}>
@@ -386,7 +466,25 @@ export function PasswordField({ style, ...props }: FieldProps) {
   );
 }
 
-export function Button({
+type ButtonProps = {
+  label: string;
+  onPress: () => void;
+  /** primary: the one main action of a view; tonal: a quieter accent action; ghost: a text-only tertiary action (student look; classic shows it as secondary). */
+  variant?: 'primary' | 'tonal' | 'secondary' | 'danger' | 'ghost';
+  loading?: boolean;
+  disabled?: boolean;
+  icon?: IconName;
+  style?: StyleProp<ViewStyle>;
+  accessibilityLabel?: string;
+};
+
+export function Button(props: ButtonProps) {
+  const neo = useNeo();
+  if (neo) return <NeoButton {...props} />;
+  return <ClassicButton {...props} variant={props.variant === 'ghost' ? 'secondary' : props.variant} />;
+}
+
+function ClassicButton({
   label,
   onPress,
   variant = 'primary',
@@ -476,7 +574,18 @@ export function MultiChips<T extends string>({
   return <ChipRow label={label} choices={choices} selected={selected} onPress={toggle} labels={labels} role="checkbox" />;
 }
 
-function ChipRow<T extends string>({
+function ChipRow<T extends string>(props: {
+  label?: string;
+  choices: readonly T[];
+  selected: T[];
+  onPress: (value: T) => void;
+  labels?: Partial<Record<T, string>>;
+  role: 'radio' | 'checkbox';
+}) {
+  return useNeo() ? <NeoChipRow {...props} /> : <ClassicChipRow {...props} />;
+}
+
+function ClassicChipRow<T extends string>({
   label,
   choices,
   selected,
@@ -525,7 +634,16 @@ function ChipRow<T extends string>({
  * Switches between closely related views of the same content, e.g. All /
  * Wrong / Skipped answers. Each segment can show a count.
  */
-export function Segmented<T extends string>({
+export function Segmented<T extends string>(props: {
+  options: readonly { value: T; label: string; count?: number }[];
+  value: T;
+  onChange: (value: T) => void;
+  label?: string;
+}) {
+  return useNeo() ? <NeoSegmented {...props} /> : <ClassicSegmented {...props} />;
+}
+
+function ClassicSegmented<T extends string>({
   options,
   value,
   onChange,
@@ -576,7 +694,11 @@ const NOTICE_ICONS: Record<'info' | 'success' | 'warning' | 'danger', IconName> 
 };
 
 /** A short inline message in the flow of the screen: info, success, a warning or a problem. */
-export function Notice({
+export function Notice(props: React.ComponentProps<typeof ClassicNotice>) {
+  return useNeo() ? <NeoNotice {...props} /> : <ClassicNotice {...props} />;
+}
+
+function ClassicNotice({
   tone = 'info',
   title,
   text,

@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from '@/context/auth-context';
 import { TabProvider, useTabNavigation } from '@/context/tab-context';
 import { getPalette } from '@/constants/theme';
 import { ToastProvider } from '@/components/states';
+import { DesignProvider, designForRole } from '@/design/scope';
 import { EngagementProvider } from '@/engagement/engagement-provider';
 import { useTabBarHeight } from '@/hooks/use-tab-bar-height';
 
@@ -59,14 +60,18 @@ function SignedInGate() {
   // Teacher workspace, starts on a fresh first tab with none of the other one's screens left over.
   const tabs = tabsFor(user.role);
   const stack = <Stack screenOptions={{ headerShown: false }} />;
+  // The role's look (student → neobrutalism once it's switched on; teacher and tuition → classic)
+  // covers its tabs, pushed screens, sheets and toasts.
   return (
-    <TabProvider key={`${user.id}:${user.role}`} tabKeys={tabs.map((t) => t.key)}>
-      <ToastLayer>
-        <NotificationTaps />
-        {/* Student progress (streak, goal, level) for every student screen, tabs and pushed ones alike. */}
-        {user.role === 'student' ? <EngagementProvider>{stack}</EngagementProvider> : stack}
-      </ToastLayer>
-    </TabProvider>
+    <DesignProvider design={designForRole(user.role)}>
+      <TabProvider key={`${user.id}:${user.role}`} tabKeys={tabs.map((t) => t.key)}>
+        <ToastLayer>
+          <NotificationTaps />
+          {/* Student progress (streak, goal, level) for every student screen, tabs and pushed ones alike. */}
+          {user.role === 'student' ? <EngagementProvider>{stack}</EngagementProvider> : stack}
+        </ToastLayer>
+      </TabProvider>
+    </DesignProvider>
   );
 }
 
