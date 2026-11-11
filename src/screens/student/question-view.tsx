@@ -5,6 +5,7 @@ import { Diagrams } from '@/components/diagrams';
 import { Explanation } from '@/components/explanation';
 import { Icon, usePalette } from '@/components/kit';
 import { MathText } from '@/components/math-text';
+import { useLook } from '@/design/look';
 import { MISSING_OPTION_NOTE, optionSlots } from '@/screens/student/question-options';
 
 export interface QuestionLike {
@@ -51,6 +52,8 @@ export function QuestionView({
   const numerical = question.answerType === 'Numerical';
   const key = (question.correctAnswer ?? '').trim().toUpperCase();
   const interactive = !!onSelect && !reveal;
+  // Student look: outlined option cards; chosen = yellow, right = mint, wrong = soft pink (calm, never red).
+  const look = useLook();
 
   return (
     <View style={styles.wrap}>
@@ -70,10 +73,11 @@ export function QuestionView({
             const bg = isRight ? palette.successSoft : isWrong ? palette.dangerSoft : isSelected ? palette.primarySoft : palette.card;
             const filled = isSelected || isRight;
             const tag = isRight ? (isSelected ? 'Your answer · correct' : 'Correct answer') : isWrong ? 'Your answer' : null;
+            const neoBg = isRight ? palette.success : isWrong ? palette.dangerSoft : isSelected ? palette.primary : palette.card;
             const body = (
               <>
-                <View style={[styles.key, { borderColor: border, backgroundColor: filled ? border : 'transparent' }]}>
-                  <Text style={[styles.keyText, { color: filled ? palette.onPrimary : palette.foreground }]}>{k}</Text>
+                <View style={[styles.key, { borderColor: border, backgroundColor: filled ? border : 'transparent' }, look.neo && { borderColor: palette.ink, borderWidth: 2, backgroundColor: filled ? palette.ink : palette.card }]}>
+                  <Text style={[styles.keyText, { color: filled ? palette.onPrimary : palette.foreground }, look.neo && { color: filled ? palette.background : palette.foreground }]}>{k}</Text>
                 </View>
                 <View style={styles.optionBody}>
                   {missing ? (
@@ -82,7 +86,7 @@ export function QuestionView({
                     <MathText text={text} fontSize={15} color={palette.foreground} />
                   )}
                   <Diagrams urls={figures} maxHeight={160} />
-                  {tag ? <Text style={[styles.tag, { color: isRight ? palette.successInk : palette.dangerInk }]}>{tag}</Text> : null}
+                  {tag ? <Text style={[styles.tag, { color: isRight ? palette.successInk : palette.dangerInk }, look.neo && { color: palette.foreground }]}>{tag}</Text> : null}
                 </View>
                 {isRight ? (
                   <Icon name={{ ios: 'checkmark.circle.fill', android: 'check_circle' }} color={palette.success} size={22} />
@@ -93,7 +97,12 @@ export function QuestionView({
                 ) : null}
               </>
             );
-            const style = [styles.option, { borderColor: border, backgroundColor: bg, borderWidth: isSelected || isRight ? 2 : 1 }];
+            const style = [
+              styles.option,
+              { borderColor: border, backgroundColor: bg, borderWidth: isSelected || isRight ? 2 : 1 },
+              look.neo && look.frame('md', interactive ? 'md' : 'sm'),
+              look.neo && { backgroundColor: neoBg },
+            ];
             return interactive ? (
               <Pressable
                 key={k}
@@ -146,6 +155,7 @@ function NumericalAnswer({
   const right = reveal && selected !== null && (typeof verdict === 'boolean' ? verdict : sameNumber(selected, answer));
   const wrong = reveal && selected !== null && !right;
   const border = right ? palette.success : wrong ? palette.danger : palette.border;
+  const look = useLook();
   return (
     <View style={styles.numerical}>
       <Text style={[styles.label, { color: palette.mutedForeground }]}>Your answer</Text>
@@ -159,7 +169,12 @@ function NumericalAnswer({
         accessibilityLabel="Your answer"
         contextMenuHidden
         maxLength={20}
-        style={[styles.input, { color: palette.foreground, borderColor: border, backgroundColor: palette.card, borderWidth: right || wrong ? 2 : 1.5 }]}
+        style={[
+          styles.input,
+          { color: palette.foreground, borderColor: border, backgroundColor: palette.card, borderWidth: right || wrong ? 2 : 1.5 },
+          look.neo && look.outline('md'),
+          look.neo && { backgroundColor: right ? palette.successSoft : wrong ? palette.dangerSoft : palette.card },
+        ]}
       />
       {reveal && answer ? (
         <View style={styles.numericalResult}>

@@ -44,6 +44,8 @@ import { clock, resultTone, spokenDuration, subjectIcon, whenLabel } from '@/scr
 import type { TestAccess, TestSummary } from '@/services/school-api';
 import { clearDraft, loadDraft, saveDraft, saveDraftImmediate, loadVisibility, saveVisibility } from '@/services/attempt-store';
 import { studentApi, type Attempt, type TestAnalytics, type TestQuestion } from '@/services/student-api';
+import { face } from '@/design/type';
+import { Neo } from '@/design/tokens';
 
 type Phase =
   | { kind: 'loading' }
@@ -220,7 +222,7 @@ function Header({ title, leading, trailing, onClose }: { title: string; leading?
 function IconButton({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
   const palette = usePalette();
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} hitSlop={4} style={({ pressed }) => [styles.iconButton, { borderColor: palette.ink, backgroundColor: palette.card }, pressed && styles.pressed]}>
       <Icon name={icon} color={palette.foreground} size={18} />
     </Pressable>
   );
@@ -262,7 +264,7 @@ function Intro({ test, busy, splitScreen, onStart, onClose }: { test: TestSummar
       <ScrollView contentContainerStyle={[styles.body, column]}>
         <Text style={[styles.eyebrow, { color: palette.primary }]}>SECURE EXAMINATION</Text>
         <View style={styles.hero}>
-          <View style={[styles.heroTile, { backgroundColor: palette.primarySoft }]}>
+          <View style={[styles.heroTile, { backgroundColor: palette.primary, borderColor: palette.ink }]}>
             <Icon name={subjectIcon(test.subject)} color={palette.primary} size={24} />
           </View>
           <View style={styles.flex}>
@@ -876,7 +878,7 @@ function TimerPill({ seconds }: { seconds: number }) {
   const palette = usePalette();
   const [bg, fg] = seconds <= 60 ? [palette.dangerSoft, palette.dangerInk] : seconds <= 300 ? [palette.warningSoft, palette.warningInk] : [palette.secondary, palette.foreground];
   return (
-    <View accessible accessibilityRole="timer" accessibilityLabel={`Time left, ${spokenDuration(seconds)}`} style={[styles.timer, { backgroundColor: bg }]}>
+    <View accessible accessibilityRole="timer" accessibilityLabel={`Time left, ${spokenDuration(seconds)}`} style={[styles.timer, { backgroundColor: bg, borderColor: palette.ink }]}>
       <Icon name={{ ios: 'timer', android: 'timer' }} color={fg} size={15} />
       <Text style={[styles.timerText, { color: fg }]}>{clock(seconds)}</Text>
     </View>
@@ -896,7 +898,7 @@ function SaveStatus({ state, onRetry }: { state: SaveState; onRetry: () => void 
         style={({ pressed }) => [styles.saveStatus, pressed && styles.pressed]}
       >
         <Icon name={{ ios: 'exclamationmark.icloud', android: 'cloud_off' }} color={palette.warningInk} size={14} />
-        <Text style={[styles.saveText, { color: palette.warningInk, fontWeight: '700' }]}>Not saved yet · Retry</Text>
+        <Text style={[styles.saveText, { color: palette.warningInk, fontFamily: face.bold }]}>Not saved yet · Retry</Text>
       </Pressable>
     );
   }
@@ -1012,17 +1014,18 @@ function QuestionPalette({
                       style={({ pressed }) => [
                         styles.cell,
                         {
-                          backgroundColor: done ? palette.primarySoft : unseen ? palette.secondary : palette.card,
-                          borderColor: here ? palette.primary : done ? palette.primaryBorder : unseen ? palette.border : palette.borderStrong,
-                          borderWidth: here ? 2 : 1,
+                          // Where you are: yellow. Answered: soft yellow. Not seen yet: grey paper. Words say the same.
+                          backgroundColor: here ? palette.primary : done ? palette.primarySoft : unseen ? palette.secondary : palette.card,
+                          borderColor: palette.ink,
+                          borderWidth: Neo.border.width,
                         },
                         pressed && styles.pressed,
                       ]}
                     >
                       <Text style={[styles.cellText, { color: done ? palette.primaryInk : palette.foreground }]}>{numberAt(i)}</Text>
                       {isMarked ? (
-                        <View style={[styles.cellMark, { backgroundColor: palette.violet, borderColor: palette.card }]}>
-                          <Icon name={{ ios: 'bookmark.fill', android: 'bookmark' }} color={palette.card} size={8} />
+                        <View style={[styles.cellMark, { backgroundColor: palette.violet, borderColor: palette.ink }]}>
+                          <Icon name={{ ios: 'bookmark.fill', android: 'bookmark' }} color={palette.ink} size={8} />
                         </View>
                       ) : null}
                     </Pressable>
@@ -1041,7 +1044,7 @@ function LegendItem({ label, swatch }: { label: string; swatch: { backgroundColo
   const palette = usePalette();
   return (
     <View style={styles.legendItem}>
-      <View style={[styles.swatch, { borderWidth: 1 }, swatch]} />
+      <View style={[styles.swatch, { borderWidth: Neo.border.width }, swatch]} />
       <Text style={[styles.legendText, { color: palette.mutedForeground }]}>{label}</Text>
     </View>
   );
@@ -1249,7 +1252,7 @@ function ScoreCard({ test, result, analytics }: { test: TestSummary; result: Non
       <View
         accessible
         accessibilityLabel={`${result.correct} correct, ${result.wrong} incorrect, ${result.skipped} unanswered`}
-        style={[styles.outcomeBar, { backgroundColor: palette.secondary }]}
+        style={[styles.outcomeBar, { backgroundColor: palette.secondary, borderColor: palette.ink }]}
       >
         {result.correct ? <View style={{ flex: result.correct / total, backgroundColor: palette.success }} /> : null}
         {result.wrong ? <View style={{ flex: result.wrong / total, backgroundColor: palette.danger }} /> : null}
@@ -1279,80 +1282,80 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 10 },
   pressed: { opacity: 0.7 },
 
-  header: { borderBottomWidth: 1 },
+  header: { borderBottomWidth: Neo.border.width },
   headerInner: { ...column, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, minHeight: 56 },
-  headerTitle: { flex: 1, fontSize: 17, fontWeight: '700', paddingHorizontal: 8 },
-  iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22 },
+  headerTitle: { flex: 1, fontSize: 17, fontFamily: face.bold, paddingHorizontal: 8 },
+  iconButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20, borderWidth: Neo.border.width, marginRight: 4 },
   quiet: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, paddingHorizontal: 12, alignSelf: 'center' },
-  quietText: { fontSize: 15, fontWeight: '700' },
+  quietText: { fontSize: 15, fontFamily: face.bold },
 
   body: { padding: 16, gap: 14, paddingBottom: 24 },
-  footer: { borderTopWidth: 1 },
+  footer: { borderTopWidth: Neo.border.width },
   footerInner: { padding: 16, paddingBottom: 12, gap: 6 },
 
-  eyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 1.1 },
+  eyebrow: { fontSize: 11, fontFamily: face.heavy, letterSpacing: 1.1 },
   frozen: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 32 },
-  frozenTitle: { fontSize: 20, fontWeight: '800', textAlign: 'center' },
+  frozenTitle: { fontSize: 20, fontFamily: face.heavy, textAlign: 'center' },
   frozenText: { fontSize: 14, lineHeight: 21, textAlign: 'center', maxWidth: 360 },
   hero: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  heroTile: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  heroTitle: { fontSize: 22, lineHeight: 28, fontWeight: '800' },
+  heroTile: { width: 52, height: 52, borderRadius: Neo.radius.md, borderWidth: Neo.border.width, alignItems: 'center', justifyContent: 'center' },
+  heroTitle: { fontSize: 22, lineHeight: 28, fontFamily: face.heavy },
   meta: { fontSize: 13, lineHeight: 19, marginTop: 2 },
   facts: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  fact: { flexGrow: 1, flexBasis: '45%', borderWidth: 1, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14, gap: 2 },
-  factLabel: { fontSize: 12, fontWeight: '600' },
-  factValue: { fontSize: 20, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  fact: { flexGrow: 1, flexBasis: '45%', borderWidth: Neo.border.width, borderRadius: Neo.radius.md, paddingVertical: 12, paddingHorizontal: 14, gap: 2 },
+  factLabel: { fontSize: 12, fontFamily: face.semibold },
+  factValue: { fontSize: 20, fontFamily: face.heavy, fontVariant: ['tabular-nums'] },
   tip: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 2 },
   tipText: { flex: 1, fontSize: 14, lineHeight: 20 },
 
-  timer: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, minHeight: 36, borderRadius: 999, marginRight: 4 },
-  timerText: { fontSize: 16, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  statusBar: { borderBottomWidth: StyleSheet.hairlineWidth, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10, gap: 8 },
+  timer: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, minHeight: 36, borderRadius: Neo.radius.full, borderWidth: Neo.border.width, marginRight: 4 },
+  timerText: { fontSize: 16, fontFamily: face.heavy, fontVariant: ['tabular-nums'] },
+  statusBar: { borderBottomWidth: Neo.border.width, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10, gap: 8 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  position: { fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  position: { fontSize: 15, fontFamily: face.bold, fontVariant: ['tabular-nums'] },
   saveStatus: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2, alignSelf: 'flex-start' },
   saveText: { fontSize: 12, lineHeight: 16 },
-  paletteToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1 },
-  paletteToggleText: { fontSize: 14, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  paletteToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 12, borderRadius: Neo.radius.md, borderWidth: Neo.border.width },
+  paletteToggleText: { fontSize: 14, fontFamily: face.bold, fontVariant: ['tabular-nums'] },
   warning: { paddingHorizontal: 16, paddingTop: 10 },
 
-  palettePanel: { borderBottomWidth: StyleSheet.hairlineWidth, paddingHorizontal: 16, paddingVertical: 12 },
+  palettePanel: { borderBottomWidth: Neo.border.width, paddingHorizontal: 16, paddingVertical: 12 },
   paletteInner: { gap: 10 },
-  paletteSummary: { fontSize: 14, fontWeight: '600' },
+  paletteSummary: { fontSize: 14, fontFamily: face.semibold },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendText: { fontSize: 12 },
-  swatch: { width: 14, height: 14, borderRadius: 4 },
+  swatch: { width: 14, height: 14, borderRadius: Neo.radius.xs, borderWidth: Neo.border.width },
   paletteScroll: { maxHeight: 260 },
   paletteContent: { gap: 10, paddingTop: 4 },
   paletteGroup: { gap: 6 },
-  paletteSubject: { fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
+  paletteSubject: { fontSize: 11, fontFamily: face.heavy, letterSpacing: 0.8 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingRight: 4 },
   subjectRow: { flexDirection: 'row', gap: 8 },
-  subjectTab: { minHeight: 48, minWidth: 0, borderRadius: 12, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
+  subjectTab: { minHeight: 48, minWidth: 0, borderRadius: Neo.radius.md, borderWidth: Neo.border.width, paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
   subjectTabScroll: { minWidth: 112 },
-  subjectName: { fontSize: 14, fontWeight: '700' },
-  subjectCount: { fontSize: 11, fontWeight: '600', fontVariant: ['tabular-nums'] },
-  subjectLine: { fontSize: 12, fontWeight: '600' },
-  cell: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  cellText: { fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  cellMark: { position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  subjectName: { fontSize: 14, fontFamily: face.bold },
+  subjectCount: { fontSize: 11, fontFamily: face.semibold, fontVariant: ['tabular-nums'] },
+  subjectLine: { fontSize: 12, fontFamily: face.semibold },
+  cell: { width: 44, height: 44, borderRadius: Neo.radius.md, alignItems: 'center', justifyContent: 'center' },
+  cellText: { fontSize: 15, fontFamily: face.bold, fontVariant: ['tabular-nums'] },
+  cellMark: { position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: 8, borderWidth: Neo.border.width, alignItems: 'center', justifyContent: 'center' },
 
   qMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  qMetaText: { flex: 1, fontSize: 13, fontWeight: '800', letterSpacing: 0.3 },
-  qMarks: { fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  qMetaText: { flex: 1, fontSize: 13, fontFamily: face.heavy, letterSpacing: 0.3 },
+  qMarks: { fontSize: 13, fontFamily: face.bold, fontVariant: ['tabular-nums'] },
   qTools: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4 },
-  markButton: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1 },
-  markText: { fontSize: 14, fontWeight: '700' },
+  markButton: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 14, borderRadius: Neo.radius.full, borderWidth: Neo.border.width },
+  markText: { fontSize: 14, fontFamily: face.bold },
 
-  reviewTitle: { fontSize: 20, lineHeight: 26, fontWeight: '800' },
+  reviewTitle: { fontSize: 20, lineHeight: 26, fontFamily: face.heavy },
   scoreCard: { gap: 12, padding: 16 },
-  scoreLabel: { fontSize: 13, fontWeight: '600' },
+  scoreLabel: { fontSize: 13, fontFamily: face.semibold },
   scoreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: -6 },
-  scoreBig: { fontSize: 44, lineHeight: 52, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  scoreOf: { fontSize: 20, fontWeight: '600' },
-  outcomeBar: { flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'hidden' },
-  divider: { height: StyleSheet.hairlineWidth },
+  scoreBig: { fontSize: 44, lineHeight: 52, fontFamily: face.heavy, fontVariant: ['tabular-nums'] },
+  scoreOf: { fontSize: 20, fontFamily: face.semibold },
+  outcomeBar: { flexDirection: 'row', height: 14, borderRadius: Neo.radius.full, overflow: 'hidden', borderWidth: Neo.border.width },
+  divider: { height: Neo.border.width },
   answerCard: { gap: 12 },
   answerTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 });

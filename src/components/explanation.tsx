@@ -7,7 +7,9 @@ import { Diagrams } from './diagrams';
 import { parseExplanation, type ExplanationBlock } from '@/shared/explanation';
 import { hasLatex } from '@/shared/latex';
 import { getPalette } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { usePalette } from '@/components/kit';
+import { useLook } from '@/design/look';
+import { useIsDark } from '@/design/scope';
 
 interface ExplanationProps {
   text: string;
@@ -28,10 +30,12 @@ function AuthoredExplanationView({
   text,
   palette,
   dark,
+  neo,
 }: {
   text: string;
   palette: ReturnType<typeof getPalette>;
   dark: boolean;
+  neo: boolean;
 }) {
   const paragraphs = text
     .split(/\n\s*\n/)
@@ -58,7 +62,7 @@ function AuthoredExplanationView({
               style={[
                 styles.noteCard,
                 {
-                  backgroundColor: dark ? '#2A2015' : palette.warningSoft,
+                  backgroundColor: dark && !neo ? '#2A2015' : palette.warningSoft,
                   borderLeftColor: palette.warning,
                 },
               ]}
@@ -86,10 +90,12 @@ function ExtractedExplanationView({
   blocks,
   palette,
   dark,
+  neo,
 }: {
   blocks: ExplanationBlock[];
   palette: ReturnType<typeof getPalette>;
   dark: boolean;
+  neo: boolean;
 }) {
   return (
     <View style={styles.blocksContainer}>
@@ -98,7 +104,7 @@ function ExtractedExplanationView({
           const combinedText = block.chunks.map((c) => c.value).join(' ');
           return (
             <View key={i} style={styles.stepRow}>
-              <View style={[styles.stepBadge, { backgroundColor: dark ? palette.primarySoft : '#F8ECE5' }]}>
+              <View style={[styles.stepBadge, { backgroundColor: dark || neo ? palette.primarySoft : '#F8ECE5' }]}>
                 <Text style={[styles.stepBadgeText, { color: palette.primary }]}>
                   {block.label}
                 </Text>
@@ -129,9 +135,10 @@ export function Explanation({
   showAnswer = true,
   diagramUrls,
 }: ExplanationProps) {
-  const scheme = useColorScheme();
-  const dark = scheme === 'dark';
-  const palette = getPalette(dark);
+  // The viewer's look: classic for teachers, the student look inside the student scope.
+  const dark = useIsDark();
+  const palette = usePalette();
+  const look = useLook();
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
   if (!text || !text.trim()) return null;
@@ -146,7 +153,7 @@ export function Explanation({
     : [];
 
   return (
-    <View style={[styles.container, { borderColor: palette.border, backgroundColor: dark ? palette.card : '#FCFBFA' }]}>
+    <View style={[styles.container, { borderColor: palette.border, backgroundColor: dark ? palette.card : '#FCFBFA' }, look.frame('md', 'sm'), look.neo && { backgroundColor: palette.card }]}>
       {/* Toggle Bar */}
       <Pressable
         accessibilityRole="button"
@@ -155,7 +162,7 @@ export function Explanation({
         style={({ pressed }) => [
           styles.toggleBar,
           {
-            backgroundColor: dark ? palette.secondary : '#F5F0EB',
+            backgroundColor: dark || look.neo ? palette.secondary : '#F5F0EB',
             opacity: pressed ? 0.78 : 1,
           },
         ]}
@@ -178,7 +185,7 @@ export function Explanation({
           )}
         </View>
 
-        <Text style={[styles.toggleAction, { color: palette.primary }]}>
+        <Text style={[styles.toggleAction, { color: palette.primary }, look.neo && styles.underline]}>
           {collapsed ? 'Show' : 'Hide'}
         </Text>
       </Pressable>
@@ -198,7 +205,7 @@ export function Explanation({
               ]}
             >
               <View style={[styles.answerCircle, { backgroundColor: palette.success }]}>
-                <Text style={styles.answerCircleText}>{displayAnswer}</Text>
+                <Text style={[styles.answerCircleText, look.neo && { color: palette.ink }]}>{displayAnswer}</Text>
               </View>
               <Text style={[styles.answerLabel, { color: palette.successInk }]}>
                 Correct Option ({displayAnswer})
@@ -208,9 +215,9 @@ export function Explanation({
 
           {/* Render authored vs extracted explanation */}
           {isAuthored ? (
-            <AuthoredExplanationView text={rawText} palette={palette} dark={dark} />
+            <AuthoredExplanationView text={rawText} palette={palette} dark={dark} neo={look.neo} />
           ) : (
-            <ExtractedExplanationView blocks={parsed.blocks} palette={palette} dark={dark} />
+            <ExtractedExplanationView blocks={parsed.blocks} palette={palette} dark={dark} neo={look.neo} />
           )}
 
           <Diagrams urls={diagramUrls} />
@@ -230,6 +237,7 @@ export function Explanation({
 }
 
 const styles = StyleSheet.create({
+  underline: { textDecorationLine: 'underline' },
   container: {
     marginTop: 12,
     borderRadius: 10,
