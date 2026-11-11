@@ -2,7 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/app-text';
 import { useRouter } from 'expo-router';
-import { Badge, Button, Card, DetailSheet, EmptyView, ErrorView, Icon, Muted, Notice, Screen, SectionTitle, useLoad, usePalette, type IconName } from '@/components/kit';
+import { Button, Card, DetailSheet, EmptyView, ErrorView, Icon, Muted, Notice, Screen, SectionTitle, StatusChip, useLoad, usePalette, type IconName } from '@/components/kit';
+import { SubjectChips } from '@/components/subject-chips';
+import { PatternBackdrop } from '@/design/illustrations';
+import { NeoTag, NeoText } from '@/design/neo-kit';
+import type { StatusKind } from '@/design/status';
 import { SkeletonCard, StaleNotice } from '@/components/states';
 import { programOf, questionBankOf, SCHOOL_SUBJECTS, WEEKDAY_NAMES, type SchoolSubject } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
@@ -22,6 +26,8 @@ import { TestRunner } from '@/screens/student/test-runner';
 import { dayLabel, type TimetableEntry } from '@/services/school-api';
 import { studentApi, type StudentOverview, type TopicStat } from '@/services/student-api';
 import { formatTime } from '@/services/tuition-api';
+import { face } from '@/design/type';
+import { Neo } from '@/design/tokens';
 
 const WEAK_ON_HOME = 3;
 
@@ -91,8 +97,9 @@ export function StudentHomeScreen() {
 
   return (
     <Screen
-      title={`Hi, ${user.name.split(' ')[0]}`}
+      title={`Hello, ${user.name.split(' ')[0]}`}
       subtitle={`${date} · ${data?.batch ? data.batch.name : user.tuition.name}`}
+      headerArt={<PatternBackdrop />}
       onRefresh={refreshAll}
       refreshing={refreshing}
     >
@@ -131,6 +138,7 @@ export function StudentHomeScreen() {
             <Card>
               <EmptyView
                 icon={{ ios: 'checkmark.circle', android: 'task_alt' }}
+                art="allCaughtUp"
                 title="You're all caught up"
                 text={data.batch ? 'No tests to take and no classes in your timetable yet.' : 'Tests and classes show here once you join a batch.'}
               />
@@ -173,7 +181,13 @@ const ACTIONS: Partial<Record<TestKind, { label: string; icon: IconName }>> = {
   open: { label: 'Open test', icon: { ios: 'arrow.right', android: 'arrow_forward' } },
 };
 
-const STATUS: Partial<Record<TestKind, string>> = { start: 'Not started', continue: 'In progress', open: 'Open now' };
+/** The test's state on the card: colour + word + icon. */
+function testStatus(kind: TestKind, soon: boolean): { kind: StatusKind; word: string } | null {
+  if (kind === 'continue') return { kind: 'live', word: 'In progress' };
+  if (kind === 'open') return { kind: 'live', word: 'Open now' };
+  if (kind === 'start') return soon ? { kind: 'due', word: 'Closes soon' } : { kind: 'new', word: 'Not started' };
+  return null;
+}
 
 /**
  * The one thing to do next, with the screen's only filled button. The status
@@ -187,19 +201,15 @@ function NextTestCard({ test, now, more, onOpen, onMore }: { test: ListedTest; n
   const soon = closesSoon(test, now);
   const timing = test.closesAt ? `Closes ${soon ? untilLabel(test.closesAt, now) : whenLabel(test.closesAt, now)}` : 'No closing time';
   const following = more[0];
+  const status = testStatus(kind, soon);
   return (
     <Card style={styles.flush}>
       <View style={styles.hero}>
         <View style={styles.eyebrowRow}>
-          <Icon name={subjectIcon(test.subject)} color={palette.mutedForeground} size={15} />
-          <Text style={[styles.eyebrow, { color: palette.mutedForeground }]} numberOfLines={1}>
-            {test.subject || 'Mixed'}
-            {STATUS[kind] ? (
-              <Text style={{ color: kind === 'continue' ? palette.warningInk : palette.mutedForeground }}> · {STATUS[kind]}</Text>
-            ) : null}
-          </Text>
+          {status ? <StatusChip kind={status.kind} word={status.word} /> : null}
+          <SubjectChips subjects={test.subject || 'Mixed'} />
         </View>
-        <Text style={[styles.heroTitle, { color: palette.foreground }]}>{test.title}</Text>
+        <NeoText variant="heading">{test.title}</NeoText>
         <Text style={[styles.meta, { color: palette.mutedForeground }]}>
           {[test.teacher.name, `${test.questionCount} questions`, `${test.durationMinutes} min`, `${test.maxScore} marks`].join(' · ')}
         </Text>
@@ -209,7 +219,7 @@ function NextTestCard({ test, now, more, onOpen, onMore }: { test: ListedTest; n
             color={soon ? palette.warningInk : palette.mutedForeground}
             size={15}
           />
-          <Text style={[styles.meta, { color: soon ? palette.warningInk : palette.mutedForeground, fontWeight: soon ? '700' : '500' }]}>{timing}</Text>
+          <Text style={[styles.meta, { color: soon ? palette.foreground : palette.mutedForeground }, soon && styles.strong]}>{timing}</Text>
         </View>
         {action ? (
           <Button label={action.label} icon={action.icon} onPress={() => onOpen(test.id)} accessibilityLabel={`${action.label}: ${test.title}`} style={styles.heroButton} />
@@ -238,10 +248,10 @@ function NextClassCard({ next }: { next: NextClass }) {
     <Card style={styles.flush}>
       <View accessible accessibilityLabel={`${ongoing ? 'Class on now' : 'Next class'}: ${entry.subject}, ${when}${details ? `, ${details}` : ''}`} style={styles.hero}>
         <View style={styles.eyebrowRow}>
-          <Icon name={subjectIcon(entry.subject)} color={ongoing ? palette.successInk : palette.mutedForeground} size={15} />
-          <Text style={[styles.eyebrow, { color: ongoing ? palette.successInk : palette.mutedForeground }]}>{ongoing ? 'Class on now' : 'Next class'}</Text>
+          <StatusChip kind={ongoing ? 'live' : 'upcoming'} word={ongoing ? 'Class on now' : 'Next class'} />
+          <Icon name={subjectIcon(entry.subject)} color={palette.foreground} size={16} />
         </View>
-        <Text style={[styles.heroTitle, { color: palette.foreground }]}>{entry.subject}</Text>
+        <NeoText variant="heading">{entry.subject}</NeoText>
         <Text style={[styles.meta, { color: palette.foreground }]}>{when}</Text>
         {details ? <Text style={[styles.meta, { color: palette.mutedForeground }]}>{details}</Text> : null}
       </View>
@@ -275,10 +285,10 @@ function FooterRow({ icon, title, subtitle, onPress, accessibilityLabel, bare = 
 
 // ─── Today ─────────────────────────────────────────────────────────────────
 
-const STATE_LABEL: Record<ClassState, { label: string; tone: 'neutral' | 'success' | 'primary' } | null> = {
-  done: { label: 'Done', tone: 'neutral' },
-  now: { label: 'On now', tone: 'success' },
-  next: { label: 'Next', tone: 'primary' },
+const STATE_LABEL: Record<ClassState, { label: string; kind: StatusKind } | null> = {
+  done: { label: 'Done', kind: 'done' },
+  now: { label: 'On now', kind: 'live' },
+  next: { label: 'Next', kind: 'upcoming' },
   later: null,
 };
 
@@ -348,7 +358,7 @@ function TodayRow({ entry, state, last }: { entry: TimetableEntry; state: ClassS
           <Text style={[styles.subject, { color: done ? palette.mutedForeground : palette.foreground }]} numberOfLines={1}>
             {entry.subject}
           </Text>
-          {status ? <Badge label={status.label} tone={status.tone} /> : null}
+          {status ? <StatusChip kind={status.kind} word={status.label} /> : null}
         </View>
         {details ? (
           <Text style={[styles.meta, { color: palette.mutedForeground }]} numberOfLines={2}>
@@ -393,9 +403,9 @@ function NeedsWorkCard({ insight, onPractise }: { insight: StudentOverview['insi
     <Card style={styles.progressCard}>
       {first ? (
         <View style={styles.fixHead}>
-          <Text accessibilityRole="header" style={[styles.fixTitle, { color: palette.foreground }]}>
+          <NeoText variant="subheading" accessibilityRole="header">
             {total} topic{total === 1 ? '' : 's'} to fix
-          </Text>
+          </NeoText>
           <Text style={[styles.meta, { color: palette.mutedForeground }]}>Start with {first.topic || first.chapter}. A few PYQs a day moves it.</Text>
           {practiseFirst ? (
             <Button
@@ -409,7 +419,12 @@ function NeedsWorkCard({ insight, onPractise }: { insight: StudentOverview['insi
           ) : null}
         </View>
       ) : (
-        <Muted>{last ? 'Nothing to fix right now. Keep practising to stay sharp.' : 'Practise PYQs and take tests; the topics worth fixing show here.'}</Muted>
+        <EmptyView
+          icon={{ ios: 'scope', android: 'my_location' }}
+          art="noMistakes"
+          title={last ? 'Nothing to fix right now' : 'No topics to fix yet'}
+          text={last ? 'Keep practising to stay sharp.' : 'Practise PYQs and take tests; the topics worth fixing show here.'}
+        />
       )}
 
       {weak.length ? (
@@ -429,9 +444,7 @@ function NeedsWorkCard({ insight, onPractise }: { insight: StudentOverview['insi
           <Text style={[styles.lastText, { color: palette.mutedForeground }]} numberOfLines={1}>
             Last test · {last.title}
           </Text>
-          <Text style={[styles.lastScore, { color: palette.mutedForeground }]}>
-            {last.score}/{last.maxScore}
-          </Text>
+          <NeoTag label={`${last.score}/${last.maxScore}`} tone={scoreTone(last.score, last.maxScore)} />
         </View>
       ) : null}
     </Card>
@@ -452,9 +465,10 @@ function WeakTopicRow({ stat, onPractise }: { stat: TopicStat; onPractise: Pract
           {name}
         </Text>
         <Text style={[styles.meta, { color: palette.mutedForeground }]} numberOfLines={1}>
-          {where} · {stat.accuracy}% right so far
+          {where}
         </Text>
       </View>
+      <NeoTag label={`${stat.accuracy}%`} tone={scoreTone(stat.accuracy, 100)} accessibilityLabel={`${stat.accuracy} percent right so far`} />
       {practise ? <Icon name={{ ios: 'chevron.right', android: 'chevron_right' }} color={palette.mutedForeground} size={16} /> : null}
     </>
   );
@@ -473,6 +487,12 @@ function WeakTopicRow({ stat, onPractise }: { stat: TopicStat; onPractise: Pract
       {body}
     </View>
   );
+}
+
+/** Score chips stay calm: soft pink when low (never alarm red), yellow in the middle, mint when strong. */
+function scoreTone(score: number, max: number) {
+  const pct = max > 0 ? score / max : 0;
+  return pct >= 0.7 ? ('success' as const) : pct >= 0.4 ? ('primarySoft' as const) : ('dangerSoft' as const);
 }
 
 /** The syllabus in one line; the gauge per subject and what was covered lately are on the Syllabus tab. */
@@ -503,38 +523,39 @@ const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
   pressed: { opacity: 0.6 },
   // Cards whose rows run edge to edge, e.g. a footer row under a hairline.
-  flush: { padding: 0, gap: 0, overflow: 'hidden' },
+  flush: { padding: 0, gap: 0 },
+  strong: { fontFamily: face.bold },
 
   hero: { padding: 16, gap: 6 },
-  eyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  eyebrow: { fontSize: 13, fontWeight: '600', flexShrink: 1 },
-  heroTitle: { fontSize: 20, lineHeight: 25, fontWeight: '800' },
+  eyebrowRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  eyebrow: { fontSize: 13, fontFamily: face.semibold, flexShrink: 1 },
+  heroTitle: { fontSize: 20, lineHeight: 25, fontFamily: face.heavy },
   meta: { fontSize: 13, lineHeight: 18 },
   timing: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   heroButton: { marginTop: 8 },
-  footerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth },
-  footerTitle: { fontSize: 15, fontWeight: '600' },
+  footerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: Neo.border.width, borderBottomLeftRadius: Neo.radius.lg - 2, borderBottomRightRadius: Neo.radius.lg - 2 },
+  footerTitle: { fontSize: 15, fontFamily: face.semibold },
 
   today: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 14 },
   todayRow: { flexDirection: 'row', gap: 10 },
   // Wide enough for '12:45 PM' on one line at the default text size.
   timeCol: { width: 76 },
-  time: { fontSize: 14, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  time: { fontSize: 14, fontFamily: face.bold, fontVariant: ['tabular-nums'] },
   timeEnd: { fontSize: 12, marginTop: 1, fontVariant: ['tabular-nums'] },
   rail: { alignItems: 'center' },
   railLine: { width: 2, flex: 1, borderRadius: 1, marginVertical: 4 },
   todayGap: { paddingBottom: 16 },
   subjectRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  subject: { fontSize: 15, fontWeight: '700', flexShrink: 1 },
+  subject: { fontSize: 15, fontFamily: face.bold, flexShrink: 1 },
 
   bare: { borderTopWidth: 0 },
   progressCard: { gap: 12, padding: 16 },
   fixHead: { gap: 4 },
-  fixTitle: { fontSize: 17, lineHeight: 22, fontWeight: '700' },
+  fixTitle: { fontSize: 17, lineHeight: 22, fontFamily: face.bold },
   fixButton: { marginTop: 8 },
-  rowTitle: { fontSize: 15, lineHeight: 20, fontWeight: '600', marginTop: 2 },
-  weakRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, minHeight: 56, borderTopWidth: StyleSheet.hairlineWidth },
-  lastLine: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
+  rowTitle: { fontSize: 15, lineHeight: 20, fontFamily: face.semibold, marginTop: 2 },
+  weakRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, minHeight: 56, borderTopWidth: Neo.border.width },
+  lastLine: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 10, borderTopWidth: Neo.border.width },
   lastText: { flex: 1, fontSize: 13, lineHeight: 18 },
-  lastScore: { fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  lastScore: { fontSize: 13, fontFamily: face.semibold, fontVariant: ['tabular-nums'] },
 });

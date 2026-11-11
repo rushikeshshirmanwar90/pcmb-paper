@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/app-text';
+import { useLook } from '@/design/look';
 import { confirmAction } from '@/components/account-section';
 import {
   Badge,
@@ -75,6 +76,7 @@ export function AnnouncementsSection({
   compact?: boolean;
 }) {
   const palette = usePalette();
+  const look = useLook();
   const user = useSignedInUser();
   const version = useTabDataVersion(tabKey);
   const { data, error, loading, reload } = useLoad(() => announcementsApi.list(50), [version]);
@@ -116,12 +118,12 @@ export function AnnouncementsSection({
                   hitSlop={8}
                   style={postDisabled && styles.off}
                 >
-                  <Text style={[styles.link, { color: palette.primary }]}>New</Text>
+                  <Text style={[styles.link, { color: palette.primary }, look.neo && styles.underline]}>New</Text>
                 </Pressable>
               ) : null}
               {list.length > limit ? (
                 <Pressable accessibilityRole="button" onPress={() => setShowAll(true)} hitSlop={8}>
-                  <Text style={[styles.link, { color: palette.primary }]}>See all ({list.length})</Text>
+                  <Text style={[styles.link, { color: palette.primary }, look.neo && styles.underline]}>See all ({list.length})</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -251,6 +253,7 @@ const styles = StyleSheet.create({
   body: { fontSize: 14, lineHeight: 20 },
   meta: { fontSize: 12, flex: 1 },
   link: { fontSize: 13, fontWeight: '700' },
+  underline: { textDecorationLine: 'underline' },
   titleActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   off: { opacity: 0.45 },
   multiline: { minHeight: 96, textAlignVertical: 'top' },

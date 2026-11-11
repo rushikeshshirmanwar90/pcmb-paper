@@ -5,6 +5,8 @@ import { Badge, Button, Card, Icon, Muted, ProgressBar, usePalette } from '@/com
 import { useEngagement } from '@/engagement/engagement-provider';
 import type { MeSnapshot } from '@/engagement/engagement-store';
 import { goalFill, goalLabel, goalText, levelCaption, levelFill, levelLabel, shouldStack, streakCaption, streakLabel } from '@/engagement/progress-format';
+import { face } from '@/design/type';
+import { hardShadow, Neo } from '@/design/tokens';
 
 // The top of student Home: streak · today's goal · level, as the server reports
 // them. Hidden when the tuition has engagement switched off. Every number is
@@ -35,7 +37,7 @@ export function ProgressHeader() {
 function Chip({ label, style, children }: { label: string; style: StyleProp<ViewStyle>; children: React.ReactNode }) {
   const palette = usePalette();
   return (
-    <View accessible accessibilityLabel={label} style={[styles.chip, { backgroundColor: palette.card, borderColor: palette.border }, style]}>
+    <View accessible accessibilityLabel={label} style={[styles.chip, { backgroundColor: palette.card, borderColor: palette.border }, hardShadow(Neo.shadow.md, palette.ink), style]}>
       {children}
     </View>
   );
@@ -70,7 +72,7 @@ function GoalChip({ today, style }: { today: MeSnapshot['today']; style: StylePr
   return (
     <Chip label={goalLabel(today)} style={style}>
       <View style={styles.goalRow}>
-        <Ring size={34} stroke={4} fill={goalFill(today)} color={today.goalMet ? palette.success : palette.primary} track={palette.secondary}>
+        <Ring size={36} stroke={5} fill={goalFill(today)} color={today.goalMet ? palette.success : palette.primary} track={palette.secondary}>
           {today.goalMet ? <Icon name={{ ios: 'checkmark', android: 'check' }} color={palette.success} size={14} /> : null}
         </Ring>
         <View style={styles.flex}>
@@ -162,7 +164,7 @@ function StaleNote({ offline, onRetry }: { offline: boolean; onRetry: () => void
       <Badge label={offline ? 'Offline' : 'Not updated'} tone="neutral" />
       <Text style={[styles.caption, styles.flex, { color: palette.mutedForeground }]}>Showing your last numbers</Text>
       <Pressable accessibilityRole="button" accessibilityLabel="Retry loading your progress" onPress={onRetry} hitSlop={8} style={styles.retry}>
-        <Text style={[styles.retryText, { color: palette.primary }]}>Retry</Text>
+        <Text style={[styles.retryText, { color: palette.foreground }]}>Retry</Text>
       </Pressable>
     </View>
   );
@@ -172,23 +174,23 @@ const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
   abs: { position: 'absolute', top: 0 },
   wrap: { gap: 8 },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   // Three across; when stacked, streak and goal share a row and level takes the next.
   third: { flexGrow: 1, flexBasis: '28%' },
   half: { flexGrow: 1, flexBasis: '40%' },
   full: { flexBasis: '100%' },
-  chip: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, gap: 4, minHeight: 72, justifyContent: 'center' },
+  chip: { borderWidth: Neo.border.width, borderRadius: Neo.radius.lg, paddingHorizontal: 12, paddingVertical: 10, gap: 4, minHeight: 80, justifyContent: 'center', marginRight: Neo.shadow.md, marginBottom: Neo.shadow.md },
   valueRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  value: { fontSize: 22, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  value: { fontSize: 28, lineHeight: 34, fontFamily: face.heavy, fontVariant: ['tabular-nums'] },
   captionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  caption: { fontSize: 12, lineHeight: 16, fontWeight: '600' },
+  caption: { fontSize: 13, lineHeight: 17, fontFamily: face.medium },
   freezes: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   goalRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  goalValue: { fontSize: 17, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  goalValue: { fontSize: 22, lineHeight: 28, fontFamily: face.heavy, fontVariant: ['tabular-nums'] },
   ringCenter: { alignItems: 'center', justifyContent: 'center' },
-  skeleton: { height: 72, borderRadius: 14 },
+  skeleton: { height: 80, borderRadius: Neo.radius.lg },
   errorCard: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
   stale: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   retry: { minHeight: 44, justifyContent: 'center' },
-  retryText: { fontSize: 14, fontWeight: '700' },
+  retryText: { fontSize: 14, fontFamily: face.bold, textDecorationLine: 'underline' },
 });
