@@ -14,6 +14,8 @@ import { getPalette, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTabNavigation } from '@/context/tab-context';
 import { TAB_BAR_HEIGHT } from '@/hooks/use-tab-bar-height';
+import { useDesign } from '@/design/scope';
+import { NeoTabBar } from '@/design/neo-kit';
 
 import type { AppTab } from '@/navigation/tabs';
 
@@ -61,6 +63,8 @@ export default function AppTabs({ tabs }: { tabs: AppTab[] }) {
     internalPagerRef.current?.setPageWithoutAnimation(index);
   };
 
+  const neo = useDesign() === 'neo';
+
   const handleLayout = (e: LayoutChangeEvent) => {
     const width = e.nativeEvent.layout.width;
     setContainerWidth(width);
@@ -86,6 +90,9 @@ export default function AppTabs({ tabs }: { tabs: AppTab[] }) {
       </PagerView>
 
       {/* ── Bottom Navigation Bar ── */}
+      {neo ? (
+        <NeoTabs tabs={tabs} active={activeTab} onPress={handleTabPress} bottom={Math.max(insets.bottom, 8) + 8} />
+      ) : (
       <View
         style={[
           styles.tabBarContainer,
@@ -159,6 +166,19 @@ export default function AppTabs({ tabs }: { tabs: AppTab[] }) {
           })}
         </View>
       </View>
+      )}
+    </View>
+  );
+}
+
+/** Student look: the floating ink pill; the current tab is a yellow pill with icon and label. */
+function NeoTabs({ tabs, active, onPress, bottom }: { tabs: AppTab[]; active: number; onPress: (index: number) => void; bottom: number }) {
+  const items = tabs.map((t, i) => ({ key: String(i), label: t.label, icon: { ios: i === active ? t.icon.sf.selected : t.icon.sf.default, android: t.icon.md } }));
+  return (
+    <View pointerEvents="box-none" style={[styles.neoBarWrap, { bottom }]}>
+      <View style={styles.neoBar}>
+        <NeoTabBar tabs={items} value={String(active)} onChange={(k) => onPress(Number(k))} />
+      </View>
     </View>
   );
 }
@@ -167,6 +187,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  neoBarWrap: { position: 'absolute', left: 12, right: 12, alignItems: 'center' },
+  neoBar: { width: '100%', maxWidth: 520 },
   pager: {
     flex: 1,
   },

@@ -1,5 +1,6 @@
 import React, { type PropsWithChildren, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Pressable, StyleSheet, Text, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
+import { KeyboardAvoidingView, Pressable, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Text } from '@/components/app-text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Icon, usePalette } from '@/components/kit';
 import { KeyboardAwareScrollView } from '@/components/keyboard-safe-view';

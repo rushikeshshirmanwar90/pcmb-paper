@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Text } from '@/components/app-text';
 import { Badge, Button, Card, Icon, Muted, ProgressBar, usePalette } from '@/components/kit';
 import { useEngagement } from '@/engagement/engagement-provider';
 import type { MeSnapshot } from '@/engagement/engagement-store';

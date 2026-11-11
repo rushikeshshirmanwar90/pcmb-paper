@@ -128,3 +128,22 @@ describe('status chips', () => {
     assert.equal(statusWord('done', '  '), 'Done');
   });
 });
+
+describe('faceForWeight (the drop-in Text maps weights to the app font)', async () => {
+  const { faceForWeight } = await import('../src/design/tokens.ts');
+  const f = FONT_OPTIONS.chivo;
+  test('numeric and named weights pick the matching face', () => {
+    assert.equal(faceForWeight(f, '800'), f.heavy);
+    assert.equal(faceForWeight(f, '900'), f.heavy);
+    assert.equal(faceForWeight(f, 'bold'), f.bold);
+    assert.equal(faceForWeight(f, '700'), f.bold);
+    assert.equal(faceForWeight(f, '600'), f.semibold);
+    assert.equal(faceForWeight(f, '500'), f.medium);
+    assert.equal(faceForWeight(f, '400'), f.regular);
+    assert.equal(faceForWeight(f, 'normal', 13), f.regular);
+  });
+  test('no weight: medium for body-size text, regular for small print', () => {
+    assert.equal(faceForWeight(f, undefined, 15), f.medium);
+    assert.equal(faceForWeight(f, undefined, 13), f.regular);
+  });
+});

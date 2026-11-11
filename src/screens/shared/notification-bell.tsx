@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/app-text';
 import { Icon, usePalette } from '@/components/kit';
 
 /** The header's bell: a red count when something is waiting. */

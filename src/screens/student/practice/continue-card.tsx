@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/app-text';
 import { Card, Icon, SectionTitle, useLoad, usePalette, type IconName } from '@/components/kit';
 import { programOf, programSubjects, questionBankOf, type SchoolStandard } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';

@@ -1,7 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState, type PropsWithChildren, type ReactNode } from 'react';
-import { AccessibilityInfo, Pressable, StyleSheet, Text, View, type DimensionValue, type StyleProp, type ViewStyle } from 'react-native';
+import { AccessibilityInfo, Pressable, StyleSheet, View, type DimensionValue, type StyleProp, type ViewStyle } from 'react-native';
+import { Text } from '@/components/app-text';
 import Animated, { FadeOut, SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLook } from '@/design/look';
 import { Button, Card, ErrorView, Icon, Notice, usePalette, type IconName } from '@/components/kit';
 import { ApiError } from '@/services/api-client';
 
@@ -224,13 +226,14 @@ export function AsyncView<T>({
 /** A refresh failed: the screen keeps what it had and says so. */
 export function StaleNotice({ message, onRetry }: { message: string; onRetry: () => void }) {
   const palette = usePalette();
+  const look = useLook();
   const offline = /offline|reach the server|internet/i.test(message);
   return (
-    <View style={[styles.stale, { backgroundColor: palette.secondary }]}>
+    <View style={[styles.stale, { backgroundColor: palette.secondary }, look.outline('md')]}>
       <Icon name={offline ? { ios: 'wifi.slash', android: 'wifi_off' } : { ios: 'exclamationmark.circle', android: 'error_outline' }} color={palette.inkSoft} size={16} />
       <Text style={[styles.staleText, { color: palette.foreground }]}>{offline ? "You're offline · showing what was saved" : "Couldn't update · showing what was saved"}</Text>
       <Pressable accessibilityRole="button" accessibilityLabel="Retry" onPress={onRetry} hitSlop={8} style={styles.retry}>
-        <Text style={[styles.retryText, { color: palette.primary }]}>Retry</Text>
+        <Text style={[styles.retryText, { color: palette.primary }, look.neo && styles.underline]}>Retry</Text>
       </Pressable>
     </View>
   );
@@ -246,6 +249,7 @@ export const useToast = () => useContext(ToastContext);
 
 export function ToastProvider({ children, bottomOffset = 0 }: PropsWithChildren<{ bottomOffset?: number }>) {
   const palette = usePalette();
+  const look = useLook();
   const insets = useSafeAreaInsets();
   const [toast, setToast] = useState<Toast | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -275,7 +279,7 @@ export function ToastProvider({ children, bottomOffset = 0 }: PropsWithChildren<
           {tone ? (
             <Notice tone={tone} icon={icon} title={toast.message} live />
           ) : (
-            <View accessibilityLiveRegion="polite" style={[styles.toastCard, { backgroundColor: palette.card, borderColor: palette.border }]}>
+            <View accessibilityLiveRegion="polite" style={[styles.toastCard, { backgroundColor: palette.card, borderColor: palette.border }, look.frame('md', 'lg')]}>
               <Text style={[styles.toastText, { color: palette.foreground }]}>{toast.message}</Text>
               {toast.action ? (
                 <Pressable
@@ -287,7 +291,7 @@ export function ToastProvider({ children, bottomOffset = 0 }: PropsWithChildren<
                   hitSlop={8}
                   style={styles.retry}
                 >
-                  <Text style={[styles.retryText, { color: palette.primary }]}>{toast.action.label}</Text>
+                  <Text style={[styles.retryText, { color: palette.primary }, look.neo && styles.underline]}>{toast.action.label}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -311,6 +315,7 @@ const styles = StyleSheet.create({
   staleText: { flex: 1, fontSize: 13, lineHeight: 18 },
   retry: { minHeight: 44, justifyContent: 'center' },
   retryText: { fontSize: 14, fontWeight: '700' },
+  underline: { textDecorationLine: 'underline' },
   toast: { position: 'absolute', left: 16, right: 16, maxWidth: 560, alignSelf: 'center' },
   toastCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 8, minHeight: 48 },
   toastText: { flex: 1, fontSize: 14, lineHeight: 19 },

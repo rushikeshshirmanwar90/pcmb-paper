@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Pressable, type ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Pressable, type ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/app-text';
 import { useReducedMotion } from 'react-native-reanimated';
 import {
   Badge,

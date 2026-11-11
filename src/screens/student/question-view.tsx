@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '@/components/app-text';
 import { Diagrams } from '@/components/diagrams';
 import { Explanation } from '@/components/explanation';
 import { Icon, usePalette } from '@/components/kit';

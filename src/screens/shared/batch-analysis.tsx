@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { Text } from '@/components/app-text';
 import { Badge, Card, ErrorText, ListRow, LoadingView, Muted, SectionTitle, useLoad, usePalette } from '@/components/kit';
 import { useDataVersion } from '@/context/data-version';
 import { AccuracyRow, StudentInsightSheet } from '@/screens/teacher/student-insight';

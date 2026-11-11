@@ -107,16 +107,32 @@ export const hardShadow = (size: number, color: string) =>
 /** One family for everything; weight always comes from the face name (Android ignores fontWeight on custom fonts). */
 export type FontFaces = { regular: string; medium: string; semibold: string; bold: string; heavy: string };
 
-/** The two candidates (both SIL Open Font License, free to bundle). */
+/**
+ * The candidate families (all SIL Open Font License, free to bundle). The one
+ * the app uses is picked in design/app-font.ts; the style preview compares all.
+ */
 export const FONT_OPTIONS = {
-  /** Chivo: sturdy, slightly wide grotesk, closest to the reference; open letters at small sizes. */
+  /** Chivo: sturdy grotesk, the closest match to the reference (round bowls, flat-topped t, open 13px). */
   chivo: { regular: 'Chivo_400Regular', medium: 'Chivo_500Medium', semibold: 'Chivo_600SemiBold', bold: 'Chivo_700Bold', heavy: 'Chivo_800ExtraBold' },
-  /** Space Grotesk: geometric with more character; a little narrower. */
+  archivo: { regular: 'Archivo_400Regular', medium: 'Archivo_500Medium', semibold: 'Archivo_600SemiBold', bold: 'Archivo_700Bold', heavy: 'Archivo_800ExtraBold' },
   spaceGrotesk: { regular: 'SpaceGrotesk_400Regular', medium: 'SpaceGrotesk_500Medium', semibold: 'SpaceGrotesk_600SemiBold', bold: 'SpaceGrotesk_700Bold', heavy: 'SpaceGrotesk_700Bold' },
+  familjen: { regular: 'FamiljenGrotesk_400Regular', medium: 'FamiljenGrotesk_500Medium', semibold: 'FamiljenGrotesk_600SemiBold', bold: 'FamiljenGrotesk_700Bold', heavy: 'FamiljenGrotesk_700Bold' },
+  hanken: { regular: 'HankenGrotesk_400Regular', medium: 'HankenGrotesk_500Medium', semibold: 'HankenGrotesk_600SemiBold', bold: 'HankenGrotesk_700Bold', heavy: 'HankenGrotesk_800ExtraBold' },
 } as const satisfies Record<string, FontFaces>;
 
 export type FontOption = keyof typeof FONT_OPTIONS;
-export const DEFAULT_FONT: FontOption = 'chivo';
+
+/** RN fontWeight → the face to use instead (custom fonts ignore fontWeight on Android). */
+export function faceForWeight(f: FontFaces, weight: string | number | undefined, fontSize = 14): string {
+  const w = weight === 'bold' ? 700 : weight === 'normal' || weight === undefined ? 0 : Number(weight);
+  if (w >= 800) return f.heavy;
+  if (w >= 700) return f.bold;
+  if (w >= 600) return f.semibold;
+  if (w >= 500) return f.medium;
+  if (w >= 100) return f.regular;
+  // No weight given: medium for body-size text, regular for small print.
+  return fontSize >= 15 ? f.medium : f.regular;
+}
 
 /** Bold headings, medium body, regular captions; big heavy numbers. At most three sizes on any one card. */
 export function typeScale(f: FontFaces) {
@@ -137,9 +153,6 @@ export function typeScale(f: FontFaces) {
 
 export type TextStyles = ReturnType<typeof typeScale>;
 export type TextVariant = keyof TextStyles;
-
-/** The scale with the chosen font (the default here; components use the scope's choice). */
-export const textStyles: TextStyles = typeScale(FONT_OPTIONS[DEFAULT_FONT]);
 
 // ─── Contrast (WCAG 2) ─────────────────────────────────────────────────────
 

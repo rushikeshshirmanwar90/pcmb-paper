@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Text } from '@/components/app-text';
 import { Badge, Card, Chips, DetailSheet, ErrorView, Icon, ListRow, Muted, ProgressBar, Screen, SectionTitle, StatGrid, StatTile, useLoad, usePalette } from '@/components/kit';
 import { SkeletonCard, StaleNotice } from '@/components/states';
 import { programOf, programSubjects, type SchoolSubject } from '@/constants/school';

@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/app-text';
 import { Badge, Card, EmptyView, Muted, ProgressBar, SectionTitle, usePalette } from '@/components/kit';
 import { LEVEL_WORDS, groupTopics, notEnoughReason, percentLabel, topicLine, weakEvidence } from '@/screens/shared/result-format';
 import type { TopicPerformance, WeakTopic } from '@/services/school-api';

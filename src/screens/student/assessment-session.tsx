@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, ActivityIndicator, FlatList, KeyboardAvoidingView, Pressable, ScrollView, type ScrollViewInstance, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, ActivityIndicator, FlatList, KeyboardAvoidingView, Pressable, ScrollView, type ScrollViewInstance, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/app-text';
 import { confirmAction } from '@/components/account-section';
 import {
   Badge,

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, type TextInputInstance, View } from 'react-native';
+import { StyleSheet, type TextInputInstance, View } from 'react-native';
+import { Text } from '@/components/app-text';
 import { Button, CodeInput, ErrorText, Field, Icon, PasswordField, usePalette } from '@/components/kit';
 import { emailApi } from '@/services/email-api';
 import { AuthCard, AuthScreen, AuthTitle, AuthTopBar, BackLink, Bubble, FinePrint, Strong, TextLink } from '@/screens/auth-ui';

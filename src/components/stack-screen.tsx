@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type ComponentRef, type PropsWithChildren, type ReactNode, type Ref } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/app-text';
 import { usePreventRemove, useRouter } from 'expo-router';
 import { confirmAction } from '@/components/account-section';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, ErrorText, Icon, usePalette } from '@/components/kit';
+import { Button, ErrorText, Icon, NeoSheetHeader, usePalette } from '@/components/kit';
+import { useLook } from '@/design/look';
 import { KeyboardAwareScrollView, KeyboardSafeView, useKeyboardVisible } from '@/components/keyboard-safe-view';
 import { MaxContentWidth } from '@/constants/theme';
 
@@ -81,8 +83,19 @@ export function StackScreen({
   const insets = useSafeAreaInsets();
   const goBack = useGoBack();
   const keyboardVisible = useKeyboardVisible();
+  const look = useLook();
   return (
     <SafeAreaView edges={['top']} style={[styles.flex, { backgroundColor: palette.background }]}>
+      {look.neo ? (
+        <View>
+          <NeoSheetHeader title={title} onClose={onBack ?? goBack} closeIcon="back" />
+          {subtitle ? (
+            <Text style={[styles.neoSubtitle, { color: palette.mutedForeground }]} numberOfLines={2}>
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
+      ) : (
       <View style={[styles.header, { backgroundColor: palette.card, borderBottomColor: palette.border }]}>
         <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={onBack ?? goBack} hitSlop={10} style={styles.back}>
           <Icon name={{ ios: 'chevron.left', android: 'arrow_back' }} color={palette.foreground} size={20} />
@@ -98,6 +111,7 @@ export function StackScreen({
           ) : null}
         </View>
       </View>
+      )}
       <KeyboardSafeView>
         <KeyboardAwareScrollView
           ref={scrollRef}
@@ -107,7 +121,11 @@ export function StackScreen({
         >
           {children}
         </KeyboardAwareScrollView>
-        {footer ? <View style={[styles.footer, { borderTopColor: palette.border, backgroundColor: palette.card, paddingBottom: keyboardVisible ? 12 : Math.max(insets.bottom, 12) }]}>{footer}</View> : null}
+        {footer ? (
+          <View style={[styles.footer, { borderTopColor: palette.border, backgroundColor: palette.card, paddingBottom: keyboardVisible ? 12 : Math.max(insets.bottom, 12) }, look.rule('top'), look.neo && { backgroundColor: palette.background }]}>
+            {footer}
+          </View>
+        ) : null}
       </KeyboardSafeView>
     </SafeAreaView>
   );
@@ -155,6 +173,7 @@ const styles = StyleSheet.create({
   back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 17, fontWeight: '700' },
   subtitle: { fontSize: 12, marginTop: 1 },
+  neoSubtitle: { fontSize: 14, lineHeight: 20, paddingHorizontal: 16, marginTop: -4, marginBottom: 4 },
   body: { padding: 16, gap: 16, width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' },
   footer: { padding: 16, gap: 10, borderTopWidth: 1 },
 });

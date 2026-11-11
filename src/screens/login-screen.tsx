@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { StyleSheet, Text, type TextInputInstance, View } from 'react-native';
+import { StyleSheet, type TextInputInstance, View } from 'react-native';
+import { Text } from '@/components/app-text';
 import { Button, ErrorText, Field, Icon, PasswordField, usePalette } from '@/components/kit';
 import { SCHOOL_SUBJECTS } from '@/constants/school';
 import { useAuth } from '@/context/auth-context';

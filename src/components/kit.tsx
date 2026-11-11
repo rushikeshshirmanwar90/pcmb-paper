@@ -8,8 +8,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
   type StyleProp,
   type TextInputInstance,
@@ -17,6 +15,7 @@ import {
   type ViewInstance,
   type ViewStyle,
 } from 'react-native';
+import { Text, TextInput } from '@/components/app-text';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView, type AndroidSymbol, type SFSymbol } from 'expo-symbols';
 import { AppHeader } from '@/components/app-header';
@@ -26,8 +25,11 @@ import { KeyboardAwareScrollView, KeyboardSafeView, useKeyboardVisible, useScrol
 import { getPalette, MaxContentWidth } from '@/constants/theme';
 import { cachedLoad, loadShared } from '@/services/load-cache';
 import { useTabBarHeight } from '@/hooks/use-tab-bar-height';
+import type { ArtName } from '@/design/illustrations';
+import { useLook } from '@/design/look';
 import { neoAppPalette } from '@/design/palette';
 import { useDesign, useIsDark } from '@/design/scope';
+import { hardShadow, Neo } from '@/design/tokens';
 import { statusWord, type StatusKind } from '@/design/status';
 import {
   NeoBadge,
@@ -36,6 +38,8 @@ import {
   NeoChipRow,
   NeoEmptyView,
   NeoErrorView,
+  NeoIconButton,
+  NeoText,
   NeoListRow,
   NeoMuted,
   NeoNotice,
@@ -69,8 +73,15 @@ function useNeo() {
 
 export type IconName = { ios: SFSymbol; android: AndroidSymbol };
 
+const ICON_ACCENTS = ['primary', 'success', 'warning', 'danger', 'violet', 'info', 'highlight', 'primaryHover', 'brand', 'tabSelected'] as const;
+
 export function Icon({ name, size = 18, color }: { name: IconName; size?: number; color: string }) {
-  return <SymbolView name={{ ios: name.ios, android: name.android, web: name.android }} tintColor={color} size={size} />;
+  const neo = useNeo();
+  const dark = useIsDark();
+  // Student look: an accent-coloured icon on a light surface fails contrast; icons are ink there.
+  const p = neo ? neoAppPalette(dark) : null;
+  const tint = p && ICON_ACCENTS.some((k) => p[k] === color) ? p.ink : color;
+  return <SymbolView name={{ ios: name.ios, android: name.android, web: name.android }} tintColor={tint} size={size} />;
 }
 
 // ─── Screen ────────────────────────────────────────────────────────────────
@@ -88,6 +99,7 @@ export function Screen({
   scroll = true,
   footer,
   headerRight,
+  headerArt,
 }: PropsWithChildren<{
   title: string;
   subtitle: string;
@@ -98,11 +110,17 @@ export function Screen({
   scroll?: boolean;
   /** Pinned under the content, above the tab bar. */
   footer?: ReactNode;
+  /** Student look only: decorative art behind the header (a faint pattern). Hidden from screen readers. */
+  headerArt?: ReactNode;
 }>) {
   const palette = usePalette();
   const tabBarHeight = useTabBarHeight();
+  const neo = useNeo();
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: palette.background }]}>
+      {neo ? (
+        <NeoHeader title={title} subtitle={subtitle} art={headerArt} right={<View style={styles.headerRight}>{headerRight}<WorkspaceSwitcher /></View>} />
+      ) : (
       <AppHeader
         title={title}
         subtitle={subtitle}
@@ -113,12 +131,13 @@ export function Screen({
           </View>
         }
       />
+      )}
       {scroll ? (
         <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 24 }]}
+          contentContainerStyle={[styles.content, neo && styles.neoContent, { paddingBottom: tabBarHeight + 24 }]}
           keyboardShouldPersistTaps="handled"
           refreshControl={
-            onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.primary} /> : undefined
+            onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={neo ? palette.ink : palette.primary} colors={neo ? [palette.ink] : undefined} /> : undefined
           }
         >
           {children}
@@ -130,6 +149,43 @@ export function Screen({
     </SafeAreaView>
   );
 }
+
+/** The student look's tab header: big bold title on the cream page, one plain line under it, no rule. */
+function NeoHeader({ title, subtitle, right, art }: { title: string; subtitle: string; right?: ReactNode; art?: ReactNode }) {
+  return (
+    <View style={styles.neoHeader}>
+      {art ? (
+        <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.absoluteFill}>
+          {art}
+        </View>
+      ) : null}
+      <View style={styles.flexShrink}>
+        <NeoText variant="title" accessibilityRole="header" numberOfLines={2}>
+          {title}
+        </NeoText>
+        <NeoText variant="bodySm" soft numberOfLines={2}>
+          {subtitle}
+        </NeoText>
+      </View>
+      {right}
+    </View>
+  );
+}
+
+/** The header of a sheet or pushed page in the student look: title and a round close button. */
+function NeoSheetHeader({ title, onClose, closeIcon = 'close' }: { title: string; onClose: () => void; closeIcon?: 'close' | 'back' }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[styles.neoSheetHeader, { paddingTop: Platform.OS === 'ios' ? 14 : insets.top + 10 }]}>
+      {closeIcon === 'back' ? <NeoIconButton icon={{ ios: 'chevron.left', android: 'arrow_back' }} label="Back" shape="square" onPress={onClose} /> : null}
+      <NeoText variant="heading" accessibilityRole="header" numberOfLines={2} style={styles.flexShrink}>
+        {title}
+      </NeoText>
+      {closeIcon === 'close' ? <NeoIconButton icon={{ ios: 'xmark', android: 'close' }} label="Close" onPress={onClose} /> : null}
+    </View>
+  );
+}
+export { NeoSheetHeader };
 
 // ─── Layout pieces ─────────────────────────────────────────────────────────
 
@@ -332,15 +388,16 @@ function ClassicProgressBar({ value, tone = 'primary' }: { value: number; tone?:
 export function ErrorView(props: { message: string; onRetry?: () => void }) {
   return useNeo() ? <NeoErrorView {...props} /> : <ClassicErrorView {...props} />;
 }
-export function EmptyView(props: { icon: IconName; title: string; text: string; action?: ReactNode }) {
-  return useNeo() ? <NeoEmptyView {...props} /> : <ClassicEmptyView {...props} />;
+/** `art` (student look only): one of design/illustrations' stills instead of the icon sticker. */
+export function EmptyView(props: { icon: IconName; title: string; text: string; action?: ReactNode; art?: ArtName }) {
+  return useNeo() ? <NeoEmptyView {...props} /> : <ClassicEmptyView icon={props.icon} title={props.title} text={props.text} action={props.action} />;
 }
 
 export function LoadingView({ label = 'Loading…' }: { label?: string }) {
   const palette = usePalette();
   return (
     <View style={styles.centered}>
-      <ActivityIndicator color={palette.primary} />
+      <ActivityIndicator color={useNeo() ? palette.ink : palette.primary} />
       <Text style={[styles.muted, { color: palette.mutedForeground }]}>{label}</Text>
     </View>
   );
@@ -402,6 +459,7 @@ export function Field({ label, hint, error, accessory, style, onFocus, onBlur, .
   const scrollIntoView = useScrollIntoView();
   const group = useRef<ViewInstance>(null);
   const [focused, setFocused] = useState(false);
+  const look = useLook();
   const borderColor = error ? palette.danger : focused ? palette.primary : palette.input;
   const box = (
     <TextInput
@@ -419,19 +477,27 @@ export function Field({ label, hint, error, accessory, style, onFocus, onBlur, .
         setFocused(false);
         onBlur?.(e);
       }}
-      style={[styles.input, { backgroundColor: palette.background, borderColor, color: palette.foreground }, style]}
+      style={[
+        styles.input,
+        { backgroundColor: palette.background, borderColor, color: palette.foreground },
+        look.neo && { borderWidth: 0, borderRadius: Neo.radius.md - 2, backgroundColor: focused ? palette.primarySoft : palette.card, minHeight: 48 },
+        style,
+      ]}
     />
   );
+  // Student look: the outline and hard shadow sit on a wrapper (a shadow on TextInput is unreliable on Android).
+  const edge = error ? palette.dangerInk : palette.ink;
+  const framed = look.neo ? <View style={[look.frame('md', 'md'), { borderColor: edge, backgroundColor: palette.card }, hardShadow(Neo.shadow.md, edge)]}>{box}</View> : box;
   return (
     <View ref={group} style={styles.field}>
-      <Text style={[styles.fieldLabel, { color: palette.mutedForeground }]}>{label}</Text>
+      <Text style={[styles.fieldLabel, { color: palette.mutedForeground }, look.neo && styles.neoFieldLabel]}>{label}</Text>
       {accessory ? (
         <View>
-          {box}
-          <View style={styles.accessory}>{accessory}</View>
+          {framed}
+          <View style={[styles.accessory, look.neo && styles.neoAccessory]}>{accessory}</View>
         </View>
       ) : (
-        box
+        framed
       )}
       {error ? <ErrorText message={error} /> : hint ? <Text style={[styles.hint, { color: palette.mutedForeground }]}>{hint}</Text> : null}
     </View>
@@ -777,9 +843,11 @@ export function FormSheet({
   const insets = useSafeAreaInsets();
   const keyboardVisible = useKeyboardVisible();
   const close = () => (dirty && !submitting ? confirmAction('Discard changes?', 'Your unsaved changes will be lost.', 'Discard', onClose) : onClose());
+  const neo = useNeo();
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={close}>
       <KeyboardSafeView style={{ backgroundColor: palette.background }}>
+        {neo ? <NeoSheetHeader title={title} onClose={close} /> : (
         <View style={[styles.sheetHeader, { borderBottomColor: palette.border, backgroundColor: palette.card, paddingTop: Platform.OS === 'ios' ? 12 : insets.top + 8 }]}>
           <Text accessibilityRole="header" style={[styles.sheetTitle, { color: palette.foreground }]} numberOfLines={1}>
             {title}
@@ -788,10 +856,11 @@ export function FormSheet({
             <Icon name={{ ios: 'xmark', android: 'close' }} color={palette.foreground} size={18} />
           </Pressable>
         </View>
+        )}
         <KeyboardAwareScrollView contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
           {children}
         </KeyboardAwareScrollView>
-        <View style={[styles.sheetFooter, { borderTopColor: palette.border, backgroundColor: palette.card, paddingBottom: keyboardVisible ? 12 : Math.max(insets.bottom, 12) }]}>
+        <View style={[styles.sheetFooter, { borderTopColor: palette.border, backgroundColor: palette.card, paddingBottom: keyboardVisible ? 12 : Math.max(insets.bottom, 12) }, neo && styles.neoSheetFooter, neo && { backgroundColor: palette.background }]}>
           <ErrorText message={error} />
           <Button label={submitLabel} onPress={onSubmit} loading={submitting} />
           {extraAction}
@@ -822,9 +891,11 @@ export function DetailSheet({
 }>) {
   const palette = usePalette();
   const insets = useSafeAreaInsets();
+  const neo = useNeo();
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={[styles.flex, { backgroundColor: palette.background }]}>
+        {neo ? <NeoSheetHeader title={title} onClose={onClose} /> : (
         <View style={[styles.sheetHeader, { borderBottomColor: palette.border, backgroundColor: palette.card, paddingTop: Platform.OS === 'ios' ? 12 : insets.top + 8 }]}>
           <Text accessibilityRole="header" style={[styles.sheetTitle, { color: palette.foreground }]} numberOfLines={1}>
             {title}
@@ -833,15 +904,16 @@ export function DetailSheet({
             <Icon name={{ ios: 'xmark', android: 'close' }} color={palette.foreground} size={18} />
           </Pressable>
         </View>
+        )}
         <ScrollView
           ref={scrollRef}
           contentContainerStyle={[styles.sheetBody, { paddingBottom: footer ? 16 : Math.max(insets.bottom, 16) + 8 }]}
-          refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.primary} /> : undefined}
+          refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={neo ? palette.ink : palette.primary} /> : undefined}
         >
           {children}
         </ScrollView>
         {footer ? (
-          <View style={[styles.sheetFooter, { borderTopColor: palette.border, backgroundColor: palette.card, paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <View style={[styles.sheetFooter, { borderTopColor: palette.border, backgroundColor: palette.card, paddingBottom: Math.max(insets.bottom, 12) }, neo && styles.neoSheetFooter, neo && { backgroundColor: palette.background }]}>
             {footer}
           </View>
         ) : null}
@@ -933,6 +1005,14 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[], { enabled = 
 const styles = StyleSheet.create({
   root: { flex: 1 },
   flex: { flex: 1 },
+  flexShrink: { flex: 1, minWidth: 0 },
+  // Student look
+  neoHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: Neo.screenPadding, paddingTop: 12, paddingBottom: 8, minHeight: 72, width: '100%', maxWidth: 900, alignSelf: 'center' },
+  neoContent: { gap: 16, paddingTop: 8 },
+  neoSheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: Neo.screenPadding, paddingBottom: 10 },
+  neoSheetFooter: { borderTopWidth: Neo.border.width },
+  neoFieldLabel: { fontSize: 14, fontWeight: '600' },
+  neoAccessory: { right: 4 + Neo.shadow.md, bottom: Neo.shadow.md },
   content: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', padding: 16, gap: 14 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   card: { borderWidth: 1, borderRadius: 14, padding: 14, gap: 10 },
@@ -1009,6 +1089,7 @@ const styles = StyleSheet.create({
  */
 export function CodeInput({ value, onChange, onComplete, autoFocus = true }: { value: string; onChange: (code: string) => void; onComplete?: (code: string) => void; autoFocus?: boolean }) {
   const palette = usePalette();
+  const look = useLook();
   const ref = useRef<TextInputInstance>(null);
   const [focused, setFocused] = useState(false);
   const digits = value.split('');
@@ -1022,6 +1103,8 @@ export function CodeInput({ value, onChange, onComplete, autoFocus = true }: { v
             style={[
               codeStyles.box,
               { borderColor: active ? palette.primary : digits[i] ? palette.borderStrong : palette.input, backgroundColor: palette.card },
+              look.frame('sm', 'sm'),
+              look.neo && active && { backgroundColor: palette.primarySoft },
             ]}
           >
             <Text style={[codeStyles.digit, { color: palette.foreground }]}>{digits[i] ?? ''}</Text>

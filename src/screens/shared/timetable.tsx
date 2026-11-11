@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/app-text';
 import { confirmAction } from '@/components/account-section';
 import { Button, Card, Chips, Field, FormSheet, Muted, usePalette } from '@/components/kit';
 import { WEEKDAY_NAMES, WEEKDAY_SHORT, type SchoolSubject } from '@/constants/school';

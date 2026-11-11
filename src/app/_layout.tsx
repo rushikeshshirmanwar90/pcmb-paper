@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from '@/context/auth-context';
 import { TabProvider, useTabNavigation } from '@/context/tab-context';
 import { getPalette } from '@/constants/theme';
 import { ToastProvider } from '@/components/states';
+import { useAppFonts } from '@/design/fonts';
 import { DesignProvider, designForRole } from '@/design/scope';
 import { EngagementProvider } from '@/engagement/engagement-provider';
 import { useTabBarHeight } from '@/hooks/use-tab-bar-height';
@@ -49,12 +50,14 @@ function SignedInGate() {
       </View>
     );
   }
-  if (status === 'unreachable') return <UnreachableScreen onRetry={retry} onLogOut={() => void signOut()} />;
-  if (!user) return <LoginScreen />;
+  // Before the role's tabs (login, sign-up, verify, join, the student's forced password change)
+  // the app wears the student look, so it's consistent from the first screen.
+  if (status === 'unreachable') return <Welcome><UnreachableScreen onRetry={retry} onLogOut={() => void signOut()} /></Welcome>;
+  if (!user) return <Welcome><LoginScreen /></Welcome>;
   // Registered, but not yet in a tuition: first verify the email, then join.
-  if (!user.role) return user.emailVerified ? <JoinTuitionScreen /> : <VerifyEmailScreen />;
+  if (!user.role) return <Welcome>{user.emailVerified ? <JoinTuitionScreen /> : <VerifyEmailScreen />}</Welcome>;
   // Admin-created students must change their password before using the app.
-  if (user.mustChangePassword && user.role === 'student') return <ForcePasswordChangeScreen />;
+  if (user.mustChangePassword && user.role === 'student') return <Welcome><ForcePasswordChangeScreen /></Welcome>;
 
   // Keyed by the user and workspace, so logging in as someone else, or switching an admin to the
   // Teacher workspace, starts on a fresh first tab with none of the other one's screens left over.
@@ -75,6 +78,11 @@ function SignedInGate() {
   );
 }
 
+/** The screens before sign-in finishes, in the student look. */
+function Welcome({ children }: { children: React.ReactNode }) {
+  return <DesignProvider design={designForRole('student')}>{children}</DesignProvider>;
+}
+
 /** Toasts sit just above the floating tab bar. */
 function ToastLayer({ children }: { children: React.ReactNode }) {
   return <ToastProvider bottomOffset={useTabBarHeight()}>{children}</ToastProvider>;
@@ -91,6 +99,9 @@ function NavigationShell() {
 }
 
 export default function TabLayout() {
+  // The student look's font, bundled; the native splash stays up until it's ready.
+  const fontsReady = useAppFonts();
+  if (!fontsReady) return null;
   return (
     <AppearanceProvider>
       <AuthProvider>

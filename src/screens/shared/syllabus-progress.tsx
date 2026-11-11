@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/app-text';
 import { Card, Chips, ErrorText, ErrorView, Icon, LoadingView, Muted, ProgressBar, usePalette, useLoad } from '@/components/kit';
 import type { SchoolSubject } from '@/constants/school';
 import { bumpDataVersion } from '@/context/data-version';

@@ -7,7 +7,7 @@ import { Badge, Button, Card, Chips, EmptyView, ErrorView, ListRow, Notice, Prog
 import { SubjectChips } from '@/components/subject-chips';
 import type { MeSnapshot } from '@/engagement/engagement-store';
 import { goalFill, goalText, levelCaption, streakCaption } from '@/engagement/progress-format';
-import { useNeoFonts } from '@/design/fonts';
+import { usePreviewFonts } from '@/dev/preview-fonts';
 import { useVibrationSetting } from '@/design/haptics';
 import {
   NeoBigNumberCard,
@@ -35,13 +35,13 @@ import { contrast, FONT_OPTIONS, Neo, type FontOption, type TextVariant } from '
 
 type Mode = 'light' | 'dark';
 type Width = 'full' | 'narrow';
-const FONT_NAMES: Record<FontOption, string> = { chivo: 'Chivo', spaceGrotesk: 'Space Grotesk' };
+const FONT_NAMES: Record<FontOption, string> = { chivo: 'Chivo', archivo: 'Archivo', spaceGrotesk: 'Space Grotesk', familjen: 'Familjen Grotesk', hanken: 'Hanken Grotesk' };
 
 export function StylePreviewScreen() {
   const [mode, setMode] = useState<Mode>('light');
   const [width, setWidth] = useState<Width>('full');
   const [font, setFont] = useState<FontOption>('chivo');
-  const fontsReady = useNeoFonts();
+  const fontsReady = usePreviewFonts();
   return (
     <DesignProvider design="neo" dark={mode === 'dark'} font={font}>
       <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
@@ -99,7 +99,7 @@ function Preview({
         <View style={styles.controls}>
           <Segmented label="Theme" value={mode} onChange={setMode} options={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]} />
           <Segmented label="Width" value={width} onChange={setWidth} options={[{ value: 'full', label: 'This phone' }, { value: 'narrow', label: '320px phone' }]} />
-          <Segmented label="Font" value={font} onChange={setFont} options={[{ value: 'chivo', label: 'Chivo' }, { value: 'spaceGrotesk', label: 'Space Grotesk' }]} />
+          <Chips label="Font (the app uses Chivo; see design/app-font.ts)" choices={Object.keys(FONT_NAMES) as FontOption[]} selected={font} onChange={setFont} labels={FONT_NAMES} />
           <Chips
             label="Vibration (haptics on the main buttons and chips)"
             choices={['on', 'off'] as const}

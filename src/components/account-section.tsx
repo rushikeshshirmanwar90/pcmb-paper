@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/app-text';
 import { confirmAction } from '@/components/confirm-action';
 import { Badge, Card, Field, FormSheet, ListRow, PasswordField, SectionTitle, usePalette } from '@/components/kit';
 import { useAuth, useSignedInUser } from '@/context/auth-context';

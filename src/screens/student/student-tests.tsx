@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/app-text';
 import { Badge, Button, Card, EmptyView, ErrorView, Icon, LoadingView, Screen, SectionTitle, useLoad, usePalette, Muted, ListRow, type IconName } from '@/components/kit';
 import { useTabDataVersion } from '@/context/data-version';
 import {

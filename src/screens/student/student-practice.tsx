@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/app-text';
 import { useRouter } from 'expo-router';
 import { Button, Card, ErrorView, Icon, ListRow, Muted, Notice, Screen, SectionTitle, useLoad, usePalette } from '@/components/kit';
 import { SkeletonCard, StaleNotice } from '@/components/states';

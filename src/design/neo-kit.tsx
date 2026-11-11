@@ -17,6 +17,7 @@ import Svg, { Path } from 'react-native-svg';
 import { SymbolView } from 'expo-symbols';
 import type { IconName } from '@/components/kit';
 import { haptic as hx } from '@/design/haptics';
+import { Illustration, type ArtName } from '@/design/illustrations';
 import { neoAppPalette, type NeoPalette } from '@/design/palette';
 import { useFontOption, useIsDark } from '@/design/scope';
 import { STATUS, statusWord, type StatusKind } from '@/design/status';
@@ -700,12 +701,16 @@ export function Sticker({
 // ─── States ────────────────────────────────────────────────────────────────
 
 /** Why it's empty, and the one action that fills it. */
-export function NeoEmptyView({ icon, title, text, action }: { icon: IconName; title: string; text: string; action?: ReactNode }) {
+export function NeoEmptyView({ icon, title, text, action, art }: { icon: IconName; title: string; text: string; action?: ReactNode; art?: ArtName }) {
   return (
     <View style={styles.empty}>
-      <Sticker size={96} tone="primary" points={12}>
-        <NeoIcon name={icon} size={30} />
-      </Sticker>
+      {art ? (
+        <Illustration name={art} scale={0.85} />
+      ) : (
+        <Sticker size={96} tone="primary" points={12}>
+          <NeoIcon name={icon} size={30} />
+        </Sticker>
+      )}
       <NeoText variant="heading" style={styles.center}>
         {title}
       </NeoText>
@@ -721,7 +726,7 @@ export function NeoEmptyView({ icon, title, text, action }: { icon: IconName; ti
 export function NeoErrorView({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <View style={styles.centered}>
-      <NeoIcon name={{ ios: 'wifi.exclamationmark', android: 'cloud_off' }} size={28} />
+      <Illustration name="offline" scale={0.75} />
       <NeoText variant="subheading" accessibilityLiveRegion="polite" style={styles.center}>
         {message}
       </NeoText>

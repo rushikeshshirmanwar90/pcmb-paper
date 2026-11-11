@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
+import { Text } from '@/components/app-text';
 import { SymbolView } from 'expo-symbols';
 import { MathText } from './math-text';
 import { Diagrams } from './diagrams';

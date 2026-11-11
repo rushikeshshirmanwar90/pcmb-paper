@@ -1,5 +1,6 @@
 import React, { createContext, useContext, type PropsWithChildren } from 'react';
-import { DEFAULT_FONT, type FontOption } from '@/design/tokens';
+import { APP_FONT } from '@/design/app-font';
+import type { FontOption } from '@/design/tokens';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 // Which look a part of the app uses: the student login gets the neobrutalism
@@ -10,10 +11,10 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 export type Design = 'classic' | 'neo';
 
 /**
- * Off until the student look is approved (Step 3 stops at the style preview).
- * While off, every role renders classic, pixel for pixel as before.
+ * The student look is on (approved). Switch it off and every role renders
+ * classic again, pixel for pixel.
  */
-export const STUDENT_LOOK_LIVE = false;
+export const STUDENT_LOOK_LIVE = true;
 
 export const designForRole = (role?: string | null): Design => (STUDENT_LOOK_LIVE && role === 'student' ? 'neo' : 'classic');
 
@@ -29,7 +30,7 @@ export function DesignProvider({ design, dark, font, children }: PropsWithChildr
 }
 
 /** The student look's font family for this part of the tree. */
-export const useFontOption = (): FontOption => useContext(DesignContext).font ?? DEFAULT_FONT;
+export const useFontOption = (): FontOption => useContext(DesignContext).font ?? APP_FONT;
 
 export const useDesign = () => useContext(DesignContext).design;
 

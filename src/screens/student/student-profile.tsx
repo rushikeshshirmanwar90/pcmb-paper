@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Linking, StyleSheet, Switch, Text, View } from 'react-native';
+import { Linking, StyleSheet, Switch, View } from 'react-native';
+import { Text } from '@/components/app-text';
 import { AccountSettings, ProfileHeader } from '@/components/account-section';
 import { Badge, Button, Card, Icon, ListRow, Muted, Notice, SectionTitle, Screen, Segmented, useLoad, usePalette, type IconName } from '@/components/kit';
 import { PROGRAM_LABELS, programOf } from '@/constants/school';
