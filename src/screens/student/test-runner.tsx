@@ -2,7 +2,7 @@ import { reopenVisibility } from '@/screens/student/exam-visibility';
 import { useExamVisibility } from '@/screens/student/use-exam-visibility';
 import { acceptsAttemptStatus } from '@/screens/student/attempt-status';
 import { RestrictedTest } from '@/screens/student/test-access';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, type ScrollViewInstance, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { allowScreenCaptureAsync, preventScreenCaptureAsync } from 'expo-screen-capture';
@@ -31,6 +31,7 @@ import { useSignedInUser } from '@/context/auth-context';
 import { bumpDataVersion } from '@/context/data-version';
 import { AWAY_LIMIT_MS, backAction, cellStatus, examCounts, type MultiWindowReading, secondsLeft, skewOf, type CellStatus } from '@/screens/student/exam-guard';
 import { useExamSecurity, useMultiWindow } from '@/screens/student/exam-security';
+import { answeredIn, buildSections, landingFor, sectionOf, stepFrom, walkOrder, type ExamSection } from '@/screens/student/exam-sections';
 import { createAnswerSaver, type AnswerSaver, type SaveState } from '@/screens/student/answer-saver';
 import { mergeSavedAnswers, restorableAnswers, type SavedAnswer } from '@/screens/student/answer-sync';
 import { ApiError } from '@/services/api-client';
@@ -417,6 +418,10 @@ function Runner({
   const savedAnswers = useRef(new Map<number, SavedAnswer>(initialAttempt.answers.map(a => [a.index, a])));
   const submittedRef = useRef(false);
   const scrollRef = useRef<ScrollViewInstance>(null);
+  // Subjects are read from the questions' own subject field; the walking order keeps each subject together.
+  const sections = useMemo(() => buildSections(questions), [questions]);
+  const order = useMemo(() => walkOrder(sections), [sections]);
+  const lastInSection = useRef(new Map<string, number>());
 
   // Autosave: changed answers go a moment after the last change; a failed
   // save is kept and tried again, and the status always says which it is.
@@ -554,6 +559,8 @@ function Runner({
     const target = Math.min(questions.length - 1, Math.max(0, position));
     positionRef.current = target;
     setCurrent(target);
+    const owner = sectionOf(sections, target);
+    if (owner) lastInSection.current.set(owner.key, target);
     visitedRef.current.add(questions[target].index);
     persistDraftNow();
     setVisited((v) => (v.has(questions[target].index) ? v : new Set(v).add(questions[target].index)));
@@ -675,12 +682,15 @@ function Runner({
 
   const isAnswered = (index: number) => (answers.get(index) ?? null) !== null;
   const statusOf = (index: number): CellStatus => cellStatus(isAnswered(index), marked.has(index), visited.has(index));
+  const answeredAt = (position: number) => isAnswered(questions[position].index);
+  const numberAt = (position: number) => order.indexOf(position) + 1;
   const counts = examCounts(questions.map((x) => statusOf(x.index)));
   const answeredCount = counts.answered;
 
   const askSubmit = () => {
     if (suspended || frozen || visibilityBlocked || remaining === 0) return;
-    const message = `Answered: ${counts.answered}
+    const bySubject = sections.length > 1 ? `${sections.map((s) => `${s.label}: ${answeredIn(s, answeredAt)}/${s.positions.length}`).join('\n')}\n\n` : '';
+    const message = `${bySubject}Answered: ${counts.answered}
 Unanswered: ${counts.unanswered}
 Marked for Review: ${counts.marked}
 
@@ -698,7 +708,11 @@ ${message}`)) void submit();
   };
 
   const q = questions[current];
-  const last = current === questions.length - 1;
+  const section = sectionOf(sections, current) ?? sections[0];
+  const prevPosition = stepFrom(order, current, -1);
+  const nextPosition = stepFrom(order, current, 1);
+  const last = nextPosition === null;
+  const number = numberAt(current);
   const answeredNow = isAnswered(q.index);
   const markedNow = marked.has(q.index);
   const timeUp = remaining === 0;
@@ -711,7 +725,7 @@ ${message}`)) void submit();
         <View style={[styles.statusRow, column]}>
           <View style={styles.flex}>
             <Text style={[styles.position, { color: palette.foreground }]}>
-              Question {current + 1} <Text style={{ color: palette.mutedForeground }}>of {questions.length}</Text>
+              Question {number} <Text style={{ color: palette.mutedForeground }}>of {questions.length}</Text>
             </Text>
             <SaveStatus state={saveState} onRetry={() => saverRef.current?.retryNow()} />
           </View>
@@ -729,6 +743,13 @@ ${message}`)) void submit();
             <Icon name={showPalette ? { ios: 'chevron.up', android: 'expand_less' } : { ios: 'chevron.down', android: 'expand_more' }} color={palette.mutedForeground} size={14} />
           </Pressable>
         </View>
+        {sections.length > 1 ? (
+          <SubjectTabs sections={sections} active={section.key} answeredAt={answeredAt} onPick={(s) => { lastInSection.current.set(section.key, current); goTo(landingFor(s, lastInSection.current)); }} />
+        ) : (
+          <Text style={[styles.subjectLine, { color: palette.mutedForeground }, column]} numberOfLines={1}>
+            {section.label} · {answeredIn(section, answeredAt)}/{section.positions.length} answered
+          </Text>
+        )}
         <View style={column}>
           <ProgressBar value={(answeredCount / questions.length) * 100} />
         </View>
@@ -737,6 +758,8 @@ ${message}`)) void submit();
       {showPalette ? (
         <QuestionPalette
           questions={questions}
+          sections={sections}
+          numberAt={numberAt}
           current={current}
           statusOf={statusOf}
           onPick={(i) => {
@@ -774,7 +797,7 @@ ${message}`)) void submit();
       <ScrollView ref={scrollRef} contentContainerStyle={[styles.body, column]} keyboardShouldPersistTaps="handled">
         <View style={styles.qMeta}>
           <Text style={[styles.qMetaText, { color: palette.primary }]} numberOfLines={1}>
-            Q{current + 1} · {q.chapter || q.subject}
+            Q{number} · {q.chapter || q.subject}
           </Text>
           <Text style={[styles.qMarks, { color: palette.mutedForeground }]}>
             +{test.marksPerQuestion}
@@ -808,14 +831,14 @@ ${message}`)) void submit();
             label="Previous"
             variant="secondary"
             icon={{ ios: 'chevron.left', android: 'chevron_left' }}
-            onPress={() => goTo(current - 1)}
-            disabled={current === 0}
+            onPress={() => prevPosition !== null && goTo(prevPosition)}
+            disabled={prevPosition === null}
             style={styles.flex}
           />
           {last ? (
             <Button label="Submit test" icon={{ ios: 'paperplane.fill', android: 'send' }} onPress={askSubmit} loading={submitting} style={styles.flex} />
           ) : (
-            <Button label="Next" onPress={() => goTo(current + 1)} style={styles.flex} />
+            <Button label="Next" onPress={() => nextPosition !== null && goTo(nextPosition)} style={styles.flex} />
           )}
         </View>
         {!last ? <QuietButton label="Submit test" onPress={askSubmit} disabled={submitting} /> : null}
@@ -889,14 +912,51 @@ function SaveStatus({ state, onRetry }: { state: SaveState; onRetry: () => void 
   );
 }
 
+/** Compact subject switcher: two or three share the width, more scroll sideways. */
+function SubjectTabs({ sections, active, answeredAt, onPick }: { sections: ExamSection[]; active: string; answeredAt: (position: number) => boolean; onPick: (section: ExamSection) => void }) {
+  const palette = usePalette();
+  const scrolls = sections.length > 3;
+  const tabs = sections.map((s) => {
+    const on = s.key === active;
+    const done = answeredIn(s, answeredAt);
+    return (
+      <Pressable
+        key={s.key}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: on }}
+        accessibilityLabel={`${s.label}, ${done} of ${s.positions.length} answered`}
+        onPress={() => onPick(s)}
+        style={({ pressed }) => [
+          styles.subjectTab,
+          scrolls ? styles.subjectTabScroll : styles.flex,
+          { backgroundColor: on ? palette.primarySoft : palette.secondary, borderColor: on ? palette.primaryBorder : 'transparent' },
+          pressed && styles.pressed,
+        ]}
+      >
+        <Text numberOfLines={1} style={[styles.subjectName, { color: on ? palette.primaryInk : palette.foreground }]}>{s.label}</Text>
+        <Text numberOfLines={1} style={[styles.subjectCount, { color: on ? palette.primaryInk : palette.mutedForeground }]}>{done}/{s.positions.length} answered</Text>
+      </Pressable>
+    );
+  });
+  return scrolls ? (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} accessibilityRole="tablist" contentContainerStyle={styles.subjectRow}>{tabs}</ScrollView>
+  ) : (
+    <View accessibilityRole="tablist" style={[styles.subjectRow, column]}>{tabs}</View>
+  );
+}
+
 /** Every question at a glance: answered, not answered, marked, and where you are. */
 function QuestionPalette({
   questions,
+  sections,
+  numberAt,
   current,
   statusOf,
   onPick,
 }: {
   questions: TestQuestion[];
+  sections: ExamSection[];
+  numberAt: (position: number) => number;
   current: number;
   statusOf: (index: number) => CellStatus;
   onPick: (position: number) => void;
@@ -919,45 +979,57 @@ function QuestionPalette({
             <Text style={[styles.legendText, { color: palette.mutedForeground }]}>Marked · answered and marked</Text>
           </View>
         </View>
-        <ScrollView style={styles.paletteScroll} contentContainerStyle={styles.grid} nestedScrollEnabled>
-          {questions.map((x, i) => {
-            const status = statusOf(x.index);
-            const done = status === 'answered' || status === 'answered-marked';
-            const isMarked = status === 'marked' || status === 'answered-marked';
-            const unseen = status === 'not-visited';
-            const here = i === current;
-            const states = [
-              done ? 'answered' : unseen ? 'not visited' : 'not answered',
-              isMarked ? 'marked for review' : null,
-              here ? 'current' : null,
-            ]
-              .filter(Boolean)
-              .join(', ');
-            return (
-              <Pressable
-                key={x.index}
-                accessibilityRole="button"
-                accessibilityLabel={`Question ${i + 1}, ${states}`}
-                onPress={() => onPick(i)}
-                style={({ pressed }) => [
-                  styles.cell,
-                  {
-                    backgroundColor: done ? palette.primarySoft : unseen ? palette.secondary : palette.card,
-                    borderColor: here ? palette.primary : done ? palette.primaryBorder : unseen ? palette.border : palette.borderStrong,
-                    borderWidth: here ? 2 : 1,
-                  },
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text style={[styles.cellText, { color: done ? palette.primaryInk : palette.foreground }]}>{i + 1}</Text>
-                {isMarked ? (
-                  <View style={[styles.cellMark, { backgroundColor: palette.violet, borderColor: palette.card }]}>
-                    <Icon name={{ ios: 'bookmark.fill', android: 'bookmark' }} color={palette.card} size={8} />
-                  </View>
-                ) : null}
-              </Pressable>
-            );
-          })}
+        <ScrollView style={styles.paletteScroll} contentContainerStyle={styles.paletteContent} nestedScrollEnabled>
+          {sections.map((section) => (
+            <View key={section.key} style={styles.paletteGroup}>
+              {sections.length > 1 ? (
+                <Text accessibilityRole="header" style={[styles.paletteSubject, { color: palette.mutedForeground }]}>
+                  {section.label.toUpperCase()} · {section.positions.filter((p) => { const st = statusOf(questions[p].index); return st === 'answered' || st === 'answered-marked'; }).length}/{section.positions.length}
+                </Text>
+              ) : null}
+              <View style={styles.grid}>
+                {section.positions.map((i) => {
+                  const x = questions[i];
+                  const status = statusOf(x.index);
+                  const done = status === 'answered' || status === 'answered-marked';
+                  const isMarked = status === 'marked' || status === 'answered-marked';
+                  const unseen = status === 'not-visited';
+                  const here = i === current;
+                  const states = [
+                    done ? 'answered' : unseen ? 'not visited' : 'not answered',
+                    isMarked ? 'marked for review' : null,
+                    here ? 'current' : null,
+                  ]
+                    .filter(Boolean)
+                    .join(', ');
+                  return (
+                    <Pressable
+                      key={x.index}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${sections.length > 1 ? `${section.label} ` : ''}question ${numberAt(i)}, ${states}`}
+                      onPress={() => onPick(i)}
+                      style={({ pressed }) => [
+                        styles.cell,
+                        {
+                          backgroundColor: done ? palette.primarySoft : unseen ? palette.secondary : palette.card,
+                          borderColor: here ? palette.primary : done ? palette.primaryBorder : unseen ? palette.border : palette.borderStrong,
+                          borderWidth: here ? 2 : 1,
+                        },
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Text style={[styles.cellText, { color: done ? palette.primaryInk : palette.foreground }]}>{numberAt(i)}</Text>
+                      {isMarked ? (
+                        <View style={[styles.cellMark, { backgroundColor: palette.violet, borderColor: palette.card }]}>
+                          <Icon name={{ ios: 'bookmark.fill', android: 'bookmark' }} color={palette.card} size={8} />
+                        </View>
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ))}
         </ScrollView>
       </View>
     </View>
@@ -1250,8 +1322,17 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendText: { fontSize: 12 },
   swatch: { width: 14, height: 14, borderRadius: 4 },
-  paletteScroll: { maxHeight: 232 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 4, paddingRight: 4 },
+  paletteScroll: { maxHeight: 260 },
+  paletteContent: { gap: 10, paddingTop: 4 },
+  paletteGroup: { gap: 6 },
+  paletteSubject: { fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingRight: 4 },
+  subjectRow: { flexDirection: 'row', gap: 8 },
+  subjectTab: { minHeight: 48, minWidth: 0, borderRadius: 12, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
+  subjectTabScroll: { minWidth: 112 },
+  subjectName: { fontSize: 14, fontWeight: '700' },
+  subjectCount: { fontSize: 11, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  subjectLine: { fontSize: 12, fontWeight: '600' },
   cell: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   cellText: { fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
   cellMark: { position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },

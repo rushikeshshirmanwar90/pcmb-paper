@@ -269,6 +269,8 @@ export interface TeacherOverview {
 
 /** A test to set or change. `startNow` opens it at the server's clock; otherwise `opensAt` (in the future) is needed. */
 export type NewTest = {
+  subjects?: string[];
+  subjectTargets?: { subject: string; count: number }[];
   requestId?: string;
   batchId: string;
   batchIds?: string[];
@@ -327,7 +329,7 @@ export const schoolApi = {
   /** One student's attempt, question by question (teachers and the tuition). */
   studentResult: (id: string, studentId: string) => api<StudentPerformance>(`/tests/${id}/results/${studentId}`),
   testBatches: () => api<{ batches: TestBatch[] }>('/tests/batches').then((r) => r.batches),
-  testAudience: (batchIds: string[], subject: string) => api<{ students: { id: string; name: string }[] }>('/tests/audience', { method: 'POST', body: { batchIds, subject } }),
+  testAudience: (batchIds: string[], subject: string, subjects?: string[]) => api<{ students: { id: string; name: string }[] }>('/tests/audience', { method: 'POST', body: { batchIds, subject, subjects } }),
   testAccess: (id: string, studentId: string, action: 'approve' | 'decline' | 'grant' | 'revoke') => api('/tests/' + id + '/access', { method: 'POST', body: { studentId, action } }),
   createTest: (input: NewTest) => api<{ test: TestSummary }>('/tests', { method: 'POST', body: input }).then((r) => r.test),
   /** Edits an upcoming test that nobody has started, or closes an open one early with { closeNow: true }. */

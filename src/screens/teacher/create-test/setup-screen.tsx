@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { DropdownSelect } from '@/components/dropdown-select';
 import { MultiSelectDropdown } from '@/components/multi-select-dropdown';
-import { Button, Card, DetailRow, ErrorView, Field, Icon, LoadingView, Muted, Notice, SectionTitle, useLoad, usePalette } from '@/components/kit';
+import { Button, Card, DetailRow, ErrorView, Field, Icon, LoadingView, Muted, Notice, SectionTitle, Segmented, useLoad, usePalette } from '@/components/kit';
 import { bumpDataVersion } from '@/context/data-version';
 import { FlowPage } from '@/screens/teacher/create-test/flow-page';
 import { useTestDraft } from '@/screens/teacher/create-test/draft';
@@ -11,6 +11,7 @@ import { deriveScope, isDerived, uniqueLabels } from '@/screens/teacher/create-t
 import { DateField } from '@/screens/teacher/date-field';
 import { durationProblem, marksProblem, maxMarks, scheduleProblem, suggestClosing, timeOf, withDay, withTime } from '@/screens/teacher/test-schedule';
 import { TimeField } from '@/screens/tuition/time-field';
+import { selectionProblem } from '@/screens/teacher/question-selection/model';
 import { dateTimeLabel, schoolApi, type TestSummary } from '@/services/school-api';
 
 const MODES = { all: 'All Students', selected: 'Selected Only' } as const;
@@ -23,11 +24,12 @@ export function SetupScreen() {
   const batches = useLoad(() => schoolApi.testBatches(), []);
   const derivation = deriveScope((batches.data ?? []).filter((b) => draft.batchIds.includes(b.id)));
   const derived = isDerived(derivation) ? derivation : null;
-  const subject = derived?.subjects.includes(draft.subject) ? draft.subject : '';
-  const ready = !!derived && !!subject && draft.questions.length > 0;
+  const subjects = draft.selections.map(s => s.subject);
+  const subject = subjects.join(', ');
+  const ready = !!derived && subjects.every(s => derived.subjects.includes(s)) && !selectionProblem(draft.selections);
 
   const audienceKey = draft.batchIds.slice().sort().join(',');
-  const audience = useLoad(() => schoolApi.testAudience(draft.batchIds, subject), [audienceKey, subject], { enabled: ready });
+  const audience = useLoad(() => schoolApi.testAudience(draft.batchIds, subjects[0], subjects), [audienceKey, subject], { enabled: ready });
   const students = audience.data?.students ?? [];
   const labels = uniqueLabels(students);
   const allowedOnly = draft.audienceMode === 'selected';
@@ -35,13 +37,20 @@ export function SetupScreen() {
   const eligible = allowedOnly ? picked.length : Math.max(0, students.length - picked.length);
 
   const duration = Number(draft.minutes) || 0;
+  const mode = draft.startMode ?? 'later';
   const opens = withTime(draft.date, draft.start);
   const closes = draft.end ? withTime(draft.date, draft.end) : suggestClosing(opens, duration || 60);
+  // The API requires a closing time even for Start Now. Reuse the existing
+  // duration-plus-an-hour suggestion, refreshed when submitting.
+  const timing = () => mode === 'now'
+    ? { startNow: true, closesAt: suggestClosing(new Date(), duration).toISOString() }
+    : { startNow: false, opensAt: opens.toISOString(), closesAt: closes.toISOString() };
   const marksPer = Number(draft.correct) || 0;
   const negative = Number(draft.wrong) || 0;
 
-  const timingProblem = () => marksProblem(draft.correct, draft.wrong) ?? durationProblem(draft.minutes) ?? scheduleProblem({ mode: 'later', opensAt: opens, closesAt: closes, durationMinutes: duration });
+  const timingProblem = () => marksProblem(draft.correct, draft.wrong) ?? durationProblem(draft.minutes) ?? (mode === 'later' ? scheduleProblem({ mode, opensAt: opens, closesAt: closes, durationMinutes: duration }) : null);
   const problem = () =>
+    (!ready ? 'Finish subject selections on page 1.' : null) ??
     (!audience.data ? 'Wait for the student list to load.' : null) ??
     (allowedOnly && !draft.studentIds.length ? 'Select at least one allowed student.' : null) ??
     timingProblem();
@@ -69,14 +78,14 @@ export function SetupScreen() {
         ...(allowedOnly ? { studentIds: draft.studentIds } : { excludedStudentIds: draft.excludedStudentIds }),
         title: draft.title.trim(),
         subject,
+        subjects,
+        subjectTargets: draft.selections.map(s => ({ subject: s.subject, count: s.target })),
         standard: derived.standard,
         questions: draft.questions,
         durationMinutes: duration,
         marksPerQuestion: marksPer,
         negativeMarks: negative,
-        startNow: false,
-        opensAt: opens.toISOString(),
-        closesAt: closes.toISOString(),
+        ...timing(),
       });
       markSaved();
       bumpDataVersion();
@@ -110,7 +119,7 @@ export function SetupScreen() {
           <View style={[styles.doneIcon, { backgroundColor: palette.successSoft }]}>
             <Icon name={{ ios: 'checkmark', android: 'check' }} color={palette.successInk} size={30} />
           </View>
-          <Text accessibilityRole="header" style={[styles.doneTitle, { color: palette.foreground }]}>TEST SCHEDULED SUCCESSFULLY</Text>
+          <Text accessibilityRole="header" style={[styles.doneTitle, { color: palette.foreground }]}>{saved.status === 'scheduled' ? 'TEST SCHEDULED SUCCESSFULLY' : 'TEST CREATED SUCCESSFULLY'}</Text>
         </View>
         <Card>
           <DetailRow label="Title" value={saved.title} />
@@ -126,7 +135,7 @@ export function SetupScreen() {
 
   const marksError = tried ? marksProblem(draft.correct, draft.wrong) : null;
   const durationError = tried ? durationProblem(draft.minutes) : null;
-  const scheduleError = tried && !marksError && !durationError ? scheduleProblem({ mode: 'later', opensAt: opens, closesAt: closes, durationMinutes: duration }) : null;
+  const scheduleError = tried && mode === 'later' && !marksError && !durationError ? scheduleProblem({ mode, opensAt: opens, closesAt: closes, durationMinutes: duration }) : null;
 
   return (
     <FlowPage
@@ -184,12 +193,21 @@ export function SetupScreen() {
           {tried && allowedOnly && !draft.studentIds.length ? <Notice tone="danger" text="Select at least one allowed student." /> : null}
 
           <SectionTitle title="Test settings" />
+          <SectionTitle title="When should the test start?" />
+          <Segmented
+            label="When should the test start?"
+            options={[{ value: 'now', label: 'Start Now' }, { value: 'later', label: 'Schedule for Later' }]}
+            value={mode}
+            onChange={(startMode) => { update({ startMode }); setError(null); }}
+          />
+          {mode === 'later' ? <>
           <DateField label="Test Date" value={draft.date} minimumDate={new Date()} onChange={(day) => update({ date: withDay(draft.date, day) })} />
           <View style={styles.row}>
             <View style={styles.flex}><TimeField label="Start Time" value={draft.start} onChange={(start) => update({ start })} /></View>
             <View style={styles.flex}><TimeField label="End Time" value={timeOf(closes)} onChange={(end) => update({ end })} /></View>
           </View>
           {scheduleError ? <Notice tone="danger" text={scheduleError} live /> : null}
+          </> : <Muted>Opens when created for eligible students. Closes after the time limit plus an hour, rounded to the next 5 minutes.</Muted>}
           <Field label="Duration (minutes)" value={draft.minutes} onChangeText={(v) => update({ minutes: v.replace(/\D/g, '') })} keyboardType="number-pad" maxLength={3} hint="Starts when a student opens the test." error={durationError} />
           <View style={styles.row}>
             <View style={styles.flex}>
