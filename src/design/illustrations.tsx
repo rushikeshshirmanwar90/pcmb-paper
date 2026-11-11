@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
+import { SymbolView, type AndroidSymbol, type SFSymbol } from 'expo-symbols';
 import { useIsDark } from '@/design/scope';
 
 // The student look's artwork (design/graphics: philosophy, briefs, masters,
@@ -62,4 +63,20 @@ export function subjectArt(subject: string): ArtName | null {
   if (s.startsWith('math')) return 'maths';
   if (s.startsWith('bio')) return 'biology';
   return null;
+}
+
+/**
+ * A subject at a glance in rows and cards: its tile illustration (Physics,
+ * Chemistry, Maths, Biology) at `size`, or the given icon in an outlined
+ * square for anything else (mixed tests). Decorative: the subject is named
+ * in the text beside it.
+ */
+export function SubjectMark({ subject, size = 40, icon, ink, fill }: { subject: string; size?: number; icon: { ios: SFSymbol; android: AndroidSymbol }; ink: string; fill: string }) {
+  const art = subjectArt(subject);
+  if (art) return <Illustration name={art} scale={size / 48} />;
+  return (
+    <View accessible={false} importantForAccessibility="no-hide-descendants" style={{ width: size, height: size, borderRadius: 10, borderWidth: 2, borderColor: ink, backgroundColor: fill, alignItems: 'center', justifyContent: 'center' }}>
+      <SymbolView name={{ ios: icon.ios, android: icon.android, web: icon.android }} tintColor={ink} size={Math.round(size * 0.48)} />
+    </View>
+  );
 }

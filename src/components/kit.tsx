@@ -18,6 +18,8 @@ import {
 import { Text, TextInput } from '@/components/app-text';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView, type AndroidSymbol, type SFSymbol } from 'expo-symbols';
+import { StatusBar } from 'expo-status-bar';
+import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { AppHeader } from '@/components/app-header';
 import { WorkspaceSwitcher } from '@/components/workspace-switcher';
 import { confirmAction } from '@/components/confirm-action';
@@ -140,7 +142,7 @@ export function Screen({
             onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={neo ? palette.ink : palette.primary} colors={neo ? [palette.ink] : undefined} /> : undefined
           }
         >
-          {children}
+          {neo ? <EnterOnce>{children}</EnterOnce> : children}
         </ScrollView>
       ) : (
         <View style={[styles.content, styles.flex, { paddingBottom: footer ? 0 : tabBarHeight }]}>{children}</View>
@@ -150,10 +152,42 @@ export function Screen({
   );
 }
 
+/**
+ * The screen's blocks arrive once, rising a few points in a short stagger
+ * (first six only), when the screen first shows: never again on refresh or
+ * scroll, since the wrappers stay mounted. Reduce Motion: no movement.
+ */
+function EnterOnce({ children }: PropsWithChildren) {
+  const reduce = useReducedMotion();
+  // Open for the screen's first moments only; later blocks (data arriving, refreshes) just appear in place.
+  const [open, setOpen] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setOpen(false), 1200);
+    return () => clearTimeout(t);
+  }, []);
+  let i = 0;
+  return (
+    <>
+      {React.Children.map(children, (child) => {
+        if (!React.isValidElement(child)) return child;
+        const index = i++;
+        const animate = open && !reduce && index < 6;
+        return (
+          <Animated.View entering={animate ? FadeInDown.duration(220).delay(index * 40) : undefined} style={styles.enter}>
+            {child}
+          </Animated.View>
+        );
+      })}
+    </>
+  );
+}
+
 /** The student look's tab header: big bold title on the cream page, one plain line under it, no rule. */
 function NeoHeader({ title, subtitle, right, art }: { title: string; subtitle: string; right?: ReactNode; art?: ReactNode }) {
+  const dark = useIsDark();
   return (
     <View style={styles.neoHeader}>
+      <StatusBar style={dark ? 'light' : 'dark'} />
       {art ? (
         <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.absoluteFill}>
           {art}
@@ -1009,6 +1043,7 @@ const styles = StyleSheet.create({
   // Student look
   neoHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: Neo.screenPadding, paddingTop: 12, paddingBottom: 8, minHeight: 72, width: '100%', maxWidth: 900, alignSelf: 'center' },
   neoContent: { gap: 16, paddingTop: 8 },
+  enter: { gap: 16 },
   neoSheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: Neo.screenPadding, paddingBottom: 10 },
   neoSheetFooter: { borderTopWidth: Neo.border.width },
   neoFieldLabel: { fontSize: 14, fontWeight: '600' },

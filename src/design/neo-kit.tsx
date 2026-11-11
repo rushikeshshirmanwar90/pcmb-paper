@@ -1,7 +1,8 @@
-import React, { createContext, useContext, type PropsWithChildren, type ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, type PropsWithChildren, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Platform,
+  TextInput,
   Pressable,
   StyleSheet,
   Text,
@@ -12,7 +13,7 @@ import {
   type TextProps,
   type ViewStyle,
 } from 'react-native';
-import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, LinearTransition, useAnimatedProps, useAnimatedStyle, useDerivedValue, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 import { SymbolView } from 'expo-symbols';
 import type { IconName } from '@/components/kit';
@@ -87,9 +88,13 @@ export function NeoText({ variant = 'body', soft, style, ...rest }: TextProps & 
   const plain = ink === p.ink;
   const quiet = variant === 'overline' || soft;
   const big = variant === 'display' || variant === 'title' || variant === 'overline' || variant === 'bigNumber';
+  // Headings break into even lines, so no word is left alone on the last one.
+  const heading = variant === 'display' || variant === 'title' || variant === 'heading' || variant === 'subheading';
   return (
     <Text
       maxFontSizeMultiplier={big ? 1.3 : 1.6}
+      textBreakStrategy={heading ? 'balanced' : undefined}
+      lineBreakStrategyIOS={heading ? 'push-out' : undefined}
       {...rest}
       style={[type[variant], styles.noPad, { color: quiet && plain ? p.inkSoft : ink }, quiet && !plain && styles.softOnFill, style]}
     />
@@ -478,12 +483,64 @@ export function NeoProgressBar({ value, tone = 'primary' }: { value: number; ton
   const p = useNeoPalette();
   const pct = Math.max(0, Math.min(100, Math.round(value)));
   const fill = tone === 'success' ? p.success : tone === 'danger' ? p.danger : p.primary;
+  const w = useFill(pct);
+  const fillStyle = useAnimatedStyle(() => ({ width: `${w.value}%` }));
   return (
     <View accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: pct }} style={[styles.trackOuter, hardShadow(Neo.shadow.sm, p.ink)]}>
       <View style={[styles.track, { borderColor: p.ink, backgroundColor: p.surface }]}>
-        <View style={[styles.trackFill, { width: `${pct}%`, backgroundColor: fill, borderRightWidth: pct > 0 && pct < 100 ? 2 : 0, borderColor: p.ink }]} />
+        <Animated.View style={[styles.trackFill, { backgroundColor: fill, borderRightWidth: pct > 0 && pct < 100 ? 2 : 0, borderColor: p.ink }, fillStyle]} />
       </View>
     </View>
+  );
+}
+
+const EASE = Easing.out(Easing.cubic);
+
+/**
+ * A bar's fill (0–100): fills from empty once when it first appears, then
+ * grows smoothly; a drop jumps (losing is never animated). Reduce Motion: the
+ * final width straight away.
+ */
+export function useFill(target: number) {
+  const reduce = useReducedMotion();
+  const w = useSharedValue(reduce ? target : 0);
+  useEffect(() => {
+    if (reduce || target < w.value) w.set(target);
+    else w.set(withTiming(target, { duration: 600, easing: EASE }));
+  }, [target, reduce, w]);
+  return w;
+}
+
+const AnimatedInput = Animated.createAnimatedComponent(TextInput);
+
+/**
+ * A number that counts up once when it first appears (progress, scores, XP),
+ * then shows changes straight away. Tabular digits so it doesn't jiggle;
+ * read out as the final value. Reduce Motion: the final number at once.
+ */
+export function CountUp({ to, prefix = '', suffix = '', variant = 'number', style }: { to: number; prefix?: string; suffix?: string; variant?: TextVariant; style?: TextProps['style'] }) {
+  const p = useNeoPalette();
+  const type = useType();
+  const ink = useInk();
+  const reduce = useReducedMotion();
+  const v = useSharedValue(reduce ? to : 0);
+  useEffect(() => {
+    v.set(reduce ? to : withTiming(to, { duration: 650, easing: EASE }));
+  }, [to, reduce, v]);
+  const text = useDerivedValue(() => `${prefix}${Math.round(v.value)}${suffix}`);
+  const animatedProps = useAnimatedProps(() => ({ text: text.value, defaultValue: text.value }) as object);
+  return (
+    <AnimatedInput
+      editable={false}
+      caretHidden
+      underlineColorAndroid="transparent"
+      accessible
+      accessibilityLabel={`${prefix}${to}${suffix}`}
+      maxFontSizeMultiplier={1.3}
+      animatedProps={animatedProps}
+      defaultValue={`${prefix}${reduce ? to : 0}${suffix}`}
+      style={[type[variant], styles.noPad, styles.countUp, { color: ink === p.ink ? p.ink : ink }, style]}
+    />
   );
 }
 
@@ -500,15 +557,23 @@ const STAT_TONE: Record<'primary' | 'success' | 'violet' | 'warning' | 'danger' 
 export function NeoStatTile({ label, value, icon, tone = 'primary' }: { label: string; value: string | number; icon: IconName; tone?: keyof typeof STAT_TONE }) {
   return (
     <NeoCard tone={STAT_TONE[tone]} style={styles.stat}>
-      <View style={styles.inline}>
-        <NeoIcon name={icon} size={16} />
-        <NeoText variant="overline" numberOfLines={1} style={styles.shrink}>
+      <View accessible accessibilityLabel={`${label}: ${value}`}>
+        <View style={styles.inline}>
+          <NeoIcon name={icon} size={18} />
+          {typeof value === 'number' ? (
+            <CountUp to={value} />
+          ) : /^\d+%$/.test(value) ? (
+            <CountUp to={Number(value.slice(0, -1))} suffix="%" />
+          ) : (
+            <NeoText variant="number" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={styles.shrink}>
+              {value}
+            </NeoText>
+          )}
+        </View>
+        <NeoText variant="caption" soft numberOfLines={2}>
           {label}
         </NeoText>
       </View>
-      <NeoText variant="number" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-        {value}
-      </NeoText>
     </NeoCard>
   );
 }
@@ -778,13 +843,14 @@ export function NeoTabBar<K extends string>({ tabs, value, onChange }: { tabs: r
       {tabs.map((t) => {
         const on = t.key === value;
         return (
-          <Pressable
+          <AnimatedPressable
             key={t.key}
+            layout={TAB_LAYOUT}
             accessibilityRole="tab"
             accessibilityLabel={t.label}
             accessibilityState={{ selected: on }}
             onPress={() => onChange(t.key)}
-            style={({ pressed }) => [styles.tab, on ? styles.tabOn : styles.tabOff, { backgroundColor: on ? p.primary : p.surface, borderColor: p.ink }, pressed && !on && styles.pressed]}
+            style={({ pressed }: { pressed: boolean }) => [styles.tab, on ? styles.tabOn : styles.tabOff, { backgroundColor: on ? p.primary : p.surface, borderColor: p.ink }, pressed && !on && styles.pressed]}
           >
             <InkContext.Provider value={on ? p.onAccent : p.ink}>
               <NeoIcon name={t.icon} size={20} />
@@ -794,12 +860,16 @@ export function NeoTabBar<K extends string>({ tabs, value, onChange }: { tabs: r
                 </NeoText>
               ) : null}
             </InkContext.Provider>
-          </Pressable>
+          </AnimatedPressable>
         );
       })}
     </View>
   );
 }
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+// The yellow pill glides to the tab you chose; a firm spring with no wobble (Reduce Motion: it jumps).
+const TAB_LAYOUT = LinearTransition.springify().damping(24).stiffness(320);
 
 const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
@@ -820,7 +890,7 @@ const styles = StyleSheet.create({
   pill: { alignSelf: 'flex-start', borderWidth: Neo.border.width, borderRadius: Neo.radius.full, paddingHorizontal: 10, minHeight: 26, justifyContent: 'center' },
   status: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 28 },
   subjectRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
-  subject: { maxWidth: 160, minHeight: 24, paddingHorizontal: 9 },
+  subject: { maxWidth: 180, minHeight: 26, paddingHorizontal: 10 },
   field: { gap: 8 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chipFace: { paddingHorizontal: 14, minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -830,7 +900,8 @@ const styles = StyleSheet.create({
   trackOuter: { borderRadius: Neo.radius.full, marginRight: Neo.shadow.sm, marginBottom: Neo.shadow.sm },
   track: { height: 16, borderRadius: Neo.radius.full, borderWidth: Neo.border.width, padding: 2, overflow: 'hidden' },
   trackFill: { height: '100%', borderRadius: Neo.radius.full },
-  stat: { flexGrow: 1, flexBasis: '30%', minWidth: 96, gap: 4, padding: Neo.space.md },
+  stat: { flexGrow: 1, flexBasis: '28%', minWidth: 92, gap: 4, padding: Neo.space.md },
+  countUp: { padding: 0, margin: 0, minWidth: 0, flexShrink: 1 },
   actions: { flexDirection: 'row', gap: 8 },
   tile: { width: 76, minHeight: 88, alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 4, paddingVertical: 8 },
   tileCircle: { width: 36, height: 36, borderRadius: 18, borderWidth: Neo.border.width, alignItems: 'center', justifyContent: 'center' },

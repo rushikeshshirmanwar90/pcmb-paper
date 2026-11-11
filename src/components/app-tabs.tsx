@@ -15,7 +15,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTabNavigation } from '@/context/tab-context';
 import { TAB_BAR_HEIGHT } from '@/hooks/use-tab-bar-height';
 import { useDesign } from '@/design/scope';
-import { NeoTabBar } from '@/design/neo-kit';
+import { NeoTabBar, useNeoPalette } from '@/design/neo-kit';
 
 import type { AppTab } from '@/navigation/tabs';
 
@@ -173,21 +173,31 @@ export default function AppTabs({ tabs }: { tabs: AppTab[] }) {
 
 /** Student look: the floating ink pill; the current tab is a yellow pill with icon and label. */
 function NeoTabs({ tabs, active, onPress, bottom }: { tabs: AppTab[]; active: number; onPress: (index: number) => void; bottom: number }) {
+  const p = useNeoPalette();
   const items = tabs.map((t, i) => ({ key: String(i), label: t.label, icon: { ios: i === active ? t.icon.sf.selected : t.icon.sf.default, android: t.icon.md } }));
   return (
-    <View pointerEvents="box-none" style={[styles.neoBarWrap, { bottom }]}>
-      <View style={styles.neoBar}>
-        <NeoTabBar tabs={items} value={String(active)} onChange={(k) => onPress(Number(k))} />
+    <>
+      {/* Page colour under the lower half of the bar and the phone's nav area, so content never peeks out below it. */}
+      <View pointerEvents="none" style={[styles.neoBand, { height: bottom + NEO_BAR / 2, backgroundColor: p.canvas }]} />
+      <View pointerEvents="box-none" style={[styles.neoBarWrap, { bottom }]}>
+        <View style={styles.neoBar}>
+          <NeoTabBar tabs={items} value={String(active)} onChange={(k) => onPress(Number(k))} />
+        </View>
       </View>
-    </View>
+    </>
   );
 }
+
+/** The pill's height: 48 tabs + 8 padding top and bottom. */
+const NEO_BAR = 64;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  neoBarWrap: { position: 'absolute', left: 12, right: 12, alignItems: 'center' },
+  // 16 from the edges, like every card.
+  neoBarWrap: { position: 'absolute', left: 16, right: 16, alignItems: 'center' },
+  neoBand: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   neoBar: { width: '100%', maxWidth: 520 },
   pager: {
     flex: 1,
