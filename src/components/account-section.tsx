@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from '@/components/app-text';
+import { useLook } from '@/design/look';
 import { confirmAction } from '@/components/confirm-action';
 import { Badge, Card, Field, FormSheet, ListRow, PasswordField, SectionTitle, usePalette } from '@/components/kit';
 import { useAuth, useSignedInUser } from '@/context/auth-context';
@@ -27,11 +28,12 @@ export function AccountSection() {
 /** Who is signed in: initials, name, email and badges (role and tuition, unless `badges` replaces them). */
 export function ProfileHeader({ badges }: { badges?: React.ReactNode }) {
   const palette = usePalette();
+  const look = useLook();
   const user = useSignedInUser();
   return (
     <Card>
       <View style={styles.identity} accessible accessibilityLabel={`${user.name}, ${user.email}`}>
-        <View style={[styles.avatar, { backgroundColor: palette.primary }]}>
+        <View style={[styles.avatar, { backgroundColor: palette.primary }, look.neo && { borderWidth: 2, borderColor: palette.ink }]}>
           <Text style={[styles.avatarText, { color: palette.onPrimary }]}>{initials(user.name)}</Text>
         </View>
         <View style={styles.flex}>

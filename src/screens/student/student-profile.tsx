@@ -10,6 +10,10 @@ import { useTabDataVersion } from '@/context/data-version';
 import { classRemindersOn, classRemindersSupported, setClassReminders } from '@/services/notifications';
 import { studentApi } from '@/services/student-api';
 import { tuitionApi } from '@/services/tuition-api';
+import { face } from '@/design/type';
+import { useVibrationSetting } from '@/design/haptics';
+import { PatternBackdrop } from '@/design/illustrations';
+import { Neo } from '@/design/tokens';
 
 /**
  * The student's profile: who they are, what and where they study, settings
@@ -29,7 +33,8 @@ export function StudentProfileScreen() {
   return (
     <Screen
       title="Profile"
-      subtitle="Your studies, settings and account"
+      subtitle="You, your settings, help and your account"
+      headerArt={<PatternBackdrop />}
       onRefresh={() => {
         overview.refresh();
         tuition.refresh();
@@ -37,9 +42,9 @@ export function StudentProfileScreen() {
       refreshing={overview.refreshing || tuition.refreshing}
     >
       {/* Program, class and batch are listed just below, so the header stays name and email. */}
+      <SectionTitle title="You" />
       <ProfileHeader badges={<></>} />
 
-      <SectionTitle title="Academic details" />
       <Card style={styles.listCard}>
         <InfoRow icon={{ ios: 'target', android: 'flag' }} label="Preparing for" value={program ? PROGRAM_LABELS[program] : 'Not set'} />
         <InfoRow icon={{ ios: 'graduationcap', android: 'school' }} label="Class" value={user.standard ?? 'Not set'} />
@@ -66,7 +71,17 @@ export function StudentProfileScreen() {
       </Card>
       {!batch && overview.data ? <Muted>Your tuition adds you to a batch; then your classes and tests show up.</Muted> : null}
 
-      <SectionTitle title="Tuition" />
+      <SectionTitle title="Settings" />
+      <Card style={styles.settings}>
+        <AppearanceSetting />
+        <View style={[styles.divider, { backgroundColor: palette.border }]} />
+        <VibrationSetting />
+        <View style={[styles.divider, { backgroundColor: palette.border }]} />
+        <RemindersSetting />
+      </Card>
+
+      <SectionTitle title="Help" />
+      <Muted>Questions about classes, tests or your batch? Ask your tuition.</Muted>
       <Card style={styles.listCard}>
         <InfoRow icon={{ ios: 'building.2', android: 'domain' }} label="Name" value={t?.name ?? user.tuition.name} last={!t?.address && !t?.phone && !t?.email} />
         {t?.address ? <InfoRow icon={{ ios: 'mappin.and.ellipse', android: 'location_on' }} label="Address" value={t.address} last={!t.phone && !t.email} /> : null}
@@ -90,13 +105,6 @@ export function StudentProfileScreen() {
             last
           />
         ) : null}
-      </Card>
-
-      <SectionTitle title="Settings on this phone" />
-      <Card style={styles.settings}>
-        <AppearanceSetting />
-        <View style={[styles.divider, { backgroundColor: palette.border }]} />
-        <RemindersSetting />
       </Card>
 
       <SectionTitle title="Account" />
@@ -124,6 +132,31 @@ function AppearanceSetting() {
         </View>
       </View>
       <Segmented label="Appearance" options={APPEARANCE} value={preference} onChange={setPreference} />
+    </View>
+  );
+}
+
+/** Haptics on the main buttons and chips (on press only). Off silences every one of them. */
+function VibrationSetting() {
+  const palette = usePalette();
+  const [on, setOn] = useVibrationSetting();
+  return (
+    <View style={styles.setting}>
+      <View style={styles.settingTop}>
+        <InfoIcon icon={{ ios: 'iphone.radiowaves.left.and.right', android: 'vibration' }} />
+        <View style={styles.flex}>
+          <Text style={[styles.settingTitle, { color: palette.foreground }]}>Vibration</Text>
+          <Text style={[styles.settingHint, { color: palette.mutedForeground }]}>A small tap when you press main buttons and choose answers.</Text>
+        </View>
+        <Switch
+          accessibilityLabel="Vibration"
+          value={on}
+          onValueChange={setOn}
+          trackColor={{ false: palette.borderStrong, true: palette.primary }}
+          thumbColor={palette.card}
+          ios_backgroundColor={palette.secondary}
+        />
+      </View>
     </View>
   );
 }
@@ -170,7 +203,8 @@ function RemindersSetting() {
           onValueChange={(v) => void change(v)}
           disabled={!supported || on === null || busy}
           trackColor={{ false: palette.borderStrong, true: palette.primary }}
-          ios_backgroundColor={palette.borderStrong}
+          thumbColor={palette.card}
+          ios_backgroundColor={palette.secondary}
         />
       </View>
       {blocked ? (
@@ -189,7 +223,7 @@ function InfoRow({ icon, label, value, last = false }: { icon: IconName; label: 
     <View
       accessible
       accessibilityLabel={`${label}: ${value}`}
-      style={[styles.infoRow, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }]}
+      style={[styles.infoRow, !last && { borderBottomWidth: Neo.border.width, borderBottomColor: palette.border }]}
     >
       <InfoIcon icon={icon} />
       <View style={styles.flex}>
@@ -203,7 +237,7 @@ function InfoRow({ icon, label, value, last = false }: { icon: IconName; label: 
 function InfoIcon({ icon }: { icon: IconName }) {
   const palette = usePalette();
   return (
-    <View style={[styles.iconTile, { backgroundColor: palette.secondary }]}>
+    <View style={[styles.iconTile, { backgroundColor: palette.primarySoft, borderColor: palette.ink }]}>
       <Icon name={icon} color={palette.inkSoft} size={17} />
     </View>
   );
@@ -223,15 +257,15 @@ const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
   listCard: { paddingVertical: 0 },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, minHeight: 56 },
-  iconTile: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  infoLabel: { fontSize: 12, fontWeight: '600' },
-  infoValue: { fontSize: 15, fontWeight: '600', marginTop: 1 },
+  iconTile: { width: 36, height: 36, borderRadius: Neo.radius.sm, borderWidth: Neo.border.width, alignItems: 'center', justifyContent: 'center' },
+  infoLabel: { fontSize: 13, fontFamily: face.medium },
+  infoValue: { fontSize: 15, fontFamily: face.semibold, marginTop: 1 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
   settings: { gap: 14, padding: 14 },
   setting: { gap: 12 },
   settingTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  settingTitle: { fontSize: 15, fontWeight: '700' },
+  settingTitle: { fontSize: 15, fontFamily: face.bold },
   settingHint: { fontSize: 13, lineHeight: 18, marginTop: 1 },
-  divider: { height: StyleSheet.hairlineWidth },
+  divider: { height: Neo.border.width, marginHorizontal: -14 },
   blocked: { gap: 10 },
 });
