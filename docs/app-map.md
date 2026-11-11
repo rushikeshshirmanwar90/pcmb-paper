@@ -1,4 +1,4 @@
-# PCMB app map (generated 2026-11-10 07:51 UTC)
+# PCMB app map (generated 2026-11-11 18:58 UTC)
 App: `/Users/chinmayshrimanwar/Desktop/pamu dada/devne/pcmb-paper`  ·  Backend: `/Users/chinmayshrimanwar/Desktop/pamu dada/devne/papers`
 
 ## App stack
@@ -10,35 +10,42 @@ App: `/Users/chinmayshrimanwar/Desktop/pamu dada/devne/pcmb-paper`  ·  Backend:
 ## Roles and tabs
 
 Source: `src/navigation/role-tabs.tsx`
-- **TEACHER_TABS**: Home (TeacherHomeScreen) · Batches (TeacherBatchesScreen) · Tests (TeacherTestsScreen) · Questions (QuestionsScreen) · PROFILE_TAB (TeacherProfileScreen)
+- **TEACHER_TABS**: Home (TeacherHomeScreen) · Batches (TeacherBatchesScreen) · Tests (TeacherTestsScreen) · Papers (QuestionsScreen) · PROFILE_TAB (TeacherProfileScreen)
 - **TUITION_TABS**: Home (TuitionHomeScreen) · Batches (TuitionBatchesScreen) · People (TuitionPeopleScreen) · Tests (TuitionTestsScreen) · PROFILE_TAB (TuitionProfileScreen)
-- **STUDENT_TABS**: Home (EngagementProvider) · Tests (StudentTestsScreen) · Syllabus (StudentRoadmapScreen) · Practice (StudentPracticeScreen) · PROFILE_TAB (StudentProfileScreen)
+- **STUDENT_TABS**: Home (StudentHomeScreen) · Tests (StudentTestsScreen) · Syllabus (StudentRoadmapScreen) · Practice (StudentPracticeScreen) · PROFILE_TAB (StudentProfileScreen)
 
 ## Student screens
 
 - `src/screens/student/answer-saver.ts` (166 lines): Sends changed answers to the server; rejects when that fails.
 - `src/screens/student/answer-sync.ts` (25 lines): Legacy drafts may only fill an untouched question. Versioned drafts must match exactly; a newer server answer wins even when the phone was offline.
-- `src/screens/student/assessment-session.tsx` (1206 lines): Keeps a column readable on tablets: content stays phone-width, centred.
+- `src/screens/student/assessment-session.tsx` (1232 lines): Keeps a column readable on tablets: content stays phone-width, centred.
 - `src/screens/student/attempt-draft.ts` (53 lines): Identifies the attempt: a draft from an earlier attempt is ignored.
 - `src/screens/student/attempt-status.ts` (11 lines): Reject responses from another attempt or older control generations. Answer reconciliation separately preserves edits based on current versions.
 - `src/screens/student/exam-app-state.ts` (28 lines): AppState follows the foreground Activity. Window blur, route changes and lack of touches do not prove that the application entered the background.
 - `src/screens/student/exam-guard.ts` (141 lines): How long the app may be away before the attempt ends. The server owns this rule (AWAY_LIMIT_MS in papers/src/lib/attempts.ts) and does the ending; the app only uses it to lock the screen while it waits for the server's w
+- `src/screens/student/exam-sections.ts` (54 lines): Places in the questions array, in the order the server sent them.
 - `src/screens/student/exam-security.ts` (59 lines): Whether this build has the Android calls (a development or release build; false in Expo Go).
 - `src/screens/student/exam-visibility.ts` (110 lines): Run before loading the examination: a killed process cannot erase its persisted hidden interval by opening the same attempt again.
 - `src/screens/student/home-next-up.ts` (58 lines): Days from today: 0 today … 7 the same weekday next week.
 - `src/screens/student/practice-session.ts` (75 lines): Whole-percent accuracy of answered questions; null when nothing was answered.
+- `src/screens/student/practice/continue-card.tsx` (113 lines): "Continue where you left off" (Zeigarnik): one card, the most useful unfinished thing. An unfinished self-assessment comes first (its clock may be running); otherwise the topic practised last, while it still has question
+- `src/screens/student/practice/practice-links.ts` (25 lines): Remembered on this phone per student, so Continue works after the app restarts.
+- `src/screens/student/practice/practice-parts.tsx` (446 lines): For programs without a question bank: say so plainly, never show another program's questions.
+- `src/screens/student/practice/practice-place.ts` (48 lines): The `topic` query value for "every question of the chapter".
+- `src/screens/student/practice/practice-screens.tsx` (166 lines): The subject's practice tree, shared by every practice screen of that subject.
 - `src/screens/student/progress-header.tsx` (194 lines): A progress ring from plain Views (no SVG needed): two half-windows, each showing a half ring rotated into view. `fill` is 0–1.
-- `src/screens/student/question-view.tsx` (202 lines): A question to answer or review: its text and figures, then options to tap (or a box for a numerical answer). With `reveal`, the right answer is marked and the solution shown. Marks are never shown by colour alone: a sele
-- `src/screens/student/self-assessment-flow.tsx` (662 lines): Self-assessment, full screen over the Practice tab: the student's past self-assessments, making a new one (chapters, topics, size, difficulty mix, time), taking it and the topic-by-topic result.
-- `src/screens/student/self-assessment.ts` (270 lines): The fewest questions a self-assessment can have (the server checks the same).
-- `src/screens/student/student-home.tsx` (582 lines): From this text size up, a subject's coverage bar goes under its name instead of beside it.
-- `src/screens/student/student-practice.tsx` (953 lines): The tab's key in role-tabs.
+- `src/screens/student/question-options.ts` (37 lines): Which option rows a multiple-choice question shows. Display only: answering, saving and marking are unchanged. Every option up to the last one that has text or a figure is shown, so a gap in the data (A and C filled, B e
+- `src/screens/student/question-view.tsx` (204 lines): A question to answer or review: its text and figures, then options to tap (or a box for a numerical answer). With `reveal`, the right answer is marked and the solution shown. Marks are never shown by colour alone: a sele
+- `src/screens/student/self-assessment-flow.tsx` (773 lines): Self-assessment, full screen over the Practice tab: the student's past self-assessments, making a new one (chapters, topics, size, difficulty mix, time), taking it and the topic-by-topic result.
+- `src/screens/student/self-assessment.ts` (293 lines): The fewest questions a self-assessment can have (the server checks the same).
+- `src/screens/student/student-home.tsx` (540 lines): The time now, refreshed every minute, so today's classes move from next to on now to done.
+- `src/screens/student/student-practice.tsx` (351 lines): The tab's key in role-tabs.
 - `src/screens/student/student-profile.tsx` (237 lines): The student's profile: who they are, what and where they study, settings for this phone (appearance, class reminders), and their account.
-- `src/screens/student/student-roadmap.tsx` (114 lines): The student's syllabus roadmap, subject by subject: every chapter with its marks weightage, what the tuition has covered, and their strong and weak topics in it.
+- `src/screens/student/student-roadmap.tsx` (235 lines): From this text size up, a subject's coverage bar goes under its name instead of beside it.
 - `src/screens/student/student-tests.tsx` (281 lines): The time now, refreshed every `everyMs`, so labels like "closes in 3 h" and each test's status stay true.
 - `src/screens/student/test-access.tsx` (58 lines): Shared by the visible restricted-test row and its detail view. Never starts an attempt.
 - `src/screens/student/test-format.ts` (135 lines): The test's status at `now`, the same rule as the server's, so a list stays right while it's open.
-- `src/screens/student/test-runner.tsx` (1277 lines): Screenshots and screen recording are blocked while a test is being taken, and only then. Android's Modal copies the window's secure flag when it is created, so the Modal is only drawn once the flag is on (or off again, f
+- `src/screens/student/test-runner.tsx` (1358 lines): Screenshots and screen recording are blocked while a test is being taken, and only then. Android's Modal copies the window's secure flag when it is created, so the Modal is only drawn once the flag is on (or off again, f
 - `src/screens/student/topic-practice-sheet.tsx` (586 lines): A checked answer, as the server marked and saved it.
 - `src/screens/student/topic-practice.ts` (220 lines): Which of a node's questions to load.
 - `src/screens/student/use-exam-visibility.ts` (47 lines): The controller keeps generations and callback refs current without a remount. eslint-disable-next-line react-hooks/exhaustive-deps
@@ -55,7 +62,7 @@ Source: `src/navigation/role-tabs.tsx`
 
 ## Routes (Expo Router, src/app)
 
-`_layout.tsx` · `batch/[batchId]/assign-teacher.tsx` · `batch/[batchId]/index.tsx` · `batch/[batchId]/invitations.tsx` · `batch/[batchId]/schedule/[entryId].tsx` · `batch/[batchId]/schedule/index.tsx` · `batch/[batchId]/schedule/new.tsx` · `batch/[batchId]/settings.tsx` · `batch/[batchId]/students.tsx` · `batch/[batchId]/teachers.tsx` · `batch/new.tsx` · `create-test/_layout.tsx` · `create-test/index.tsx` · `create-test/setup.tsx` · `explore.tsx` · `index.tsx` · `profile.tsx` · `questions.tsx` · `student/[studentId]/batch.tsx` · `student/[studentId]/edit.tsx` · `student/[studentId]/index.tsx` · `student/new.tsx` · `teacher/[teacherId]/edit.tsx` · `teacher/[teacherId]/index.tsx` · `test/[testId].tsx`
+`_layout.tsx` · `batch/[batchId]/assign-teacher.tsx` · `batch/[batchId]/index.tsx` · `batch/[batchId]/invitations.tsx` · `batch/[batchId]/schedule/[entryId].tsx` · `batch/[batchId]/schedule/index.tsx` · `batch/[batchId]/schedule/new.tsx` · `batch/[batchId]/settings.tsx` · `batch/[batchId]/students.tsx` · `batch/[batchId]/teachers.tsx` · `batch/new.tsx` · `create-test/_layout.tsx` · `create-test/index.tsx` · `create-test/setup.tsx` · `dev/question-preview.tsx` · `explore.tsx` · `index.tsx` · `practice/[subject]/[chapter].tsx` · `practice/[subject]/index.tsx` · `profile.tsx` · `questions.tsx` · `student/[studentId]/batch.tsx` · `student/[studentId]/edit.tsx` · `student/[studentId]/index.tsx` · `student/new.tsx` · `teach/[batchId].tsx` · `teacher/[teacherId]/edit.tsx` · `teacher/[teacherId]/index.tsx` · `test/[testId].tsx` · `timetable.tsx`
 
 ## UI kit exports
 
@@ -70,7 +77,7 @@ Source: `src/navigation/role-tabs.tsx`
 
 ## Engagement features already in the app (search hits)
 
-`src/app/explore.tsx`, `src/app/profile.tsx`, `src/app/questions.tsx`, `src/components/account-section.tsx`, `src/components/explanation.tsx`, `src/components/kit.tsx`, `src/components/my-pdfs-screen.tsx`, `src/components/web-badge.tsx`, `src/engagement/engagement-store.ts`, `src/engagement/progress-format.ts`, `src/screens/shared/announcements.tsx`, `src/screens/shared/batch-analysis.tsx`, `src/screens/shared/notification-bell.tsx`, `src/screens/shared/topic-performance.tsx`, `src/screens/student/assessment-session.tsx`, `src/screens/student/attempt-status.ts`, `src/screens/student/progress-header.tsx`, `src/screens/student/self-assessment-flow.tsx`, `src/screens/student/student-home.tsx`, `src/screens/student/student-practice.tsx`, `src/screens/student/student-profile.tsx`, `src/screens/student/student-roadmap.tsx`, `src/screens/student/student-tests.tsx`, `src/screens/student/test-runner.tsx`, `src/screens/student/topic-practice-sheet.tsx`, `src/screens/teacher/make-pdf/one-page.tsx`, `src/screens/teacher/student-insight.tsx`, `src/screens/teacher/student-performance-sheet.tsx`, `src/screens/teacher/teacher-batches.tsx`, `src/screens/teacher/teacher-home.tsx`, `src/screens/teacher/teacher-profile.tsx`, `src/screens/teacher/teacher-tests.tsx`, `src/screens/teacher/test-management-screen.tsx`, `src/screens/teacher/test-monitor-section.tsx`, `src/screens/teacher/test-results-section.tsx`, `src/screens/tuition/admin-ui.tsx`, `src/screens/tuition/batch-invitations.tsx`, `src/screens/tuition/batch-screens.tsx`, `src/screens/tuition/join-requests.tsx`, `src/screens/tuition/new-batch-screen.tsx`, `src/screens/tuition/pending-enrollments.tsx`, `src/screens/tuition/schedule-form.tsx`, `src/screens/tuition/timetable-sheet.tsx`, `src/screens/tuition/tuition-batches.tsx`, `src/screens/tuition/tuition-home.tsx`, `src/screens/tuition/tuition-profile.tsx`, `src/screens/tuition/tuition-students.tsx`, `src/screens/tuition/tuition-teachers.tsx`, `src/screens/tuition/tuition-tests.tsx`, `src/screens/tuition/weekly-timetable.tsx`, `src/services/student-api.ts`
+`src/app/_layout.tsx`, `src/app/explore.tsx`, `src/app/profile.tsx`, `src/app/questions.tsx`, `src/components/account-section.tsx`, `src/components/explanation.tsx`, `src/components/kit.tsx`, `src/components/my-pdfs-screen.tsx`, `src/components/web-badge.tsx`, `src/engagement/engagement-store.ts`, `src/engagement/progress-format.ts`, `src/screens/shared/announcements.tsx`, `src/screens/shared/batch-analysis.tsx`, `src/screens/shared/notification-bell.tsx`, `src/screens/shared/topic-performance.tsx`, `src/screens/student/assessment-session.tsx`, `src/screens/student/attempt-status.ts`, `src/screens/student/practice/practice-parts.tsx`, `src/screens/student/progress-header.tsx`, `src/screens/student/self-assessment-flow.tsx`, `src/screens/student/student-home.tsx`, `src/screens/student/student-profile.tsx`, `src/screens/student/student-roadmap.tsx`, `src/screens/student/student-tests.tsx`, `src/screens/student/test-runner.tsx`, `src/screens/student/topic-practice-sheet.tsx`, `src/screens/teacher/student-insight.tsx`, `src/screens/teacher/student-performance-sheet.tsx`, `src/screens/teacher/teach-batch-screen.tsx`, `src/screens/teacher/teacher-profile.tsx`, `src/screens/teacher/teacher-tests.tsx`, `src/screens/teacher/teacher-timetable.tsx`, `src/screens/teacher/test-management-screen.tsx`, `src/screens/teacher/test-monitor-section.tsx`, `src/screens/teacher/test-results-section.tsx`, `src/screens/tuition/admin-ui.tsx`, `src/screens/tuition/batch-invitations.tsx`, `src/screens/tuition/batch-screens.tsx`, `src/screens/tuition/join-requests.tsx`, `src/screens/tuition/new-batch-screen.tsx`, `src/screens/tuition/pending-enrollments.tsx`, `src/screens/tuition/schedule-form.tsx`, `src/screens/tuition/timetable-sheet.tsx`, `src/screens/tuition/tuition-batches.tsx`, `src/screens/tuition/tuition-home.tsx`, `src/screens/tuition/tuition-profile.tsx`, `src/screens/tuition/tuition-students.tsx`, `src/screens/tuition/tuition-teachers.tsx`, `src/screens/tuition/tuition-tests.tsx`, `src/screens/tuition/weekly-timetable.tsx`, `src/services/student-api.ts`
 
 ## Backend API routes (papers)
 
@@ -208,7 +215,7 @@ Source: `src/navigation/role-tabs.tsx`
 - `src/lib/pyq.ts`: pyqFilter, pyqBankFilter, practiceBankOf, readSubject
 - `src/lib/marking.ts`: cleanAnswer, isCorrect, scoreAnswers
 - scheduled jobs (vercel.json crons): none
-- tests: 30 files (`npm test`, tsx --test + mongodb-memory-server)
+- tests: 33 files (`npm test`, tsx --test + mongodb-memory-server)
 
 ## Engagement collections already in the backend
 
