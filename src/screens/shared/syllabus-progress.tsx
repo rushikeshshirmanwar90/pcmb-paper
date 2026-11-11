@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/app-text';
+import { useLook } from '@/design/look';
 import { Card, Chips, ErrorText, ErrorView, Icon, LoadingView, Muted, ProgressBar, usePalette, useLoad } from '@/components/kit';
 import type { SchoolSubject } from '@/constants/school';
 import { bumpDataVersion } from '@/context/data-version';
@@ -126,6 +127,7 @@ function ChapterCard({
   onToggleTopic: (topic: string, isCovered: boolean) => void;
 }) {
   const palette = usePalette();
+  const look = useLook();
   const done = chapter.topics.filter((t) => t.covered).length;
   const whole = chapter.topics.length === 1 && chapter.topics[0].topic === '';
   const allDone = done === chapter.topics.length;
@@ -175,12 +177,12 @@ function ChapterCard({
                 accessibilityLabel={label}
                 disabled={busyKey !== null}
                 onPress={() => onToggleTopic(t.topic, !!t.covered)}
-                style={({ pressed }) => [styles.topicRow, { borderTopColor: palette.border }, pressed && styles.pressed, busyKey === key && styles.busy]}
+                style={({ pressed }) => [styles.topicRow, { borderTopColor: palette.border }, look.rule('top'), pressed && styles.pressed, busyKey === key && styles.busy]}
               >
                 {row}
               </Pressable>
             ) : (
-              <View key={key} style={[styles.topicRow, { borderTopColor: palette.border }]}>
+              <View key={key} style={[styles.topicRow, { borderTopColor: palette.border }, look.rule('top')]}>
                 {row}
               </View>
             );

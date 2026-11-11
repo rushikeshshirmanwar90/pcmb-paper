@@ -8,6 +8,8 @@ import { useSignedInUser } from '@/context/auth-context';
 import { useTabDataVersion } from '@/context/data-version';
 import { dayLabel } from '@/services/school-api';
 import { LEVEL_LABEL, LEVEL_TONE, studentApi, type RoadmapChapter, type StudentOverview } from '@/services/student-api';
+import { face } from '@/design/type';
+import { Neo } from '@/design/tokens';
 
 const RECENT_SHOWN = 3;
 /** From this text size up, a subject's coverage bar goes under its name instead of beside it. */
@@ -63,7 +65,7 @@ export function StudentRoadmapScreen() {
           <StatGrid>
             <StatTile label="Covered" value={`${data.summary.coveredPercent}%`} icon={{ ios: 'checkmark.circle', android: 'check_circle' }} tone="success" />
             <StatTile label="Strong topics" value={data.summary.strongTopics} icon={{ ios: 'bolt.fill', android: 'bolt' }} />
-            <StatTile label="Weak topics" value={data.summary.weakTopics} icon={{ ios: 'exclamationmark.triangle', android: 'warning' }} tone="warning" />
+            <StatTile label="To work on" value={data.summary.weakTopics} icon={{ ios: 'scope', android: 'my_location' }} tone="danger" />
           </StatGrid>
           {!data.hasBatch ? <Muted>You&apos;re not in a batch yet, so nothing is marked as covered.</Muted> : null}
           {data.chapters.length === 0 ? <Muted>No {subject} chapters in the question bank yet.</Muted> : null}
@@ -142,8 +144,8 @@ function CoverageCard({ batch, recent, onShowRecent }: { batch: NonNullable<Stud
               onPress={onShowRecent}
               style={({ pressed }) => [styles.seeAll, pressed && styles.pressed]}
             >
-              <Text style={[styles.seeAllText, { color: palette.primary }]}>See all {recent.length}</Text>
-              <Icon name={{ ios: 'chevron.right', android: 'chevron_right' }} color={palette.primary} size={14} />
+              <Text style={[styles.seeAllText, { color: palette.foreground }]}>See all {recent.length}</Text>
+              <Icon name={{ ios: 'chevron.right', android: 'chevron_right' }} color={palette.foreground} size={14} />
             </Pressable>
           ) : null}
         </View>
@@ -182,8 +184,18 @@ function ChapterCard({ chapter, open, onToggle, mine }: { chapter: RoadmapChapte
         </View>
         <Muted>{whole ? (chapter.coveredTopics ? 'Covered in class' : 'Not covered yet') : `Covered ${chapter.coveredTopics} of ${chapter.topics.length} topics`}</Muted>
         <ProgressBar value={pct} tone="success" />
-        {chapter.strong.length ? <Text style={[styles.line, { color: palette.successInk }]}>Strong: {chapter.strong.join(', ')}</Text> : null}
-        {chapter.weak.length ? <Text style={[styles.line, { color: palette.dangerInk }]}>Weak: {chapter.weak.join(', ')}</Text> : null}
+        {chapter.strong.length ? (
+          <View style={styles.lineRow}>
+            <Badge label="Strong" tone="success" />
+            <Text style={[styles.line, { color: palette.foreground }]}>{chapter.strong.join(', ')}</Text>
+          </View>
+        ) : null}
+        {chapter.weak.length ? (
+          <View style={styles.lineRow}>
+            <Badge label="Work on" tone="danger" />
+            <Text style={[styles.line, { color: palette.foreground }]}>{chapter.weak.join(', ')}</Text>
+          </View>
+        ) : null}
       </Pressable>
       {open
         ? chapter.topics.map((t) => (
@@ -215,21 +227,22 @@ const styles = StyleSheet.create({
   coverageInline: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   coverageStacked: { gap: 5 },
   coverageTop: { flexDirection: 'row', justifyContent: 'space-between' },
-  subjectName: { fontSize: 14, fontWeight: '600', width: 96 },
-  subjectStacked: { fontSize: 15, fontWeight: '700', flexShrink: 1 },
-  pct: { fontSize: 13, fontWeight: '600', minWidth: 36, textAlign: 'right', fontVariant: ['tabular-nums'] },
-  label: { fontSize: 12, fontWeight: '600' },
-  recent: { gap: 4, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
+  subjectName: { fontSize: 14, fontFamily: face.semibold, width: 96 },
+  subjectStacked: { fontSize: 15, fontFamily: face.bold, flexShrink: 1 },
+  pct: { fontSize: 15, fontFamily: face.heavy, minWidth: 40, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  label: { fontSize: 12, fontFamily: face.semibold },
+  recent: { gap: 4, paddingTop: 12, borderTopWidth: Neo.border.width },
   recentLine: { fontSize: 13, lineHeight: 19 },
   seeAll: { flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-start', minHeight: 44 },
-  seeAllText: { fontSize: 15, fontWeight: '700' },
+  seeAllText: { fontSize: 15, fontFamily: face.bold, textDecorationLine: 'underline' },
   summary: { gap: 10 },
   pressed: { opacity: 0.7 },
   head: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  chapter: { fontSize: 16, fontWeight: '700' },
+  chapter: { fontSize: 17, lineHeight: 22, fontFamily: face.bold },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
-  line: { fontSize: 13, fontWeight: '600' },
-  topic: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
-  topicName: { fontSize: 14, fontWeight: '600' },
-  meta: { fontSize: 12, marginTop: 1 },
+  line: { fontSize: 13, lineHeight: 19, fontFamily: face.medium, flex: 1, minWidth: 0, paddingTop: 3 },
+  lineRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  topic: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 10, borderTopWidth: Neo.border.width },
+  topicName: { fontSize: 14, fontFamily: face.semibold },
+  meta: { fontSize: 13, lineHeight: 18, marginTop: 1 },
 });
