@@ -4,6 +4,8 @@ import { Text } from '@/components/app-text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Icon, usePalette } from '@/components/kit';
 import { KeyboardAwareScrollView } from '@/components/keyboard-safe-view';
+import { PatternBackdrop } from '@/design/illustrations';
+import { useLook } from '@/design/look';
 
 // Shared pieces for the screens before someone is in a tuition: log in,
 // create account, verify email, join tuition and forgot password. One
@@ -16,12 +18,23 @@ export const SIGN_UP_STEPS = ['Create account', 'Verify email', 'Enter joining c
 /** Bubbles stop growing at this text size, so a row of them still fits. */
 const BUBBLE_MAX_SCALE = 1.4;
 
-export function AuthScreen({ children, centered = false }: PropsWithChildren<{ centered?: boolean }>) {
+/**
+ * `hero` (student look only): artwork at the top on a band of the faint doodle
+ * pattern. The pattern stays inside that band, never behind words or fields.
+ */
+export function AuthScreen({ children, centered = false, hero }: PropsWithChildren<{ centered?: boolean; hero?: ReactNode }>) {
   const palette = usePalette();
+  const look = useLook();
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]}>
       <KeyboardAvoidingView behavior="padding" style={styles.root}>
         <KeyboardAwareScrollView contentContainerStyle={[styles.content, centered && styles.centered]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+          {look.neo && hero ? (
+            <View style={styles.heroBand}>
+              <PatternBackdrop />
+              {hero}
+            </View>
+          ) : null}
           {children}
         </KeyboardAwareScrollView>
       </KeyboardAvoidingView>
@@ -41,10 +54,11 @@ export function AuthTopBar({ leading, trailing }: { leading?: ReactNode; trailin
 
 export function BackLink({ label, onPress }: { label: string; onPress: () => void }) {
   const palette = usePalette();
+  const look = useLook();
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.back, pressed && styles.pressed]}>
       <Icon name={{ ios: 'chevron.left', android: 'arrow_back' }} color={palette.primary} size={17} />
-      <Text style={[styles.linkText, { color: palette.primary }]}>{label}</Text>
+      <Text style={[styles.linkText, { color: palette.primary }, look.neo && styles.underline]}>{label}</Text>
     </Pressable>
   );
 }
@@ -62,6 +76,7 @@ export function TextLink({
   align?: 'start' | 'center' | 'end';
 }) {
   const palette = usePalette();
+  const look = useLook();
   return (
     <Pressable
       accessibilityRole="button"
@@ -70,7 +85,7 @@ export function TextLink({
       onPress={onPress}
       style={({ pressed }) => [styles.textLink, { alignSelf: ALIGN[align] }, pressed && styles.pressed]}
     >
-      <Text style={[styles.linkText, { color: disabled ? palette.mutedForeground : palette.primary }]}>{label}</Text>
+      <Text style={[styles.linkText, { color: disabled ? palette.mutedForeground : palette.primary }, look.neo && styles.underline]}>{label}</Text>
     </Pressable>
   );
 }
@@ -97,7 +112,8 @@ export function Strong({ children }: PropsWithChildren) {
 
 export function AuthCard({ children }: PropsWithChildren) {
   const palette = usePalette();
-  return <View style={[styles.card, { backgroundColor: palette.card, borderColor: palette.border }]}>{children}</View>;
+  const look = useLook();
+  return <View style={[styles.card, { backgroundColor: palette.card, borderColor: palette.border }, look.frame('lg', 'md'), look.neo && styles.neoCard]}>{children}</View>;
 }
 
 /** Small help under a card. */
@@ -117,6 +133,7 @@ export function Bubble({
   children,
 }: PropsWithChildren<{ size?: number; variant?: 'ring' | 'filled' | 'quiet'; color?: string }>) {
   const palette = usePalette();
+  const look = useLook();
   const { fontScale } = useWindowDimensions();
   const scaled = Math.round(size * Math.min(Math.max(fontScale, 1), BUBBLE_MAX_SCALE));
   const accent = color ?? palette.primary;
@@ -132,6 +149,8 @@ export function Bubble({
           borderColor: variant === 'quiet' ? palette.borderStrong : accent,
           backgroundColor: variant === 'filled' ? accent : 'transparent',
         },
+        // Student look: every bubble has an ink outline; yellow fill when done.
+        look.neo && { borderWidth: 2, borderColor: variant === 'quiet' ? palette.mutedForeground : palette.ink, backgroundColor: variant === 'filled' ? accent : palette.card },
       ]}
     >
       {children}
@@ -181,6 +200,9 @@ export function StepProgress({ step, style }: { step: 1 | 2 | 3 | 4; style?: Sty
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  underline: { textDecorationLine: 'underline' },
+  heroBand: { alignItems: 'center', justifyContent: 'center', paddingVertical: 16, marginHorizontal: -24, marginBottom: 12, minHeight: 200 },
+  neoCard: { padding: 18, gap: 16 },
   pressed: { opacity: 0.6 },
   content: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: 32, width: '100%', maxWidth: 440, alignSelf: 'center' },
   centered: { justifyContent: 'center', paddingTop: 32 },

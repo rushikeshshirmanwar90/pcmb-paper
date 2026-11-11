@@ -1,6 +1,8 @@
 import React, { useRef, useState } from 'react';
 import { StyleSheet, type TextInputInstance, View } from 'react-native';
 import { Text } from '@/components/app-text';
+import { Illustration } from '@/design/illustrations';
+import { useLook } from '@/design/look';
 import { Button, ErrorText, Field, Icon, PasswordField, usePalette } from '@/components/kit';
 import { SCHOOL_SUBJECTS } from '@/constants/school';
 import { useAuth } from '@/context/auth-context';
@@ -34,6 +36,7 @@ function LoginForm({
   onForgot: () => void;
 }) {
   const palette = usePalette();
+  const look = useLook();
   const { signIn } = useAuth();
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -66,8 +69,8 @@ function LoginForm({
   };
 
   return (
-    <AuthScreen centered>
-      <SubjectMark />
+    <AuthScreen centered hero={<Illustration name="welcomeHero" />}>
+      {look.neo ? null : <SubjectMark />}
       <AuthTitle title="Log in" lead="Your tuition's tests, timetable and results." />
 
       <AuthCard>
@@ -158,13 +161,16 @@ function SubjectMark() {
 /** A login is saved, but the server couldn't be reached to check it. */
 export function UnreachableScreen({ onRetry, onLogOut }: { onRetry: () => void; onLogOut: () => void }) {
   const palette = usePalette();
+  const look = useLook();
   return (
-    <AuthScreen centered>
-      <View style={styles.statusMark}>
-        <Bubble size={52} color={palette.warning}>
-          <Icon name={{ ios: 'wifi.exclamationmark', android: 'wifi_off' }} color={palette.warning} size={24} />
-        </Bubble>
-      </View>
+    <AuthScreen centered hero={<Illustration name="offline" />}>
+      {look.neo ? null : (
+        <View style={styles.statusMark}>
+          <Bubble size={52} color={palette.warning}>
+            <Icon name={{ ios: 'wifi.exclamationmark', android: 'wifi_off' }} color={palette.warning} size={24} />
+          </Bubble>
+        </View>
+      )}
       <AuthTitle title="Can't reach the server" lead="Check your internet connection, then try again. You're still logged in." />
       <View style={styles.actions}>
         <Button label="Try again" onPress={onRetry} />

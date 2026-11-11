@@ -3,6 +3,7 @@ import { type TextInputInstance } from 'react-native';
 import { Button, ErrorText, Field, PasswordField } from '@/components/kit';
 import { useAuth } from '@/context/auth-context';
 import { ApiError } from '@/services/api-client';
+import { Illustration } from '@/design/illustrations';
 import { AuthCard, AuthScreen, AuthTitle, AuthTopBar, BackLink, StepProgress } from '@/screens/auth-ui';
 
 type Problems = Partial<Record<'name' | 'email' | 'password' | 'confirm', string>>;
@@ -67,7 +68,7 @@ export function RegisterScreen({ onBack }: { onBack: (email?: string) => void })
   };
 
   return (
-    <AuthScreen>
+    <AuthScreen hero={<Illustration name="welcomeHero" scale={0.6} />}>
       <AuthTopBar leading={<BackLink label="Log in instead" onPress={() => onBack()} />} />
       <StepProgress step={1} style={{ marginBottom: 16 }} />
       <AuthTitle
