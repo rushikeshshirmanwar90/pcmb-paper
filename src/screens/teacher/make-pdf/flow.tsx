@@ -16,8 +16,11 @@ import { DoneStep } from '@/screens/teacher/make-pdf/done-step';
 import { DEFAULT_DURATION_MINUTES, dayKey, ExamSettingsStep, startOfToday, type ExamForm } from '@/screens/teacher/make-pdf/exam-settings';
 import { chaptersOf, marksPerQuestionFor, standardsOf, titleFromNames, type PdfKind } from '@/screens/teacher/make-pdf/model';
 import { OnePageSelect } from '@/screens/teacher/make-pdf/one-page';
+import { deriveSubjects, subjectHeader } from '@/screens/teacher/make-pdf/pdf-subjects';
+import { SubjectReview } from '@/screens/teacher/make-pdf/subject-review';
 import { StepHeader } from '@/screens/teacher/make-pdf/ui';
 import type { Question } from '@/types/pcmb';
+import { selectedQuestions, type SubjectSelection } from '@/screens/teacher/question-selection/model';
 
 /** One screen to choose the questions, then the existing PDF settings, then the finished PDF. */
 type Step = 'select' | 'settings' | 'done';
@@ -66,6 +69,7 @@ export function MakePdfFlow({
   const [scope, setScope] = useState<BankScope>(EMPTY_BANK_SCOPE);
   const [count, setCount] = useState(DEFAULT_COUNT);
   const [selected, setSelected] = useState<Question[]>([]);
+  const [sessions, setSessions] = useState<SubjectSelection[]>([]);
   const [form, setForm] = useState<ExamForm>(newExamForm);
   const [stage, setStage] = useState<{ stage: PdfStage; count: number } | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
@@ -94,7 +98,8 @@ export function MakePdfFlow({
   };
 
   const busy = stage !== null;
-  const subject = scope.subject;
+  // The picked questions are already in the teacher's subject order, which is the order the PDF prints them in.
+  const subject = subjectHeader(deriveSubjects(selected));
   const chapters = scope.topics.length ? scope.topics : scope.chapters.length ? scope.chapters : chaptersOf(selected);
   const titleDefault = titleFromNames(chapters) || [scope.course === 'Competitive' ? scope.exam : scope.course, scope.standard, subject].filter(Boolean).join(' ');
   const standardDefault = standardsOf(selected);
@@ -142,6 +147,7 @@ export function MakePdfFlow({
     setScope(EMPTY_BANK_SCOPE);
     setCount(DEFAULT_COUNT);
     setSelected([]);
+    setSessions([]);
     setPdfError(null);
     setMade(null);
     setForm((current) => ({ ...newExamForm(), style: current.style, watermark: current.watermark }));
@@ -196,10 +202,9 @@ export function MakePdfFlow({
           onKind={setKind}
           scope={scope}
           onScope={setScope}
-          selected={selected}
-          onSelected={setSelected}
+          sessions={sessions}
+          onSessions={next => { setSessions(next); setSelected(selectedQuestions(next)); }}
           count={count}
-          onCount={setCount}
           onContinue={(questions) => {
             setSelected(questions);
             setStep('settings');
@@ -207,6 +212,8 @@ export function MakePdfFlow({
           bottomInset={bottomInset}
         />
       ) : null}
+
+      {step === 'settings' ? <SubjectReview questions={selected} onEdit={back} /> : null}
 
       {step === 'settings' && kind === 'exam' ? (
         <ExamSettingsStep

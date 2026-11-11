@@ -13,6 +13,8 @@ interface ExplanationProps {
   defaultCollapsed?: boolean;
   source?: string;
   correctAnswer?: string;
+  /** Hide the legacy inferred-answer badge when a teacher view shows its validated key separately. */
+  showAnswer?: boolean;
   /** Figures printed inside the worked solution. */
   diagramUrls?: string[];
 }
@@ -123,6 +125,7 @@ export function Explanation({
   defaultCollapsed = true,
   source,
   correctAnswer,
+  showAnswer = true,
   diagramUrls,
 }: ExplanationProps) {
   const scheme = useColorScheme();
@@ -183,7 +186,7 @@ export function Explanation({
       {!collapsed && (
         <View style={[styles.body, { borderTopColor: palette.border }]}>
           {/* Answer Letter Badge */}
-          {displayAnswer && (
+          {showAnswer && displayAnswer && (
             <View
               style={[
                 styles.answerBadge,

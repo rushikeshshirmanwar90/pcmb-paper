@@ -352,9 +352,12 @@ describe('the screens', () => {
     }
   });
 
-  test('the one page offers a number, random and manual picking, browsing and removal', () => {
-    const page = read('../src/screens/teacher/make-pdf/one-page.tsx');
-    for (const text of ['Number of questions', 'Pick randomly', 'Browse questions', 'Selected questions', 'Remove question', 'Load more questions']) assert.ok(page.includes(text), text);
+  test('the shared subject browser offers targets, additive random fill, manual picking and removal', () => {
+    const page = read('../src/screens/teacher/question-selection/subject-selector.tsx');
+    for (const text of ['Fill Remaining', 'SelectionCard', 'View Selected', 'QuestionActionMenu', 'onEndReached']) assert.ok(page.includes(text), text);
+    assert.ok(read('../src/screens/teacher/question-selection/action-menu.tsx').includes('Remove Question'));
+    assert.ok(page.includes('SelectedQuestionRow'));
+    assert.doesNotMatch(page, /Custom random count|Add \$\{custom\} Random|label="Preview"/);
   });
 
   test('the flow never reads questions from anywhere but the exam-checked services', () => {
