@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/app-text';
 import { useRouter } from 'expo-router';
-import { Button, Card, ErrorView, Icon, Muted, Notice, Screen, SectionTitle, useLoad, usePalette } from '@/components/kit';
+import { Button, Card, ErrorView, Icon, Muted, Notice, Screen, SectionTitle, StatusChip, useLoad, usePalette } from '@/components/kit';
 import { Illustration, subjectArt } from '@/design/illustrations';
 import { NeoIcon, NeoTag, NeoText, PressableNeo } from '@/design/neo-kit';
 import { SkeletonCard, StaleNotice } from '@/components/states';
@@ -37,7 +37,6 @@ const EARLIER_RESULTS = 3;
  */
 export function StudentPracticeScreen() {
   const user = useSignedInUser();
-  const palette = usePalette();
   const router = useRouter();
   const version = useTabDataVersion(PRACTICE_TAB);
   const program = programOf(user);
@@ -137,8 +136,9 @@ export function StudentPracticeScreen() {
                       <TestRow
                         key={a.id}
                         title={a.title}
-                        meta={`To finish · ${summaryLine(a, now)}`}
-                        trailing={<Text style={[styles.trailingAction, { color: palette.primaryInk }]}>{a.state === 'in-progress' ? 'Continue' : 'Start'}</Text>}
+                        // The chip says started or not, so the line doesn't repeat it.
+                        meta={summaryLine(a, now).replace(/ · (In progress|Not started)/, '')}
+                        trailing={a.state === 'in-progress' ? <StatusChip kind="live" word="In progress" /> : <StatusChip kind="new" word="Not started" />}
                         last={i === going.length - 1}
                         onPress={() => setAssessing({ kind: 'session', id: a.id })}
                       />
@@ -204,7 +204,7 @@ function TestRow({ title, meta, trailing, last, onPress }: { title: string; meta
       style={({ pressed }) => [styles.row, !last && { borderBottomWidth: Neo.border.width, borderBottomColor: palette.border }, pressed && styles.pressed]}
     >
       <View style={styles.flex}>
-        <Text style={[styles.rowTitle, { color: palette.foreground }]} numberOfLines={2}>
+        <Text style={[styles.rowTitle, { color: palette.foreground }]} numberOfLines={2} textBreakStrategy="balanced" lineBreakStrategyIOS="push-out">
           {title}
         </Text>
         <Text style={[styles.meta, { color: palette.mutedForeground }]} numberOfLines={2}>
@@ -357,8 +357,8 @@ const styles = StyleSheet.create({
   rowStrength: { fontSize: 17, fontFamily: face.heavy, fontVariant: ['tabular-nums'] },
   subjectList: { paddingVertical: 0 },
   seeAll: { minHeight: 32, justifyContent: 'center' },
-  tiles: { flexDirection: 'row', flexWrap: 'wrap', marginRight: -8 },
-  tileSlot: { width: '50%', paddingRight: 8, marginBottom: 8 },
+  tiles: { flexDirection: 'row', flexWrap: 'wrap', marginRight: -12 },
+  tileSlot: { width: '50%', paddingRight: 12, marginBottom: 8 },
   tileFace: { padding: 14, gap: 6, minHeight: 132 },
   seeAllText: { fontSize: 14, fontFamily: face.bold, textDecorationLine: 'underline' },
   inlineLoading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 20 },

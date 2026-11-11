@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/app-text';
-import { Button, Card, EmptyView, ErrorView, Icon, Screen, SectionTitle, StatusChip, useLoad, usePalette, Muted, ListRow, type IconName } from '@/components/kit';
+import { Button, Card, EmptyView, ErrorView, Icon, Screen, SectionTitle, StatusChip, useLoad, usePalette, Muted, type IconName } from '@/components/kit';
 import { SkeletonCard } from '@/components/states';
 import { SubjectChips } from '@/components/subject-chips';
 import { NeoTag } from '@/design/neo-kit';
+import { SubjectMark } from '@/design/illustrations';
+import { useTabNavigation } from '@/context/tab-context';
 import { useTabDataVersion } from '@/context/data-version';
 import {
   byUrgency,
@@ -45,6 +47,7 @@ export function StudentTestsScreen() {
   const now = useNow();
   const { data, error, loading, refreshing, refresh, reload } = useLoad(() => studentApi.tests(), [version]);
   const [openId, setOpenId] = useState<string | null>(null);
+  const { goToTab } = useTabNavigation();
 
   const tests: ListedTest[] = data ?? [];
   const restricted = tests.filter(t => t.access && !t.access.allowed);
@@ -78,6 +81,7 @@ export function StudentTestsScreen() {
                 art="allCaughtUp"
                 title={restricted.length ? 'No tests ready to start' : "You're all caught up"}
                 text={restricted.length ? 'Some tests need teacher approval. Request access below.' : upcoming.length ? `Your next test opens ${whenLabel(upcoming[0].opensAt, now)}.` : 'New tests from your teachers show here.'}
+                action={<Button label="Practise meanwhile" variant="secondary" icon={{ ios: 'book', android: 'menu_book' }} onPress={() => goToTab('practice')} />}
               />
             </Card>
           )}
@@ -149,9 +153,9 @@ function TestCard({ test, kind, now, prominent, onOpen }: { test: ListedTest; ki
   return (
     <Card style={styles.card}>
       <View style={styles.cardTop}>
-        <IconTile icon={subjectIcon(test.subject)} />
+        <SubjectMark subject={test.subject} icon={subjectIcon(test.subject)} ink={palette.ink} fill={palette.primarySoft} />
         <View style={styles.flex}>
-          <Text style={[styles.cardTitle, { color: palette.foreground }]} numberOfLines={2}>
+          <Text style={[styles.cardTitle, { color: palette.foreground }]} numberOfLines={2} textBreakStrategy="balanced">
             {test.title}
           </Text>
           <Text style={[styles.meta, { color: palette.mutedForeground }]} numberOfLines={1}>
@@ -232,14 +236,19 @@ function PastRow({ test, kind, onOpen, last }: { test: ListedTest; kind: Kind; o
       onPress={() => onOpen(test.id)}
       style={({ pressed }) => [styles.row, !last && { borderBottomWidth: Neo.border.width, borderBottomColor: palette.border }, pressed && styles.pressed]}
     >
-      <IconTile icon={subjectIcon(test.subject)} tone={kind === 'done' ? 'primary' : 'neutral'} />
+      <SubjectMark subject={test.subject} icon={subjectIcon(test.subject)} ink={palette.ink} fill={kind === 'done' ? palette.primarySoft : palette.secondary} />
       <View style={styles.flex}>
         <Text style={[styles.rowTitle, { color: palette.foreground }]} numberOfLines={2}>
           {test.title}
         </Text>
         <Text style={[styles.meta, { color: palette.mutedForeground }]} numberOfLines={1}>
-          {test.subject || 'Mixed'} · {dayLabel(test.opensAt)}
+          {dayLabel(test.opensAt)}
         </Text>
+        {(test.subject ?? '').includes(',') ? (
+          <View style={styles.rowChips}>
+            <SubjectChips subjects={test.subject} max={2} />
+          </View>
+        ) : null}
       </View>
       {score !== null && percent !== null ? (
         <NeoTag label={`${score}/${test.maxScore}`} tone={percent >= 70 ? 'success' : percent >= 40 ? 'primarySoft' : 'dangerSoft'} accessibilityLabel={`${score} of ${test.maxScore}, ${percent} percent`} />
@@ -282,17 +291,45 @@ const styles = StyleSheet.create({
   scoreOf: { fontSize: 13, fontFamily: face.semibold },
   tile: { width: 40, height: 40, borderRadius: Neo.radius.sm, borderWidth: Neo.border.width, alignItems: 'center', justifyContent: 'center' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  rowChips: { marginTop: 6 },
   strong: { fontFamily: face.bold },
   pressed: { opacity: 0.7 },
 });
 
 function MutedAccess({ tests, onOpen, onRefresh }: { tests: ListedTest[]; onOpen: (id: string) => void; onRefresh: () => void }) {
-  return <>
-    <SectionTitle title="Restricted tests" />
-    {tests.map(test => <Card key={test.id}>
-      <ListRow title={test.title} subtitle={[test.subject, test.access ? testAccessLabel(test.access) : 'Not allowed to take this test'].filter(Boolean).join(' | ')} onPress={() => onOpen(test.id)} last />
-      <Muted>You can view this test. Teacher approval is required before you can take it.</Muted>
-      {test.access ? <RequestTestAccessButton testId={test.id} access={test.access} onRefresh={onRefresh} /> : null}
-    </Card>)}
-  </>;
+  const palette = usePalette();
+  return (
+    <>
+      <SectionTitle title="Needs approval" />
+      <Muted>You can open these to look. Your teacher has to approve you before you take one.</Muted>
+      {tests.map((test) => (
+        <Card key={test.id} style={styles.card}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${test.title}, needs your teacher's approval. Opens the test`}
+            onPress={() => onOpen(test.id)}
+            style={({ pressed }) => [styles.cardTop, pressed && styles.pressed]}
+          >
+            <SubjectMark subject={test.subject} icon={subjectIcon(test.subject)} ink={palette.ink} fill={palette.secondary} />
+            <View style={styles.flex}>
+              <Text style={[styles.cardTitle, { color: palette.foreground }]} numberOfLines={2}>
+                {test.title}
+              </Text>
+              {test.access ? (
+                <Text style={[styles.meta, { color: palette.mutedForeground }]} numberOfLines={2}>
+                  {testAccessLabel(test.access)}
+                </Text>
+              ) : null}
+            </View>
+            <Icon name={{ ios: 'chevron.right', android: 'chevron_right' }} color={palette.mutedForeground} size={16} />
+          </Pressable>
+          <View style={styles.chips}>
+            <StatusChip kind="locked" word="Needs approval" />
+            <SubjectChips subjects={test.subject || 'Mixed'} />
+          </View>
+          {test.access ? <RequestTestAccessButton testId={test.id} access={test.access} onRefresh={onRefresh} /> : null}
+        </Card>
+      ))}
+    </>
+  );
 }

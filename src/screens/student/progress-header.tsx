@@ -4,13 +4,14 @@ import { Text } from '@/components/app-text';
 import { Badge, Button, Card, Icon, Muted, ProgressBar, usePalette } from '@/components/kit';
 import { useEngagement } from '@/engagement/engagement-provider';
 import type { MeSnapshot } from '@/engagement/engagement-store';
-import { goalFill, goalLabel, goalText, levelCaption, levelFill, levelLabel, shouldStack, streakCaption, streakLabel } from '@/engagement/progress-format';
+import { goalFill, goalLabel, levelCaption, levelFill, levelLabel, shouldStack, streakLabel } from '@/engagement/progress-format';
+import { CountUp } from '@/design/neo-kit';
 import { face } from '@/design/type';
 import { hardShadow, Neo } from '@/design/tokens';
 
 // The top of student Home: streak · today's goal · level, as the server reports
 // them. Hidden when the tuition has engagement switched off. Every number is
-// also spoken, so colour and the ring are never the only signal.
+// also spoken, so colour and the bars are never the only signal.
 
 export function ProgressHeader() {
   const { enabled, me, status, error, offline, reload } = useEngagement();
@@ -43,26 +44,30 @@ function Chip({ label, style, children }: { label: string; style: StyleProp<View
   );
 }
 
-function StreakChip({ streak, style }: { streak: MeSnapshot['streak']; style: StyleProp<ViewStyle> }) {
+/** The three tiles share one layout: icon, a big number that counts up once, an optional bar, and a caption that wraps (never cut off). */
+function Tile({ icon, children, bar, caption }: { icon: React.ComponentProps<typeof Icon>['name']; children: React.ReactNode; bar?: number; caption: string }) {
   const palette = usePalette();
-  const on = streak.current > 0;
+  return (
+    <>
+      <View style={styles.valueRow}>
+        <Icon name={icon} color={palette.foreground} size={18} />
+        {children}
+      </View>
+      {bar !== undefined ? <ProgressBar value={bar} /> : null}
+      <Text style={[styles.caption, { color: palette.mutedForeground }]} numberOfLines={2}>
+        {caption}
+      </Text>
+    </>
+  );
+}
+
+function StreakChip({ streak, style }: { streak: MeSnapshot['streak']; style: StyleProp<ViewStyle> }) {
+  const freezes = streak.freezes > 0 ? ` · ${streak.freezes} freeze${streak.freezes === 1 ? '' : 's'}` : '';
   return (
     <Chip label={streakLabel(streak)} style={style}>
-      <View style={styles.valueRow}>
-        <Icon name={{ ios: 'flame.fill', android: 'local_fire_department' }} color={on ? palette.warning : palette.mutedForeground} size={20} />
-        <Text style={[styles.value, { color: palette.foreground }]}>{streak.current}</Text>
-      </View>
-      <View style={styles.captionRow}>
-        <Text style={[styles.caption, { color: palette.mutedForeground }]} numberOfLines={1}>
-          {streakCaption(streak)}
-        </Text>
-        {streak.freezes > 0 ? (
-          <View style={styles.freezes}>
-            <Icon name={{ ios: 'snowflake', android: 'ac_unit' }} color={palette.primary} size={12} />
-            <Text style={[styles.caption, { color: palette.mutedForeground }]}>{streak.freezes}</Text>
-          </View>
-        ) : null}
-      </View>
+      <Tile icon={{ ios: streak.current > 0 ? 'flame.fill' : 'flame', android: 'local_fire_department' }} caption={`${streak.current > 0 ? 'day streak' : 'No streak yet'}${freezes}`}>
+        <CountUp to={streak.current} />
+      </Tile>
     </Chip>
   );
 }
@@ -71,73 +76,29 @@ function GoalChip({ today, style }: { today: MeSnapshot['today']; style: StylePr
   const palette = usePalette();
   return (
     <Chip label={goalLabel(today)} style={style}>
-      <View style={styles.goalRow}>
-        <Ring size={36} stroke={5} fill={goalFill(today)} color={today.goalMet ? palette.success : palette.primary} track={palette.secondary}>
-          {today.goalMet ? <Icon name={{ ios: 'checkmark', android: 'check' }} color={palette.success} size={14} /> : null}
-        </Ring>
-        <View style={styles.flex}>
-          <Text style={[styles.goalValue, { color: palette.foreground }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
-            {goalText(today)}
-          </Text>
-          <Text style={[styles.caption, { color: palette.mutedForeground }]} numberOfLines={1}>
-            {today.goalMet ? 'Goal done' : 'XP today'}
-          </Text>
+      <Tile icon={{ ios: today.goalMet ? 'checkmark.circle.fill' : 'target', android: today.goalMet ? 'check_circle' : 'track_changes' }} bar={goalFill(today) * 100} caption={today.goalMet ? 'Goal done today' : 'XP today'}>
+        <View style={styles.fraction}>
+          <CountUp to={Math.max(0, today.xp)} />
+          <Text style={[styles.of, { color: palette.mutedForeground }]}>/{today.goal}</Text>
         </View>
-      </View>
+      </Tile>
     </Chip>
   );
 }
 
 function LevelChip({ xp, style }: { xp: MeSnapshot['xp']; style: StyleProp<ViewStyle> }) {
-  const palette = usePalette();
   return (
     <Chip label={levelLabel(xp)} style={style}>
-      <View style={styles.valueRow}>
-        <Icon name={{ ios: 'star.fill', android: 'star' }} color={palette.violet} size={18} />
-        <Text style={[styles.value, { color: palette.foreground }]}>L{xp.level}</Text>
-      </View>
-      <ProgressBar value={levelFill(xp) * 100} />
-      <Text style={[styles.caption, { color: palette.mutedForeground }]} numberOfLines={1}>
-        {levelCaption(xp)}
-      </Text>
+      <Tile icon={{ ios: 'star.fill', android: 'star' }} bar={levelFill(xp) * 100} caption={levelCaption(xp)}>
+        <CountUp to={xp.level} prefix="L" />
+      </Tile>
     </Chip>
-  );
-}
-
-/**
- * A progress ring from plain Views (no SVG needed): two half-windows, each
- * showing a half ring rotated into view. `fill` is 0–1.
- */
-function Ring({ size, stroke, fill, color, track, children }: { size: number; stroke: number; fill: number; color: string; track: string; children?: React.ReactNode }) {
-  const deg = Math.max(0, Math.min(1, fill)) * 360;
-  const half = size / 2;
-  const circle = { width: size, height: size, borderRadius: half, borderWidth: stroke } as const;
-  // A circle with its top and right borders coloured is a half ring from 315° to 135°; +45° makes it 0°–180°.
-  const rightHalf = { ...circle, borderColor: 'transparent', borderTopColor: color, borderRightColor: color } as const;
-  const leftHalf = { ...circle, borderColor: 'transparent', borderBottomColor: color, borderLeftColor: color } as const;
-  return (
-    <View style={{ width: size, height: size }} importantForAccessibility="no-hide-descendants">
-      <View style={[styles.abs, circle, { borderColor: track }]} />
-      {deg > 0 ? (
-        // Right window (0°–180°): the left half ring swings in clockwise.
-        <View style={[styles.abs, { left: half, width: half, height: size, overflow: 'hidden' }]}>
-          <View style={[styles.abs, leftHalf, { left: -half, transform: [{ rotate: `${45 + Math.min(deg, 180)}deg` }] }]} />
-        </View>
-      ) : null}
-      {deg > 180 ? (
-        // Left window (180°–360°): the right half ring swings in.
-        <View style={[styles.abs, { left: 0, width: half, height: size, overflow: 'hidden' }]}>
-          <View style={[styles.abs, rightHalf, { left: 0, transform: [{ rotate: `${45 + deg - 180}deg` }] }]} />
-        </View>
-      ) : null}
-      <View style={[styles.abs, styles.ringCenter, { width: size, height: size }]}>{children}</View>
-    </View>
   );
 }
 
 function HeaderSkeleton({ stack }: { stack: boolean }) {
   const palette = usePalette();
-  const block = [styles.skeleton, { backgroundColor: palette.secondary }];
+  const block = [styles.skeleton, { backgroundColor: palette.card, borderColor: palette.secondary }];
   return (
     <View accessible accessibilityLabel="Loading your progress" style={styles.row}>
       <View style={[block, stack ? styles.half : styles.third]} />
@@ -172,23 +133,19 @@ function StaleNote({ offline, onRetry }: { offline: boolean; onRetry: () => void
 
 const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
-  abs: { position: 'absolute', top: 0 },
   wrap: { gap: 8 },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  // 12 apart (8 clear of each 4-point shadow), like every card.
+  row: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 8, rowGap: 8 },
   // Three across; when stacked, streak and goal share a row and level takes the next.
   third: { flexGrow: 1, flexBasis: '28%' },
   half: { flexGrow: 1, flexBasis: '40%' },
   full: { flexBasis: '100%' },
-  chip: { borderWidth: Neo.border.width, borderRadius: Neo.radius.lg, paddingHorizontal: 12, paddingVertical: 10, gap: 4, minHeight: 80, justifyContent: 'center', marginRight: Neo.shadow.md, marginBottom: Neo.shadow.md },
-  valueRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  value: { fontSize: 28, lineHeight: 34, fontFamily: face.heavy, fontVariant: ['tabular-nums'] },
-  captionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  chip: { borderWidth: Neo.border.width, borderRadius: Neo.radius.lg, paddingHorizontal: 12, paddingVertical: 12, gap: 6, minHeight: 96, justifyContent: 'flex-start', marginRight: Neo.shadow.md, marginBottom: Neo.shadow.md },
+  fraction: { flexDirection: 'row', alignItems: 'baseline', flexShrink: 1, minWidth: 0 },
+  of: { fontSize: 14, fontFamily: face.semibold, fontVariant: ['tabular-nums'] },
+  valueRow: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
   caption: { fontSize: 13, lineHeight: 17, fontFamily: face.medium },
-  freezes: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  goalRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  goalValue: { fontSize: 22, lineHeight: 28, fontFamily: face.heavy, fontVariant: ['tabular-nums'] },
-  ringCenter: { alignItems: 'center', justifyContent: 'center' },
-  skeleton: { height: 80, borderRadius: Neo.radius.lg },
+  skeleton: { height: 96, borderRadius: Neo.radius.lg, borderWidth: Neo.border.width, marginRight: Neo.shadow.md, marginBottom: Neo.shadow.md },
   errorCard: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
   stale: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   retry: { minHeight: 44, justifyContent: 'center' },

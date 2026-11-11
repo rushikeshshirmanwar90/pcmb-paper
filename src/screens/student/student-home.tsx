@@ -4,7 +4,7 @@ import { Text } from '@/components/app-text';
 import { useRouter } from 'expo-router';
 import { Button, Card, DetailSheet, EmptyView, ErrorView, Icon, Muted, Notice, Screen, SectionTitle, StatusChip, useLoad, usePalette, type IconName } from '@/components/kit';
 import { SubjectChips } from '@/components/subject-chips';
-import { PatternBackdrop } from '@/design/illustrations';
+import { PatternBackdrop, SubjectMark } from '@/design/illustrations';
 import { NeoTag, NeoText } from '@/design/neo-kit';
 import type { StatusKind } from '@/design/status';
 import { SkeletonCard, StaleNotice } from '@/components/states';
@@ -247,11 +247,13 @@ function NextClassCard({ next }: { next: NextClass }) {
   return (
     <Card style={styles.flush}>
       <View accessible accessibilityLabel={`${ongoing ? 'Class on now' : 'Next class'}: ${entry.subject}, ${when}${details ? `, ${details}` : ''}`} style={styles.hero}>
-        <View style={styles.eyebrowRow}>
-          <StatusChip kind={ongoing ? 'live' : 'upcoming'} word={ongoing ? 'Class on now' : 'Next class'} />
-          <Icon name={subjectIcon(entry.subject)} color={palette.foreground} size={16} />
+        <StatusChip kind={ongoing ? 'live' : 'upcoming'} word={ongoing ? 'Class on now' : 'Next class'} />
+        <View style={styles.classTitle}>
+          <SubjectMark subject={entry.subject} size={40} icon={subjectIcon(entry.subject)} ink={palette.ink} fill={palette.primarySoft} />
+          <NeoText variant="heading" style={styles.flex}>
+            {entry.subject}
+          </NeoText>
         </View>
-        <NeoText variant="heading">{entry.subject}</NeoText>
         <Text style={[styles.meta, { color: palette.foreground }]}>{when}</Text>
         {details ? <Text style={[styles.meta, { color: palette.mutedForeground }]}>{details}</Text> : null}
       </View>
@@ -372,11 +374,13 @@ function TodayRow({ entry, state, last }: { entry: TimetableEntry; state: ClassS
 
 // ─── Loading ───────────────────────────────────────────────────────────────
 
-/** First load: the shape of Next up and Today, so nothing jumps when they land. */
+/** First load: the shape of Next up and Today, titles included, so nothing jumps when they land. */
 function HomeSkeleton() {
   return (
     <>
+      <SectionTitle title="Next up" />
       <SkeletonCard rows={2} label="what's next" />
+      <SectionTitle title="Today" />
       <SkeletonCard rows={3} label="today's classes" />
     </>
   );
@@ -526,8 +530,9 @@ const styles = StyleSheet.create({
   flush: { padding: 0, gap: 0 },
   strong: { fontFamily: face.bold },
 
-  hero: { padding: 16, gap: 6 },
+  hero: { padding: 16, gap: 8 },
   eyebrowRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  classTitle: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
   eyebrow: { fontSize: 13, fontFamily: face.semibold, flexShrink: 1 },
   heroTitle: { fontSize: 20, lineHeight: 25, fontFamily: face.heavy },
   meta: { fontSize: 13, lineHeight: 18 },
