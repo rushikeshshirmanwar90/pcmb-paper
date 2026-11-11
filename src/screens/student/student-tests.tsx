@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/app-text';
-import { Badge, Button, Card, EmptyView, ErrorView, Icon, LoadingView, Screen, SectionTitle, useLoad, usePalette, Muted, ListRow, type IconName } from '@/components/kit';
+import { Button, Card, EmptyView, ErrorView, Icon, Screen, SectionTitle, StatusChip, useLoad, usePalette, Muted, ListRow, type IconName } from '@/components/kit';
+import { SkeletonCard } from '@/components/states';
+import { SubjectChips } from '@/components/subject-chips';
+import { NeoTag } from '@/design/neo-kit';
 import { useTabDataVersion } from '@/context/data-version';
 import {
   byUrgency,
@@ -9,7 +12,6 @@ import {
   factsLine,
   kindOf,
   percentOf,
-  resultTone,
   subjectIcon,
   untilLabel,
   whenLabel,
@@ -21,6 +23,8 @@ import { testAccessLabel } from '@/screens/student/test-format';
 import { TestRunner } from '@/screens/student/test-runner';
 import { dayLabel } from '@/services/school-api';
 import { studentApi } from '@/services/student-api';
+import { face } from '@/design/type';
+import { Neo } from '@/design/tokens';
 
 
 const time = (iso: string) => new Date(iso).getTime();
@@ -52,12 +56,15 @@ export function StudentTestsScreen() {
   return (
     <Screen title="Tests" subtitle="Your batch's tests and results" onRefresh={refresh} refreshing={refreshing}>
       {loading ? (
-        <LoadingView label="Loading your tests…" />
+        <>
+          <SkeletonCard rows={2} label="your tests" />
+          <SkeletonCard rows={3} label="past tests" />
+        </>
       ) : error && !data ? (
         <ErrorView message={error} onRetry={reload} />
       ) : !tests.length ? (
         <Card>
-          <EmptyView icon={{ ios: 'list.clipboard', android: 'assignment' }} title="No tests yet" text="Tests your teachers set for your batch show here, with your results." />
+          <EmptyView icon={{ ios: 'list.clipboard', android: 'assignment' }} art="emptyTests" title="No tests yet" text="Tests your teachers set for your batch show here, with your results." />
         </Card>
       ) : (
         <>
@@ -68,6 +75,7 @@ export function StudentTestsScreen() {
             <Card>
               <EmptyView
                 icon={{ ios: 'checkmark.circle', android: 'task_alt' }}
+                art="allCaughtUp"
                 title={restricted.length ? 'No tests ready to start' : "You're all caught up"}
                 text={restricted.length ? 'Some tests need teacher approval. Request access below.' : upcoming.length ? `Your next test opens ${whenLabel(upcoming[0].opensAt, now)}.` : 'New tests from your teachers show here.'}
               />
@@ -147,24 +155,35 @@ function TestCard({ test, kind, now, prominent, onOpen }: { test: ListedTest; ki
             {test.title}
           </Text>
           <Text style={[styles.meta, { color: palette.mutedForeground }]} numberOfLines={1}>
-            {test.subject || 'Mixed'} · {test.teacher.name}
+            {test.teacher.name}
           </Text>
         </View>
-        {paused ? <Badge label="Paused" tone="warning" /> : kind === 'continue' ? <Badge label="In progress" tone="warning" /> : kind === 'start' ? <Badge label="Not started" tone="primary" /> : null}
+      </View>
+      <View style={styles.chips}>
+        {paused ? (
+          <StatusChip kind="locked" word="Paused" />
+        ) : kind === 'continue' ? (
+          <StatusChip kind="live" word="In progress" />
+        ) : kind === 'start' ? (
+          soon ? <StatusChip kind="due" word="Closes soon" /> : <StatusChip kind="new" word="Not started" />
+        ) : kind === 'open' ? (
+          <StatusChip kind="live" word="Open now" />
+        ) : null}
+        <SubjectChips subjects={test.subject || 'Mixed'} />
       </View>
 
       <Text style={[styles.facts, { color: palette.inkSoft }]}>{factsLine(test)}</Text>
 
       <View style={styles.timing}>
-        <Icon name={{ ios: soon ? 'clock.badge.exclamationmark' : 'clock', android: soon ? 'hourglass_top' : 'schedule' }} color={soon ? palette.warningInk : palette.mutedForeground} size={15} />
-        <Text style={[styles.timingText, { color: soon ? palette.warningInk : palette.mutedForeground, fontWeight: soon ? '700' : '500' }]}>{timing}</Text>
+        <Icon name={{ ios: soon ? 'clock.badge.exclamationmark' : 'clock', android: soon ? 'hourglass_top' : 'schedule' }} color={soon ? palette.foreground : palette.mutedForeground} size={15} />
+        <Text style={[styles.timingText, { color: soon ? palette.foreground : palette.mutedForeground }, soon && styles.strong]}>{timing}</Text>
       </View>
 
       {action ? (
         <Button
           label={action.label}
           icon={action.icon}
-          variant={prominent ? 'primary' : 'tonal'}
+          variant={prominent ? 'primary' : 'secondary'}
           onPress={() => onOpen(test.id)}
           accessibilityLabel={`${action.label}: ${test.title}`}
         />
@@ -179,7 +198,7 @@ function UpcomingRow({ test, now, last }: { test: ListedTest; now: number; last:
     <View
       accessible
       accessibilityLabel={`${test.title}, opens ${whenLabel(test.opensAt, now)}. ${factsLine(test)}. You can start it once it opens.`}
-      style={[styles.row, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }]}
+      style={[styles.row, !last && { borderBottomWidth: Neo.border.width, borderBottomColor: palette.border }]}
     >
       <IconTile icon={{ ios: 'calendar', android: 'event_upcoming' }} tone="neutral" />
       <View style={styles.flex}>
@@ -190,7 +209,7 @@ function UpcomingRow({ test, now, last }: { test: ListedTest; now: number; last:
           Opens {whenLabel(test.opensAt, now)} · {test.questionCount} questions · {test.durationMinutes} min
         </Text>
       </View>
-      <Text style={[styles.until, { color: palette.mutedForeground }]}>{untilLabel(test.opensAt, now)}</Text>
+      <StatusChip kind="upcoming" word={untilLabel(test.opensAt, now)} />
     </View>
   );
 }
@@ -211,7 +230,7 @@ function PastRow({ test, kind, onOpen, last }: { test: ListedTest; kind: Kind; o
       accessibilityRole="button"
       accessibilityLabel={`${test.title}, ${status}. ${action.label}`}
       onPress={() => onOpen(test.id)}
-      style={({ pressed }) => [styles.row, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.row, !last && { borderBottomWidth: Neo.border.width, borderBottomColor: palette.border }, pressed && styles.pressed]}
     >
       <IconTile icon={subjectIcon(test.subject)} tone={kind === 'done' ? 'primary' : 'neutral'} />
       <View style={styles.flex}>
@@ -223,15 +242,11 @@ function PastRow({ test, kind, onOpen, last }: { test: ListedTest; kind: Kind; o
         </Text>
       </View>
       {score !== null && percent !== null ? (
-        <View style={styles.scoreCol}>
-          <Text style={[styles.score, { color: palette.foreground }]}>
-            {score}
-            <Text style={[styles.scoreOf, { color: palette.mutedForeground }]}>/{test.maxScore}</Text>
-          </Text>
-          <Badge label={`${percent}%`} tone={resultTone(percent)} />
-        </View>
+        <NeoTag label={`${score}/${test.maxScore}`} tone={percent >= 70 ? 'success' : percent >= 40 ? 'primarySoft' : 'dangerSoft'} accessibilityLabel={`${score} of ${test.maxScore}, ${percent} percent`} />
+      ) : kind === 'missed' ? (
+        <StatusChip kind="missed" />
       ) : (
-        <Badge label={kind === 'missed' ? 'Missed' : 'Closed'} />
+        <StatusChip kind="locked" word="Closed" />
       )}
       <Icon name={{ ios: 'chevron.right', android: 'chevron_right' }} color={palette.mutedForeground} size={16} />
     </Pressable>
@@ -242,7 +257,7 @@ function PastRow({ test, kind, onOpen, last }: { test: ListedTest; kind: Kind; o
 function IconTile({ icon, tone = 'primary' }: { icon: IconName; tone?: 'primary' | 'neutral' }) {
   const palette = usePalette();
   return (
-    <View style={[styles.tile, { backgroundColor: tone === 'primary' ? palette.primarySoft : palette.secondary }]}>
+    <View style={[styles.tile, { backgroundColor: tone === 'primary' ? palette.primarySoft : palette.secondary, borderColor: palette.ink }]}>
       <Icon name={icon} color={tone === 'primary' ? palette.primary : palette.mutedForeground} size={19} />
     </View>
   );
@@ -253,19 +268,21 @@ const styles = StyleSheet.create({
   cards: { gap: 12 },
   card: { gap: 12, padding: 16 },
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  cardTitle: { fontSize: 17, lineHeight: 22, fontWeight: '700' },
+  cardTitle: { fontSize: 17, lineHeight: 22, fontFamily: face.bold },
   meta: { fontSize: 13, lineHeight: 18, marginTop: 2 },
   facts: { fontSize: 14, lineHeight: 20, fontVariant: ['tabular-nums'] },
   timing: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -4 },
   timingText: { fontSize: 13, lineHeight: 18 },
   listCard: { paddingVertical: 0 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, minHeight: 64 },
-  rowTitle: { fontSize: 15, lineHeight: 20, fontWeight: '600' },
-  until: { fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  rowTitle: { fontSize: 15, lineHeight: 20, fontFamily: face.semibold },
+  until: { fontSize: 13, fontFamily: face.semibold, fontVariant: ['tabular-nums'] },
   scoreCol: { alignItems: 'flex-end', gap: 4 },
-  score: { fontSize: 16, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  scoreOf: { fontSize: 13, fontWeight: '600' },
-  tile: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  score: { fontSize: 16, fontFamily: face.heavy, fontVariant: ['tabular-nums'] },
+  scoreOf: { fontSize: 13, fontFamily: face.semibold },
+  tile: { width: 40, height: 40, borderRadius: Neo.radius.sm, borderWidth: Neo.border.width, alignItems: 'center', justifyContent: 'center' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  strong: { fontFamily: face.bold },
   pressed: { opacity: 0.7 },
 });
 
