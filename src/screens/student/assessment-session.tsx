@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, ActivityIndicator, FlatList, KeyboardAvoidingView, Pressable, ScrollView, type ScrollViewInstance, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/app-text';
+import { Illustration } from '@/design/illustrations';
 import { confirmAction } from '@/components/account-section';
 import {
   Badge,
@@ -49,6 +50,8 @@ import {
   type StrengthTally,
   type TopicStrength,
 } from '@/services/student-api';
+import { face } from '@/design/type';
+import { Neo } from '@/design/tokens';
 
 /** Keeps a column readable on tablets: content stays phone-width, centred. */
 export const column = { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' } as const;
@@ -304,7 +307,7 @@ function Intro({
         <SectionTitle title="Chapters" />
         <Card style={styles.listCard}>
           {a.scope.map((s, i) => (
-            <View key={`${s.standard}|${s.chapter}`} style={[styles.scopeRow, i < a.scope.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }]}>
+            <View key={`${s.standard}|${s.chapter}`} style={[styles.scopeRow, i < a.scope.length - 1 && { borderBottomWidth: Neo.border.width, borderBottomColor: palette.border }]}>
               <Text style={[styles.rowTitle, { color: palette.foreground }]}>{s.chapter}</Text>
               <Text style={[styles.meta, { color: palette.mutedForeground }]}>{s.topics.length ? s.topics.join(', ') : `Whole chapter · ${s.standard}`}</Text>
             </View>
@@ -657,7 +660,7 @@ function SaveStatus({ state, onRetry }: { state: SaveState; onRetry: () => void 
     return (
       <Pressable accessibilityRole="button" accessibilityLabel="Some answers aren't saved yet. Retry now" onPress={onRetry} hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }} style={styles.saveStatus}>
         <Icon name={{ ios: 'exclamationmark.icloud', android: 'cloud_off' }} color={palette.warningInk} size={14} />
-        <Text style={[styles.saveText, { color: palette.warningInk, fontWeight: '700' }]}>Not saved yet · Retry</Text>
+        <Text style={[styles.saveText, { color: palette.warningInk, fontFamily: face.bold }]}>Not saved yet · Retry</Text>
       </Pressable>
     );
   }
@@ -744,7 +747,14 @@ function Result({
           </Text>
         </View>
 
-        {a.result ? <ScoreCard assessment={a} /> : null}
+        {a.result ? (
+          <>
+            <View style={styles.resultArt}>
+              <Illustration name="assessmentResult" scale={0.8} />
+            </View>
+            <ScoreCard assessment={a} />
+          </>
+        ) : null}
 
         {report ? (
           <>
@@ -1040,7 +1050,7 @@ function ChapterTree({ report, onSee }: { report: AssessmentReport; onSee: (t: T
         return (
           <View
             key={`${c.standard}|${c.chapter}`}
-            style={[styles.treeChapter, i < tree.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }]}
+            style={[styles.treeChapter, i < tree.length - 1 && { borderBottomWidth: Neo.border.width, borderBottomColor: palette.border }]}
           >
             <View style={styles.topicTop}>
               <View style={styles.treeIcon}>
@@ -1109,7 +1119,7 @@ function TreeBranch({ last, children, accessibilityLabel, onPress }: { last: boo
 function BreakdownRow({ title, tally, last }: { title: string; tally: StrengthTally; last: boolean }) {
   const palette = usePalette();
   return (
-    <View style={[styles.breakdown, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }]}>
+    <View style={[styles.breakdown, !last && { borderBottomWidth: Neo.border.width, borderBottomColor: palette.border }]}>
       <View style={styles.topicTop}>
         <Text style={[styles.rowTitle, styles.flex, { color: palette.foreground }]} numberOfLines={2}>
           {title}
@@ -1125,34 +1135,35 @@ function BreakdownRow({ title, tally, last }: { title: string; tally: StrengthTa
 }
 
 const styles = StyleSheet.create({
+  resultArt: { alignItems: 'center' },
   flex: { flex: 1, minWidth: 0 },
   row: { flexDirection: 'row', gap: 10 },
   pressed: { opacity: 0.7 },
 
-  header: { borderBottomWidth: 1 },
+  header: { borderBottomWidth: Neo.border.width },
   headerInner: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, minHeight: 56 },
-  headerTitle: { flex: 1, fontSize: 17, fontWeight: '700', paddingHorizontal: 8 },
+  headerTitle: { flex: 1, fontSize: 17, fontFamily: face.bold, paddingHorizontal: 8 },
   iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22 },
   quiet: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, paddingHorizontal: 12, alignSelf: 'center' },
-  quietText: { fontSize: 15, fontWeight: '700' },
-  footer: { borderTopWidth: 1 },
+  quietText: { fontSize: 15, fontFamily: face.bold },
+  footer: { borderTopWidth: Neo.border.width },
   footerInner: { padding: 16, paddingBottom: 12, gap: 6 },
   body: { padding: 16, gap: 14, paddingBottom: 24 },
 
   hero: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  heroTile: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  heroTitle: { fontSize: 22, lineHeight: 28, fontWeight: '800' },
+  heroTile: { width: 52, height: 52, borderRadius: Neo.radius.lg, alignItems: 'center', justifyContent: 'center' },
+  heroTitle: { fontSize: 22, lineHeight: 28, fontFamily: face.heavy },
   meta: { fontSize: 13, lineHeight: 19, marginTop: 2 },
   facts: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  fact: { flexGrow: 1, flexBasis: '45%', borderWidth: 1, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14, gap: 2 },
-  factLabel: { fontSize: 12, fontWeight: '600' },
-  factValue: { fontSize: 20, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  fact: { flexGrow: 1, flexBasis: '45%', borderWidth: Neo.border.width, borderRadius: Neo.radius.md, paddingVertical: 12, paddingHorizontal: 14, gap: 2 },
+  factLabel: { fontSize: 12, fontFamily: face.semibold },
+  factValue: { fontSize: 20, fontFamily: face.heavy, fontVariant: ['tabular-nums'] },
   planCard: { gap: 10, padding: 16 },
-  planLine: { fontSize: 15, fontWeight: '700' },
-  cardLabel: { fontSize: 13, fontWeight: '600' },
+  planLine: { fontSize: 15, fontFamily: face.bold },
+  cardLabel: { fontSize: 13, fontFamily: face.semibold },
   listCard: { paddingVertical: 0 },
   scopeRow: { paddingVertical: 12 },
-  rowTitle: { fontSize: 15, lineHeight: 20, fontWeight: '700' },
+  rowTitle: { fontSize: 15, lineHeight: 20, fontFamily: face.bold },
   tip: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 2 },
   tipText: { flex: 1, fontSize: 14, lineHeight: 20 },
 
@@ -1161,48 +1172,48 @@ const styles = StyleSheet.create({
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendText: { fontSize: 12, fontVariant: ['tabular-nums'] },
-  swatch: { width: 12, height: 12, borderRadius: 3 },
+  swatch: { width: 12, height: 12, borderRadius: Neo.radius.xs },
 
-  timer: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, minHeight: 36, borderRadius: 999, marginRight: 4 },
-  timerText: { fontSize: 16, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  statusBar: { borderBottomWidth: StyleSheet.hairlineWidth, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10, gap: 8 },
+  timer: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, minHeight: 36, borderRadius: Neo.radius.full, marginRight: 4 },
+  timerText: { fontSize: 16, fontFamily: face.heavy, fontVariant: ['tabular-nums'] },
+  statusBar: { borderBottomWidth: Neo.border.width, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10, gap: 8 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  position: { fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  position: { fontSize: 15, fontFamily: face.bold, fontVariant: ['tabular-nums'] },
   saveStatus: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2, alignSelf: 'flex-start' },
   saveText: { fontSize: 12, lineHeight: 16 },
   resultHeader: { gap: 14 },
   submitting: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 24 },
-  gridToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1 },
-  gridToggleText: { fontSize: 14, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  gridPanel: { borderBottomWidth: StyleSheet.hairlineWidth, paddingHorizontal: 16, paddingVertical: 12 },
+  gridToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 12, borderRadius: Neo.radius.md, borderWidth: Neo.border.width },
+  gridToggleText: { fontSize: 14, fontFamily: face.bold, fontVariant: ['tabular-nums'] },
+  gridPanel: { borderBottomWidth: Neo.border.width, paddingHorizontal: 16, paddingVertical: 12 },
   gridScroll: { maxHeight: 232 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 4, paddingRight: 4 },
-  cell: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  cellText: { fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  cellMark: { position: 'absolute', top: -4, right: -4, width: 14, height: 14, borderRadius: 7, borderWidth: 1.5 },
+  cell: { width: 44, height: 44, borderRadius: Neo.radius.md, alignItems: 'center', justifyContent: 'center' },
+  cellText: { fontSize: 15, fontFamily: face.bold, fontVariant: ['tabular-nums'] },
+  cellMark: { position: 'absolute', top: -4, right: -4, width: 14, height: 14, borderRadius: 7, borderWidth: Neo.border.width },
 
   qMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  qMetaText: { flex: 1, fontSize: 13, fontWeight: '800', letterSpacing: 0.3 },
-  qMarks: { fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  qMetaText: { flex: 1, fontSize: 13, fontFamily: face.heavy, letterSpacing: 0.3 },
+  qMarks: { fontSize: 13, fontFamily: face.bold, fontVariant: ['tabular-nums'] },
   qTools: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4 },
-  markButton: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1 },
-  markText: { fontSize: 14, fontWeight: '700' },
+  markButton: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 14, borderRadius: Neo.radius.full, borderWidth: Neo.border.width },
+  markText: { fontSize: 14, fontFamily: face.bold },
 
-  reviewTitle: { fontSize: 20, lineHeight: 26, fontWeight: '800' },
+  reviewTitle: { fontSize: 20, lineHeight: 26, fontFamily: face.heavy },
   scoreCard: { gap: 12, padding: 16 },
   scoreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: -6 },
-  scoreBig: { fontSize: 44, lineHeight: 52, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  scoreOf: { fontSize: 20, fontWeight: '600' },
+  scoreBig: { fontSize: 44, lineHeight: 52, fontFamily: face.heavy, fontVariant: ['tabular-nums'] },
+  scoreOf: { fontSize: 20, fontFamily: face.semibold },
   divider: { height: StyleSheet.hairlineWidth },
 
   topicCard: { gap: 10, padding: 16 },
   topicTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   countRow: { flexDirection: 'row', gap: 8 },
   countCol: { flex: 1, minWidth: 0 },
-  countBig: { fontSize: 26, lineHeight: 32, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  countLabel: { fontSize: 12, fontWeight: '600' },
+  countBig: { fontSize: 26, lineHeight: 32, fontFamily: face.heavy, fontVariant: ['tabular-nums'] },
+  countLabel: { fontSize: 12, fontFamily: face.semibold },
   countLine: { fontSize: 13, lineHeight: 19, fontVariant: ['tabular-nums'] },
-  countStrong: { fontWeight: '700' },
+  countStrong: { fontFamily: face.bold },
   treeChapter: { paddingVertical: 12, gap: 4 },
   treeIcon: { width: 20, alignItems: 'center' },
   // Lines the chapter's counts up with its name, past the icon.
@@ -1216,17 +1227,17 @@ const styles = StyleSheet.create({
   branchStemLast: { height: 21 },
   branchTick: { position: 'absolute', left: 0, top: 20, width: 14, height: 1.5 },
   branchBody: { paddingTop: 10, paddingBottom: 4, gap: 2, marginLeft: -9 },
-  branchTitle: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  branchTitle: { fontSize: 14, lineHeight: 20, fontFamily: face.semibold },
   // In line with the topic's name.
   branchChevron: { paddingTop: 13, paddingLeft: 6 },
-  detailText: { fontSize: 13, lineHeight: 18, fontWeight: '600' },
+  detailText: { fontSize: 13, lineHeight: 18, fontFamily: face.semibold },
   topicActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: -8, marginLeft: -12 },
   breakdown: { paddingVertical: 12, gap: 8 },
-  breakdownValue: { fontSize: 14, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  breakdownValue: { fontSize: 14, fontFamily: face.bold, fontVariant: ['tabular-nums'] },
   adviceCard: { gap: 10 },
   actions: { gap: 10 },
-  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', minHeight: 36, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, maxWidth: '100%' },
-  filterChipText: { fontSize: 14, fontWeight: '700', flexShrink: 1 },
+  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', minHeight: 36, paddingHorizontal: 12, borderRadius: Neo.radius.full, borderWidth: Neo.border.width, maxWidth: '100%' },
+  filterChipText: { fontSize: 14, fontFamily: face.bold, flexShrink: 1 },
   answerCard: { gap: 12 },
   answerTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 });

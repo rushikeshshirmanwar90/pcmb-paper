@@ -11,6 +11,8 @@ import { SelfAssessmentFlow } from '@/screens/student/self-assessment-flow';
 import { TopicPracticeSheet } from '@/screens/student/topic-practice-sheet';
 import { ALL_CHAPTER_QUESTIONS, statsAt, type PracticeNode } from '@/screens/student/topic-practice';
 import { studentApi, type AssessmentSummary } from '@/services/student-api';
+import { face } from '@/design/type';
+import { Neo } from '@/design/tokens';
 
 // "Continue where you left off" (Zeigarnik): one card, the most useful
 // unfinished thing. An unfinished self-assessment comes first (its clock may be
@@ -70,7 +72,7 @@ export function ContinueCard({ title = 'Continue' }: { title?: string }) {
               onPress={() => setOpen(item)}
               style={({ pressed }) => [styles.row, pressed && { backgroundColor: palette.muted }]}
             >
-              <View style={[styles.tile, { backgroundColor: palette.primarySoft }]}>
+              <View style={[styles.tile, { backgroundColor: palette.primary, borderColor: palette.ink }]}>
                 <Icon name={icon} color={palette.primary} size={20} />
               </View>
               <View style={styles.flex}>
@@ -104,10 +106,10 @@ export function ContinueCard({ title = 'Continue' }: { title?: string }) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
-  card: { padding: 0, gap: 0, overflow: 'hidden' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, minHeight: 64 },
-  tile: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 15, lineHeight: 20, fontWeight: '700' },
+  card: { padding: 0, gap: 0 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, minHeight: 64, borderRadius: Neo.radius.lg - 2 },
+  tile: { width: 40, height: 40, borderRadius: Neo.radius.sm, borderWidth: Neo.border.width, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 15, lineHeight: 20, fontFamily: face.bold },
   meta: { fontSize: 13, lineHeight: 18, marginTop: 2 },
-  action: { fontSize: 15, fontWeight: '700' },
+  action: { fontSize: 15, fontFamily: face.bold, textDecorationLine: 'underline' },
 });

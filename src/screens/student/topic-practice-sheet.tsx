@@ -37,6 +37,8 @@ import {
   type PracticeNode,
 } from '@/screens/student/topic-practice';
 import { studentApi, type PracticeQuestion } from '@/services/student-api';
+import { face } from '@/design/type';
+import { Neo } from '@/design/tokens';
 
 /** A checked answer, as the server marked and saved it. */
 type Result = { selected: string; correct: boolean; correctAnswer: string; explanation: string; explanationDiagramUrls: string[] };
@@ -513,7 +515,7 @@ function Summary({
                   onPress={() => onOpen(index)}
                   style={({ pressed }) => [
                     styles.qRow,
-                    i < shown.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border },
+                    i < shown.length - 1 && { borderBottomWidth: Neo.border.width, borderBottomColor: palette.border },
                     pressed && styles.pressed,
                   ]}
                 >
@@ -521,7 +523,7 @@ function Summary({
                   <View style={styles.flex}>
                     <Text style={[styles.qTitle, { color: palette.foreground }]} numberOfLines={2}>
                       Question {numberOf(index)}
-                      {showTopic && question.topic ? <Text style={{ color: palette.mutedForeground, fontWeight: '400' }}> · {question.topic}</Text> : null}
+                      {showTopic && question.topic ? <Text style={{ color: palette.mutedForeground, fontFamily: face.regular }}> · {question.topic}</Text> : null}
                     </Text>
                     <Text style={[styles.qMeta, { color: ink[outcome] }]}>
                       {outcome === 'wrong' && selected ? `Wrong · you chose ${selected}` : OUTCOME[outcome].label}
@@ -551,13 +553,13 @@ const styles = StyleSheet.create({
   flex2: { flex: 2 },
   pressed: { opacity: 0.7 },
   practice: { gap: 14 },
-  path: { fontSize: 13, fontWeight: '600' },
+  path: { fontSize: 13, fontFamily: face.semibold },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   navButton: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, minWidth: 64 },
   navEnd: { justifyContent: 'flex-end' },
-  navText: { fontSize: 15, fontWeight: '700' },
+  navText: { fontSize: 15, fontFamily: face.bold },
   // Takes the space between Previous and End and wraps at large text sizes instead of colliding.
-  count: { flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  count: { flex: 1, textAlign: 'center', fontSize: 15, fontFamily: face.bold, fontVariant: ['tabular-nums'] },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   footerRow: { flexDirection: 'row', gap: 10 },
   solution: { gap: 8 },
@@ -565,22 +567,22 @@ const styles = StyleSheet.create({
   footerStack: { gap: 10 },
   listCard: { paddingVertical: 0 },
   verdictCard: { gap: 14, padding: 18 },
-  verdictTitle: { fontSize: 24, lineHeight: 30, fontWeight: '800' },
+  verdictTitle: { fontSize: 24, lineHeight: 30, fontFamily: face.heavy },
   verdictText: { fontSize: 15, lineHeight: 21, marginTop: 4 },
   scoreRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 },
-  scoreBig: { fontSize: 40, lineHeight: 46, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  scoreOf: { fontSize: 20, fontWeight: '600' },
+  scoreBig: { fontSize: 40, lineHeight: 46, fontFamily: face.heavy, fontVariant: ['tabular-nums'] },
+  scoreOf: { fontSize: 20, fontFamily: face.semibold },
   scoreSide: { alignItems: 'flex-end', paddingBottom: 4 },
-  scorePercent: { fontSize: 20, lineHeight: 24, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  scorePercent: { fontSize: 20, lineHeight: 24, fontFamily: face.heavy, fontVariant: ['tabular-nums'] },
   scoreCaption: { fontSize: 13, lineHeight: 18 },
   strip: { flexDirection: 'row', height: 10, gap: 3 },
   pill: { borderRadius: 5, minWidth: 10 },
-  pillOutline: { borderWidth: 1.5 },
+  pillOutline: { borderWidth: Neo.border.width },
   key: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 16, rowGap: 6 },
   keyItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  keyText: { fontSize: 13, lineHeight: 18, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  keyText: { fontSize: 13, lineHeight: 18, fontFamily: face.semibold, fontVariant: ['tabular-nums'] },
   qRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingVertical: 10 },
-  qTitle: { fontSize: 15, lineHeight: 20, fontWeight: '600' },
-  qMeta: { fontSize: 13, lineHeight: 18, fontWeight: '600', marginTop: 1 },
-  qAction: { fontSize: 15, fontWeight: '600' },
+  qTitle: { fontSize: 15, lineHeight: 20, fontFamily: face.semibold },
+  qMeta: { fontSize: 13, lineHeight: 18, fontFamily: face.semibold, marginTop: 1 },
+  qAction: { fontSize: 15, fontFamily: face.semibold },
 });

@@ -30,7 +30,7 @@ export const sunny: NeoColors = {
   ink: '#121212', inkSoft: '#4A463F', onAccent: '#121212', onInk: '#F8F5EE',
   primary: '#F7C744', primarySoft: '#FCEDBE',
   success: '#86DE98', successSoft: '#DDF5E2',
-  danger: '#F49AD9', dangerSoft: '#FCE4F4', dangerInk: '#9B145E',
+  danger: '#F49AD9', dangerSoft: '#FCE4F4', dangerInk: '#7A2E5E',
   warning: '#FFB866', warningSoft: '#FFEBD2',
   violet: '#BFA3FF', violetSoft: '#ECE4FF',
   info: '#8FD3FF', infoSoft: '#DDF1FF',

@@ -64,6 +64,8 @@ import {
   type AssessmentSummary,
   type PracticeChapter,
 } from '@/services/student-api';
+import { face } from '@/design/type';
+import { Neo } from '@/design/tokens';
 
 export type FlowView =
   | { kind: 'home' }
@@ -219,7 +221,7 @@ function AssessmentRow({ a, last, onPress }: { a: AssessmentSummary; last: boole
       accessibilityRole="button"
       accessibilityLabel={`${a.title}, ${summaryLine(a)}`}
       onPress={onPress}
-      style={({ pressed }) => [styles.row, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.row, !last && { borderBottomWidth: Neo.border.width, borderBottomColor: palette.border }, pressed && styles.pressed]}
     >
       <Icon name={icon} color={a.state === 'submitted' ? palette.primary : palette.warning} size={22} />
       <View style={styles.flex}>
@@ -617,7 +619,7 @@ function ChapterPicker({
     .filter(Boolean)
     .join(' · ');
   return (
-    <View style={!last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }}>
+    <View style={!last && { borderBottomWidth: Neo.border.width, borderBottomColor: palette.border }}>
       <View style={styles.pickRow}>
         <Pressable
           accessibilityRole="checkbox"
@@ -735,23 +737,23 @@ const styles = StyleSheet.create({
 
   hero: { gap: 14, padding: 16 },
   heroTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  heroTile: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  heroTitle: { fontSize: 18, fontWeight: '800' },
+  heroTile: { width: 44, height: 44, borderRadius: Neo.radius.md, alignItems: 'center', justifyContent: 'center' },
+  heroTitle: { fontSize: 18, fontFamily: face.heavy },
   listCard: { paddingVertical: 0 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, minHeight: 64 },
-  rowTitle: { fontSize: 15, lineHeight: 20, fontWeight: '700' },
+  rowTitle: { fontSize: 15, lineHeight: 20, fontFamily: face.bold },
 
   step: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
   stepNumber: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  stepNumberText: { fontSize: 13, fontWeight: '800' },
-  stepTitle: { fontSize: 16, fontWeight: '800' },
+  stepNumberText: { fontSize: 13, fontFamily: face.heavy },
+  stepTitle: { fontSize: 16, fontFamily: face.heavy },
   stepDetail: { flex: 1, fontSize: 13, lineHeight: 17, textAlign: 'right' },
 
-  search: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, minHeight: 44 },
+  search: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: Neo.border.width, borderRadius: Neo.radius.md, paddingHorizontal: 12, minHeight: 44 },
   searchInput: { flex: 1, fontSize: 15, paddingVertical: 10 },
-  clear: { fontSize: 14, fontWeight: '700' },
+  clear: { fontSize: 14, fontFamily: face.bold },
   group: { gap: 6 },
-  groupTitle: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
+  groupTitle: { fontSize: 12, fontFamily: face.bold, letterSpacing: 0.5 },
   pickRow: { flexDirection: 'row', alignItems: 'center' },
   pickMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, minHeight: 56 },
   expand: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
@@ -761,13 +763,13 @@ const styles = StyleSheet.create({
 
   preview: { gap: 10, padding: 16 },
   quickRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  quickLabel: { fontSize: 12, fontWeight: '600' },
-  quickValue: { fontSize: 15, lineHeight: 21, fontWeight: '600', marginTop: 2 },
-  previewBig: { fontSize: 20, fontWeight: '800' },
-  previewSmall: { fontSize: 14, fontWeight: '600' },
+  quickLabel: { fontSize: 12, fontFamily: face.semibold },
+  quickValue: { fontSize: 15, lineHeight: 21, fontFamily: face.semibold, marginTop: 2 },
+  previewBig: { fontSize: 20, fontFamily: face.heavy },
+  previewSmall: { fontSize: 14, fontFamily: face.semibold },
   previewTopics: { gap: 8, marginTop: 4 },
   previewTopic: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   previewTopicName: { flex: 1, fontSize: 14 },
-  previewTopicCount: { fontSize: 14, fontWeight: '700', fontVariant: ['tabular-nums'], minWidth: 24, textAlign: 'right' },
+  previewTopicCount: { fontSize: 14, fontFamily: face.bold, fontVariant: ['tabular-nums'], minWidth: 24, textAlign: 'right' },
   footerHint: { fontSize: 13, textAlign: 'center' },
 });

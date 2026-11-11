@@ -2,19 +2,23 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/app-text';
 import { useRouter } from 'expo-router';
-import { Button, Card, ErrorView, Icon, ListRow, Muted, Notice, Screen, SectionTitle, useLoad, usePalette } from '@/components/kit';
+import { Button, Card, ErrorView, Icon, Muted, Notice, Screen, SectionTitle, useLoad, usePalette } from '@/components/kit';
+import { Illustration, subjectArt } from '@/design/illustrations';
+import { NeoIcon, NeoTag, NeoText, PressableNeo } from '@/design/neo-kit';
 import { SkeletonCard, StaleNotice } from '@/components/states';
 import { programOf, programSubjects, questionBankOf, type SchoolSubject } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
 import { useTabDataVersion } from '@/context/data-version';
 import { ContinueCard } from '@/screens/student/practice/continue-card';
-import { accuracyInk, PracticeUnavailable } from '@/screens/student/practice/practice-parts';
+import { PracticeUnavailable } from '@/screens/student/practice/practice-parts';
 import { loadLastPractised, practiceSubjectHref } from '@/screens/student/practice/practice-links';
 import { retakeSetup, summaryLine } from '@/screens/student/self-assessment';
 import { SelfAssessmentFlow, type FlowView } from '@/screens/student/self-assessment-flow';
 import { subjectIcon } from '@/screens/student/test-format';
 import { dayLabel } from '@/services/school-api';
 import { studentApi, type AssessmentSummary } from '@/services/student-api';
+import { face } from '@/design/type';
+import { Neo } from '@/design/tokens';
 
 /** The tab's key in role-tabs. */
 export const PRACTICE_TAB = 'practice';
@@ -197,7 +201,7 @@ function TestRow({ title, meta, trailing, last, onPress }: { title: string; meta
       accessibilityRole="button"
       accessibilityLabel={`${title}, ${meta}`}
       onPress={onPress}
-      style={({ pressed }) => [styles.row, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.row, !last && { borderBottomWidth: Neo.border.width, borderBottomColor: palette.border }, pressed && styles.pressed]}
     >
       <View style={styles.flex}>
         <Text style={[styles.rowTitle, { color: palette.foreground }]} numberOfLines={2}>
@@ -241,15 +245,12 @@ function ResultRow({
   const plan = retakeSetup(a, []);
   const planLine = `${plan.count} questions · ${plan.durationMinutes ? `${plan.durationMinutes} min` : 'no time limit'} · starts right away`;
   return (
-    <View style={!last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }}>
+    <View style={!last && { borderBottomWidth: Neo.border.width, borderBottomColor: palette.border }}>
       <TestRow
         title={a.title}
         meta={`${a.subject} · ${dayLabel(a.submittedAt ?? a.createdAt)}${weak ? ` · ${weak} weak topic${weak === 1 ? '' : 's'}` : ''}`}
         trailing={
-          <View accessible accessibilityLabel={`${strength}% strength`} style={styles.rowFigure}>
-            <Text style={[styles.rowStrength, { color: accuracyInk(palette, strength) }]}>{strength}%</Text>
-            <Text style={[styles.rowFigureLabel, { color: palette.mutedForeground }]}>strength</Text>
-          </View>
+          <NeoTag label={`${strength}%`} tone={strength >= 70 ? 'success' : strength >= 40 ? 'primarySoft' : 'dangerSoft'} accessibilityLabel={`${strength}% strength`} />
         }
         last
         onPress={onOpen}
@@ -284,27 +285,37 @@ function SeeAll({ count, onPress }: { count: number; onPress: () => void }) {
       hitSlop={12}
       style={({ pressed }) => [styles.seeAll, pressed && styles.pressed]}
     >
-      <Text style={[styles.seeAllText, { color: palette.primaryInk }]}>See all</Text>
+      <Text style={[styles.seeAllText, { color: palette.foreground }]}>See all</Text>
     </Pressable>
   );
 }
 
-/** One row per subject, each opening its chapters: a list scans and taps better than wrapping chips. */
+/** One tile per subject (two to a row), each opening its chapters: art, the name and what's inside. */
 function SubjectChips({ subjects, onOpen }: { subjects: SchoolSubject[]; onOpen: (s: SchoolSubject) => void }) {
   return (
-    <Card style={styles.subjectList}>
-      {subjects.map((s, i) => (
-        <ListRow
-          key={s}
-          icon={subjectIcon(s)}
-          title={s}
-          subtitle="Past-year questions by chapter"
-          onPress={() => onOpen(s)}
-          accessibilityLabel={`${s}: practise past-year questions by chapter`}
-          last={i === subjects.length - 1}
-        />
-      ))}
-    </Card>
+    <View style={styles.tiles}>
+      {subjects.map((s) => {
+        const art = subjectArt(s);
+        return (
+          <View key={s} style={styles.tileSlot}>
+          <PressableNeo
+            radius={Neo.radius.lg}
+            onPress={() => onOpen(s)}
+            accessibilityLabel={`${s}: practise past-year questions by chapter`}
+            faceStyle={styles.tileFace}
+          >
+            {art ? <Illustration name={art} /> : <NeoIcon name={subjectIcon(s)} size={28} />}
+            <NeoText variant="subheading" numberOfLines={1}>
+              {s}
+            </NeoText>
+            <NeoText variant="caption" soft numberOfLines={2}>
+              PYQs by chapter
+            </NeoText>
+          </PressableNeo>
+          </View>
+        );
+      })}
+    </View>
   );
 }
 
@@ -316,36 +327,39 @@ const styles = StyleSheet.create({
   summary: { gap: 12, padding: 16 },
   summaryTop: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },
   summaryRight: { alignItems: 'flex-end' },
-  bigNumber: { fontSize: 28, lineHeight: 34, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  bigOf: { fontSize: 17, fontWeight: '600' },
+  bigNumber: { fontSize: 28, lineHeight: 34, fontFamily: face.heavy, fontVariant: ['tabular-nums'] },
+  bigOf: { fontSize: 17, fontFamily: face.semibold },
   strip: { flexDirection: 'row', overflow: 'hidden' },
   legend: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 16, rowGap: 6 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontSize: 13, lineHeight: 18, fontVariant: ['tabular-nums'] },
-  rowAccuracy: { fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  tile: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  rowAccuracy: { fontSize: 13, fontFamily: face.bold, fontVariant: ['tabular-nums'] },
+  tile: { width: 40, height: 40, borderRadius: Neo.radius.md, alignItems: 'center', justifyContent: 'center' },
   meta: { fontSize: 13, lineHeight: 18, marginTop: 2 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, minHeight: 60 },
-  rowTitle: { fontSize: 15, lineHeight: 20, fontWeight: '600' },
+  rowTitle: { fontSize: 15, lineHeight: 20, fontFamily: face.semibold },
   rowBar: { marginTop: 6 },
   back: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, alignSelf: 'flex-start' },
-  backText: { fontSize: 15, fontWeight: '700' },
+  backText: { fontSize: 15, fontFamily: face.bold },
   heading: { gap: 6 },
-  headingTitle: { fontSize: 22, fontWeight: '800', lineHeight: 28 },
+  headingTitle: { fontSize: 22, fontFamily: face.heavy, lineHeight: 28 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   actions: { gap: 10, marginTop: 4 },
-  startCard: { gap: 16, padding: 18, borderRadius: 18 },
+  startCard: { gap: 16, padding: 18, borderRadius: Neo.radius.lg },
   retake: { gap: 8, paddingBottom: 12 },
   retakeHint: { fontSize: 13, lineHeight: 18, textAlign: 'center', fontVariant: ['tabular-nums'] },
   rowFigure: { alignItems: 'flex-end' },
-  rowFigureLabel: { fontSize: 11, lineHeight: 14, fontWeight: '600' },
-  startTitle: { fontSize: 22, lineHeight: 28, fontWeight: '800' },
+  rowFigureLabel: { fontSize: 11, lineHeight: 14, fontFamily: face.semibold },
+  startTitle: { fontSize: 22, lineHeight: 28, fontFamily: face.heavy },
   startText: { fontSize: 15, lineHeight: 21, marginTop: -6 },
-  trailingAction: { fontSize: 15, fontWeight: '700' },
-  rowStrength: { fontSize: 17, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  trailingAction: { fontSize: 15, fontFamily: face.bold },
+  rowStrength: { fontSize: 17, fontFamily: face.heavy, fontVariant: ['tabular-nums'] },
   subjectList: { paddingVertical: 0 },
   seeAll: { minHeight: 32, justifyContent: 'center' },
-  seeAllText: { fontSize: 13, fontWeight: '700' },
+  tiles: { flexDirection: 'row', flexWrap: 'wrap', marginRight: -8 },
+  tileSlot: { width: '50%', paddingRight: 8, marginBottom: 8 },
+  tileFace: { padding: 14, gap: 6, minHeight: 132 },
+  seeAllText: { fontSize: 14, fontFamily: face.bold, textDecorationLine: 'underline' },
   inlineLoading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 20 },
 });
