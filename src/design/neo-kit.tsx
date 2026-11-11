@@ -770,7 +770,7 @@ export function NeoEmptyView({ icon, title, text, action, art }: { icon: IconNam
   return (
     <View style={styles.empty}>
       {art ? (
-        <Illustration name={art} scale={0.85} />
+        <Illustration name={art} />
       ) : (
         <Sticker size={96} tone="primary" points={12}>
           <NeoIcon name={icon} size={30} />
@@ -791,7 +791,7 @@ export function NeoEmptyView({ icon, title, text, action, art }: { icon: IconNam
 export function NeoErrorView({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <View style={styles.centered}>
-      <Illustration name="offline" scale={0.75} />
+      <Illustration name="offline" />
       <NeoText variant="subheading" accessibilityLiveRegion="polite" style={styles.center}>
         {message}
       </NeoText>

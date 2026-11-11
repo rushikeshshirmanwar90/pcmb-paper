@@ -243,7 +243,6 @@ def subject_maths():
     # Ruler ticks along the upright edge, clear of the outline
     for i, y in enumerate((14, 19, 24, 29, 34)):
         a.stroke([(12, y), (14 if i % 2 else 16, y)], dp=1.2)
-    a.sparkle(38, 12, 4, YELLOW)
     a.save('subject-maths')
 
 
@@ -317,8 +316,17 @@ def pattern_doodles(variant='light'):
     # a few accent dots
     for i, c in enumerate((YELLOW, PINK, MINT, LAVENDER, YELLOW, MINT)):
         a.dot(rnd.uniform(16, W - 16), rnd.uniform(14, H - 14), 3.4, c)
-    # Faint: the whole layer at low opacity (accents a little stronger than ink lines)
-    alpha = a.img.getchannel('A').point(lambda v: int(v * (0.2 if variant == 'light' else 0.16)))
+    # Faint: the whole layer at low opacity, fading out over the bottom third so
+    # the band never ends in a hard line under the header.
+    strength = 0.24 if variant == 'light' else 0.2
+    alpha = a.img.getchannel('A').point(lambda v: int(v * strength))
+    h = alpha.height
+    ramp = Image.new('L', (1, h))
+    for y in range(h):
+        t = y / h
+        ramp.putpixel((0, y), 255 if t < 0.62 else int(255 * max(0.0, 1 - (t - 0.62) / 0.38) ** 1.6))
+    from PIL import ImageChops
+    alpha = ImageChops.multiply(alpha, ramp.resize(alpha.size))
     a.img.putalpha(alpha)
     a.save('pattern-doodles' + ('' if variant == 'light' else '-dark'))
 

@@ -750,7 +750,7 @@ function Result({
         {a.result ? (
           <>
             <View style={styles.resultArt}>
-              <Illustration name="assessmentResult" scale={0.8} />
+              <Illustration name="assessmentResult" />
             </View>
             <ScoreCard assessment={a} />
           </>

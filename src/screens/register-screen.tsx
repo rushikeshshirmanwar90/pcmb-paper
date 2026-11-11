@@ -68,7 +68,7 @@ export function RegisterScreen({ onBack }: { onBack: (email?: string) => void })
   };
 
   return (
-    <AuthScreen hero={<Illustration name="welcomeHero" scale={0.6} />}>
+    <AuthScreen hero={<Illustration name="welcomeHero" scale={0.75} />}>
       <AuthTopBar leading={<BackLink label="Log in instead" onPress={() => onBack()} />} />
       <StepProgress step={1} style={{ marginBottom: 16 }} />
       <AuthTitle
