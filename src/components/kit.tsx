@@ -476,11 +476,13 @@ type ButtonProps = {
   icon?: IconName;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
+  /** Student look only: lg is the full-width button pinned at the bottom of a screen (classic ignores it). */
+  size?: 'sm' | 'md' | 'lg';
 };
 
-export function Button(props: ButtonProps) {
+export function Button({ size, ...props }: ButtonProps) {
   const neo = useNeo();
-  if (neo) return <NeoButton {...props} />;
+  if (neo) return <NeoButton {...props} size={size} />;
   return <ClassicButton {...props} variant={props.variant === 'ghost' ? 'secondary' : props.variant} />;
 }
 

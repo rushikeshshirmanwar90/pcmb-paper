@@ -2,7 +2,7 @@
 //   node --experimental-strip-types --test tests/neo-tokens.test.mjs
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { contrast, darkFrom, lavender, mix, neoColors, toAppPalette, textStyles, font } from '../src/design/tokens.ts';
+import { contrast, darkFrom, sunny, mix, neoColors, toAppPalette, typeScale, FONT_OPTIONS } from '../src/design/tokens.ts';
 import { STATUS, statusWord } from '../src/design/status.ts';
 
 const MODES = [
@@ -39,7 +39,7 @@ describe('contrast (WCAG AA) in light and dark', () => {
     });
   }
   test('the canvas is never pure white', () => {
-    assert.notEqual(lavender.canvas.toUpperCase(), '#FFFFFF');
+    assert.notEqual(sunny.canvas.toUpperCase(), '#FFFFFF');
   });
 });
 
@@ -48,12 +48,16 @@ describe('darkFrom and mix', () => {
     assert.equal(mix('#A98BFA', '#24222A', 1), '#A98BFA');
     assert.equal(mix('#A98BFA', '#24222A', 0), '#24222A');
   });
+  test('primary, location and the tab bar: yellow, yellow, near-black', () => {
+    assert.equal(sunny.primary, sunny.highlight);
+    assert.equal(sunny.tabBar, sunny.ink);
+  });
   test('dark keeps the accents and turns the ink cream', () => {
-    const d = darkFrom(lavender);
-    assert.equal(d.primary, lavender.primary);
-    assert.equal(d.highlight, lavender.highlight);
+    const d = darkFrom(sunny);
+    assert.equal(d.primary, sunny.primary);
+    assert.equal(d.highlight, sunny.highlight);
     assert.equal(d.onAccent, '#1A1A1A');
-    assert.notEqual(d.ink, lavender.ink);
+    assert.notEqual(d.ink, sunny.ink);
   });
 });
 
@@ -85,23 +89,24 @@ describe('toAppPalette', () => {
   }
 });
 
-describe('type scale', () => {
-  test('weight always comes from the family (no fontWeight)', () => {
-    for (const [name, style] of Object.entries(textStyles)) {
-      assert.equal(style.fontWeight, undefined, name);
-      assert.ok(Object.values(font).includes(style.fontFamily), `${name} uses a loaded face`);
-    }
-  });
-  test('the wide display face only at 24px and up', () => {
-    for (const [name, style] of Object.entries(textStyles)) {
-      if (style.fontFamily === font.display) assert.ok(style.fontSize >= 24, name);
-    }
-  });
-  test('reading text is at least 13px', () => {
-    for (const [name, style] of Object.entries(textStyles)) {
-      if (name !== 'overline') assert.ok(style.fontSize >= 13, name);
-    }
-  });
+describe('type scale (both font options)', () => {
+  for (const [name, faces] of Object.entries(FONT_OPTIONS)) {
+    const scale = typeScale(faces);
+    test(`${name}: one family, weight always from the face name (no fontWeight)`, () => {
+      for (const [variant, style] of Object.entries(scale)) {
+        assert.equal(style.fontWeight, undefined, variant);
+        assert.ok(Object.values(faces).includes(style.fontFamily), `${variant} uses a loaded face`);
+      }
+    });
+    test(`${name}: reading text is at least 13px; numbers are big`, () => {
+      for (const [variant, style] of Object.entries(scale)) if (variant !== 'overline') assert.ok(style.fontSize >= 13, variant);
+      assert.ok(scale.number.fontSize >= 24 && scale.bigNumber.fontSize >= 36);
+    });
+    test(`${name}: headings bold, body medium`, () => {
+      for (const v of ['display', 'title', 'heading']) assert.equal(scale[v].fontFamily, faces.bold, v);
+      assert.equal(scale.body.fontFamily, faces.medium);
+    });
+  }
 });
 
 describe('status chips', () => {

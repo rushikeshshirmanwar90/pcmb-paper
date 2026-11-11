@@ -1,7 +1,8 @@
-// The student look (neobrutalism, "lavender" preset): colours, borders, hard
-// shadows, radii and the type scale. Plain TypeScript with no React Native
-// imports, so the contrast rules are unit-tested (tests/neo-tokens.test.mjs).
-// Only the student scope uses these; teacher and tuition keep the classic theme.
+// The student look (neobrutalism, "sunny" preset tuned to the warm-yellow
+// reference): colours, borders, hard shadows, radii and the type scale. Plain
+// TypeScript with no React Native imports, so the contrast rules are
+// unit-tested (tests/neo-tokens.test.mjs). Only the student scope uses these;
+// teacher and tuition keep the classic theme.
 
 /** The preset's own colour names (components read these). */
 export type NeoColors = {
@@ -18,19 +19,24 @@ export type NeoColors = {
   tabBar: string;
 };
 
-/** Lavender: playful and studious, made for students. Checked against WCAG AA. */
-export const lavender: NeoColors = {
-  canvas: '#EEE8FF', surface: '#FFFFFF', subtle: '#E2DAF7', zebra: '#F6F3FF',
-  ink: '#1A1A1A', inkSoft: '#4D4766', onAccent: '#1A1A1A', onInk: '#FFFFFF',
-  primary: '#A98BFA', primarySoft: '#ECE5FE',
-  success: '#7EDC9A', successSoft: '#E3F7E9',
-  danger: '#FF8FB8', dangerSoft: '#FFE6EF', dangerInk: '#B0124A',
-  warning: '#FFB65C', warningSoft: '#FFEFDB',
-  violet: '#A98BFA', violetSoft: '#ECE5FE',
-  info: '#8FD3FF', infoSoft: '#E6F5FF',
-  highlight: '#D7F25A',
-  doodle: '#A98BFA',
-  tabBar: '#1A1A1A',
+/**
+ * Sunny: cream page, white cards, warm yellow for the main button, the active
+ * tab and the current item; pink, mint and lavender as sparing accents; near-
+ * black ink for every text, border and shadow. "danger" is a soft pink, never
+ * an alarm red. Checked against WCAG AA.
+ */
+export const sunny: NeoColors = {
+  canvas: '#F8F5EE', surface: '#FFFFFF', subtle: '#ECE7DC', zebra: '#F6F2E9',
+  ink: '#121212', inkSoft: '#4A463F', onAccent: '#121212', onInk: '#F8F5EE',
+  primary: '#F7C744', primarySoft: '#FCEDBE',
+  success: '#86DE98', successSoft: '#DDF5E2',
+  danger: '#F49AD9', dangerSoft: '#FCE4F4', dangerInk: '#9B145E',
+  warning: '#FFB866', warningSoft: '#FFEBD2',
+  violet: '#BFA3FF', violetSoft: '#ECE4FF',
+  info: '#8FD3FF', infoSoft: '#DDF1FF',
+  highlight: '#F7C744',
+  doodle: '#BFA3FF',
+  tabBar: '#121212',
 };
 
 /** fg over bg at opacity a, as a solid hex. */
@@ -52,8 +58,8 @@ export const darkFrom = (l: NeoColors): NeoColors => ({
   dangerInk: l.danger,
 });
 
-export const neoColors = (dark: boolean): NeoColors => (dark ? DARK : lavender);
-const DARK = darkFrom(lavender);
+export const neoColors = (dark: boolean): NeoColors => (dark ? DARK : sunny);
+const DARK = darkFrom(sunny);
 
 /**
  * The app's classic palette keys, pointed at the student look by meaning, so
@@ -84,7 +90,7 @@ export function toAppPalette<P extends Record<string, string>>(classic: P, n: Ne
 
 export const Neo = {
   border: { width: 2, thin: 2 },
-  radius: { xs: 6, sm: 10, md: 12, lg: 18, xl: 28, button: 12, full: 999 },
+  radius: { xs: 6, sm: 10, md: 12, lg: 16, xl: 24, button: 12, full: 999 },
   /** Hard offsets, zero blur: small marks 2 · things you tap and cards 4 · overlays 6. */
   shadow: { sm: 2, md: 4, lg: 6 },
   space: { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32, huge: 48 },
@@ -98,35 +104,42 @@ export const hardShadow = (size: number, color: string) =>
 
 // ─── Type ──────────────────────────────────────────────────────────────────
 
-/**
- * Lexend for everything people read (made for reading ease; open, wide letters
- * that stay clear at 13px on small Android screens). Unbounded, a wide display
- * face, only for screen titles of 24px and up. Weight always comes from the
- * family name: Android ignores fontWeight on custom fonts.
- */
-export const font = {
-  display: 'Unbounded_700Bold',
-  regular: 'Lexend_400Regular',
-  medium: 'Lexend_500Medium',
-  semibold: 'Lexend_600SemiBold',
-  bold: 'Lexend_700Bold',
-} as const;
+/** One family for everything; weight always comes from the face name (Android ignores fontWeight on custom fonts). */
+export type FontFaces = { regular: string; medium: string; semibold: string; bold: string; heavy: string };
 
-/** Six steps people see on a card: at most three of them in any one card. */
-export const textStyles = {
-  display: { fontFamily: font.display, fontSize: 30, lineHeight: 38, letterSpacing: -0.6 },
-  title: { fontFamily: font.display, fontSize: 24, lineHeight: 31, letterSpacing: -0.4 },
-  heading: { fontFamily: font.semibold, fontSize: 19, lineHeight: 26, letterSpacing: -0.2 },
-  subheading: { fontFamily: font.medium, fontSize: 16, lineHeight: 22 },
-  body: { fontFamily: font.regular, fontSize: 15, lineHeight: 22 },
-  bodySm: { fontFamily: font.regular, fontSize: 14, lineHeight: 21 },
-  label: { fontFamily: font.medium, fontSize: 14, lineHeight: 20 },
-  caption: { fontFamily: font.regular, fontSize: 13, lineHeight: 19 },
-  overline: { fontFamily: font.medium, fontSize: 12, lineHeight: 18, letterSpacing: 1.2, textTransform: 'uppercase' as const },
-  number: { fontFamily: font.bold, fontSize: 24, lineHeight: 30, fontVariant: ['tabular-nums' as const] },
-} as const;
+/** The two candidates (both SIL Open Font License, free to bundle). */
+export const FONT_OPTIONS = {
+  /** Chivo: sturdy, slightly wide grotesk, closest to the reference; open letters at small sizes. */
+  chivo: { regular: 'Chivo_400Regular', medium: 'Chivo_500Medium', semibold: 'Chivo_600SemiBold', bold: 'Chivo_700Bold', heavy: 'Chivo_800ExtraBold' },
+  /** Space Grotesk: geometric with more character; a little narrower. */
+  spaceGrotesk: { regular: 'SpaceGrotesk_400Regular', medium: 'SpaceGrotesk_500Medium', semibold: 'SpaceGrotesk_600SemiBold', bold: 'SpaceGrotesk_700Bold', heavy: 'SpaceGrotesk_700Bold' },
+} as const satisfies Record<string, FontFaces>;
 
-export type TextVariant = keyof typeof textStyles;
+export type FontOption = keyof typeof FONT_OPTIONS;
+export const DEFAULT_FONT: FontOption = 'chivo';
+
+/** Bold headings, medium body, regular captions; big heavy numbers. At most three sizes on any one card. */
+export function typeScale(f: FontFaces) {
+  return {
+    display: { fontFamily: f.bold, fontSize: 30, lineHeight: 36, letterSpacing: -0.6 },
+    title: { fontFamily: f.bold, fontSize: 24, lineHeight: 30, letterSpacing: -0.4 },
+    heading: { fontFamily: f.bold, fontSize: 19, lineHeight: 25, letterSpacing: -0.2 },
+    subheading: { fontFamily: f.semibold, fontSize: 16, lineHeight: 22 },
+    body: { fontFamily: f.medium, fontSize: 15, lineHeight: 22 },
+    bodySm: { fontFamily: f.regular, fontSize: 14, lineHeight: 20 },
+    label: { fontFamily: f.semibold, fontSize: 14, lineHeight: 20 },
+    caption: { fontFamily: f.regular, fontSize: 13, lineHeight: 18 },
+    overline: { fontFamily: f.semibold, fontSize: 12, lineHeight: 17, letterSpacing: 1.1, textTransform: 'uppercase' as const },
+    number: { fontFamily: f.heavy, fontSize: 28, lineHeight: 34, letterSpacing: -0.5, fontVariant: ['tabular-nums' as const] },
+    bigNumber: { fontFamily: f.heavy, fontSize: 40, lineHeight: 46, letterSpacing: -1, fontVariant: ['tabular-nums' as const] },
+  } as const;
+}
+
+export type TextStyles = ReturnType<typeof typeScale>;
+export type TextVariant = keyof TextStyles;
+
+/** The scale with the chosen font (the default here; components use the scope's choice). */
+export const textStyles: TextStyles = typeScale(FONT_OPTIONS[DEFAULT_FONT]);
 
 // ─── Contrast (WCAG 2) ─────────────────────────────────────────────────────
 
