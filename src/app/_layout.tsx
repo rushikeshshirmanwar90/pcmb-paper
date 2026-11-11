@@ -6,7 +6,6 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AppearanceProvider } from '@/context/appearance-context';
 import { AuthProvider, useAuth } from '@/context/auth-context';
 import { TabProvider, useTabNavigation } from '@/context/tab-context';
-import { RoomsProvider } from '@/context/rooms-context';
 import { getPalette } from '@/constants/theme';
 import { ToastProvider } from '@/components/states';
 import { EngagementProvider } from '@/engagement/engagement-provider';
@@ -62,13 +61,11 @@ function SignedInGate() {
   const stack = <Stack screenOptions={{ headerShown: false }} />;
   return (
     <TabProvider key={`${user.id}:${user.role}`} tabKeys={tabs.map((t) => t.key)}>
-      <RoomsProvider>
-        <ToastLayer>
-          <NotificationTaps />
-          {/* Student progress (streak, goal, level) for every student screen, tabs and pushed ones alike. */}
-          {user.role === 'student' ? <EngagementProvider>{stack}</EngagementProvider> : stack}
-        </ToastLayer>
-      </RoomsProvider>
+      <ToastLayer>
+        <NotificationTaps />
+        {/* Student progress (streak, goal, level) for every student screen, tabs and pushed ones alike. */}
+        {user.role === 'student' ? <EngagementProvider>{stack}</EngagementProvider> : stack}
+      </ToastLayer>
     </TabProvider>
   );
 }
