@@ -414,7 +414,7 @@ function Builder({
           />
           {scope.length ? (
             <Pressable accessibilityRole="button" onPress={() => setSelection({})} hitSlop={8}>
-              <Text style={[styles.clear, { color: palette.primary }]}>Clear</Text>
+              <Text style={[styles.clear, { color: palette.foreground }]}>Clear</Text>
             </Pressable>
           ) : null}
         </View>
@@ -751,7 +751,7 @@ const styles = StyleSheet.create({
 
   search: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: Neo.border.width, borderRadius: Neo.radius.md, paddingHorizontal: 12, minHeight: 44 },
   searchInput: { flex: 1, fontSize: 15, paddingVertical: 10 },
-  clear: { fontSize: 14, fontFamily: face.bold },
+  clear: { fontSize: 14, fontFamily: face.bold, textDecorationLine: 'underline' },
   group: { gap: 6 },
   groupTitle: { fontSize: 12, fontFamily: face.bold, letterSpacing: 0.5 },
   pickRow: { flexDirection: 'row', alignItems: 'center' },

@@ -286,7 +286,7 @@ export function TopicPracticeSheet({
               style={({ pressed }) => [styles.navButton, { opacity: pos === 0 ? 0.35 : pressed ? 0.6 : 1 }]}
             >
               <Icon name={{ ios: 'chevron.left', android: 'chevron_left' }} color={palette.primary} size={16} />
-              <Text style={[styles.navText, { color: palette.primary }]}>Previous</Text>
+              <Text style={[styles.navText, { color: palette.foreground }]}>Previous</Text>
             </Pressable>
             <Text style={[styles.count, { color: palette.foreground }]} accessibilityLabel={`Question ${where.current} of ${where.of}`}>
               Question {where.current} <Text style={{ color: palette.mutedForeground }}>of {where.of}</Text>
@@ -300,7 +300,7 @@ export function TopicPracticeSheet({
               }}
               style={({ pressed }) => [styles.navButton, styles.navEnd, pressed && styles.pressed]}
             >
-              <Text style={[styles.navText, { color: palette.primary }]}>End</Text>
+              <Text style={[styles.navText, { color: palette.foreground }]}>End</Text>
             </Pressable>
           </View>
           <ProgressBar value={(where.current / where.of) * 100} />
@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   navButton: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, minWidth: 64 },
   navEnd: { justifyContent: 'flex-end' },
-  navText: { fontSize: 15, fontFamily: face.bold },
+  navText: { fontSize: 15, fontFamily: face.bold, textDecorationLine: 'underline' },
   // Takes the space between Previous and End and wraps at large text sizes instead of colliding.
   count: { flex: 1, textAlign: 'center', fontSize: 15, fontFamily: face.bold, fontVariant: ['tabular-nums'] },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
@@ -576,7 +576,7 @@ const styles = StyleSheet.create({
   scorePercent: { fontSize: 20, lineHeight: 24, fontFamily: face.heavy, fontVariant: ['tabular-nums'] },
   scoreCaption: { fontSize: 13, lineHeight: 18 },
   strip: { flexDirection: 'row', height: 10, gap: 3 },
-  pill: { borderRadius: 5, minWidth: 10 },
+  pill: { borderRadius: Neo.radius.full, minWidth: 10 },
   pillOutline: { borderWidth: Neo.border.width },
   key: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 16, rowGap: 6 },
   keyItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },

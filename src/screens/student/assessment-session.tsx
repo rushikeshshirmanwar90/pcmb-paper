@@ -360,7 +360,7 @@ export function DifficultyBar({ split }: { split: { Easy: number; Medium: number
   ];
   return (
     <View style={styles.diffWrap}>
-      <View accessible accessibilityLabel={`${split.Easy} easy, ${split.Medium} medium, ${split.Hard} hard`} style={[styles.bar, { height: 12, borderRadius: 6, backgroundColor: palette.secondary }]}>
+      <View accessible accessibilityLabel={`${split.Easy} easy, ${split.Medium} medium, ${split.Hard} hard`} style={[styles.bar, { height: 14, borderRadius: Neo.radius.full, borderWidth: Neo.border.width, borderColor: palette.ink, backgroundColor: palette.secondary }]}>
         {parts.map((p) => (p.n ? <View key={p.key} style={{ flex: p.n / total, backgroundColor: p.color }} /> : null))}
       </View>
       <View style={styles.legend} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -603,7 +603,7 @@ function Runner({
 
       <ScrollView ref={scrollRef} contentContainerStyle={[styles.body, column]} keyboardShouldPersistTaps="handled">
         <View style={styles.qMeta}>
-          <Text style={[styles.qMetaText, { color: palette.primary }]} numberOfLines={1}>
+          <Text style={[styles.qMetaText, { color: palette.foreground }]} numberOfLines={1}>
             Q{current + 1} · {q.chapter || q.subject}
           </Text>
           <Text style={[styles.qMarks, { color: palette.mutedForeground }]}>
@@ -927,7 +927,7 @@ const AnswerCard = React.memo(function AnswerCard({
     <Card style={styles.answerCard}>
       <View style={styles.answerTop}>
         {/* Two lines, so a long topic isn't cut short by the badges beside it. */}
-        <Text style={[styles.qMetaText, { color: palette.primary }]} numberOfLines={2}>
+        <Text style={[styles.qMetaText, { color: palette.foreground }]} numberOfLines={2}>
           Q{q.index + 1} · {q.topic || q.chapter}
         </Text>
         {q.difficulty ? <Badge label={q.difficulty} tone="neutral" /> : null}
@@ -1204,7 +1204,7 @@ const styles = StyleSheet.create({
   scoreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: -6 },
   scoreBig: { fontSize: 44, lineHeight: 52, fontFamily: face.heavy, fontVariant: ['tabular-nums'] },
   scoreOf: { fontSize: 20, fontFamily: face.semibold },
-  divider: { height: StyleSheet.hairlineWidth },
+  divider: { height: Neo.border.width },
 
   topicCard: { gap: 10, padding: 16 },
   topicTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },

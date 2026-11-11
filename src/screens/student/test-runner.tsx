@@ -262,7 +262,7 @@ function Intro({ test, busy, splitScreen, onStart, onClose }: { test: TestSummar
     <View style={styles.flex}>
       <Header title="Secure examination" onClose={onClose} />
       <ScrollView contentContainerStyle={[styles.body, column]}>
-        <Text style={[styles.eyebrow, { color: palette.primary }]}>SECURE EXAMINATION</Text>
+        <Text style={[styles.eyebrow, { color: palette.foreground }]}>SECURE EXAMINATION</Text>
         <View style={styles.hero}>
           <View style={[styles.heroTile, { backgroundColor: palette.primary, borderColor: palette.ink }]}>
             <Icon name={subjectIcon(test.subject)} color={palette.primary} size={24} />
@@ -799,7 +799,7 @@ ${message}`)) void submit();
 
       <ScrollView ref={scrollRef} contentContainerStyle={[styles.body, column]} keyboardShouldPersistTaps="handled">
         <View style={styles.qMeta}>
-          <Text style={[styles.qMetaText, { color: palette.primary }]} numberOfLines={1}>
+          <Text style={[styles.qMetaText, { color: palette.foreground }]} numberOfLines={1}>
             Q{number} · {q.chapter || q.subject}
           </Text>
           <Text style={[styles.qMarks, { color: palette.mutedForeground }]}>
@@ -1171,7 +1171,7 @@ function Review({
             // Keyed by the filter too, so solutions open or close to suit it.
             <Card key={`${filter}-${q.index}`} style={styles.answerCard}>
               <View style={styles.answerTop}>
-                <Text style={[styles.qMetaText, { color: palette.primary }]} numberOfLines={1}>
+                <Text style={[styles.qMetaText, { color: palette.foreground }]} numberOfLines={1}>
                   Q{position + 1} · {q.chapter || q.subject}
                 </Text>
                 {outcome ? <OutcomeBadge outcome={outcome} test={test} /> : null}
