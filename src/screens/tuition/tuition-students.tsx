@@ -13,16 +13,15 @@ import {
   Button,
   Card,
   Chips,
+  DetailSheet,
   EmptyView,
   ErrorView,
   Field,
   Icon,
   ListRow,
-  LoadingView,
   Muted,
   Notice,
   PasswordField,
-  Segmented,
   SectionTitle,
   useLoad,
   usePalette,
@@ -48,36 +47,46 @@ import {
   type PickerOption,
 } from '@/screens/tuition/admin-ui';
 import { InviteStudentsPicker } from '@/screens/tuition/invite-students';
+import { SkeletonCard, StaleNotice } from '@/components/states';
+import { useTabBarHeight } from '@/hooks/use-tab-bar-height';
 import { WaitingToJoinRow } from '@/screens/tuition/requests-screen';
 import { usePeopleNav } from '@/screens/tuition/people-nav';
 import { ResetPasswordSheet } from '@/screens/tuition/reset-password-sheet';
 import { timeAgo, tuitionApi, type Batch, type CreateStudentResult, type EnrollmentMethod, type Student } from '@/services/tuition-api';
 
-type StudentCategory = 'active' | 'pending' | 'unassigned';
+type StudentStatus = 'active' | 'invited';
 
 /** The server lists at most this many students per request. */
 const SERVER_LIMIT = 500;
 
 const PROGRAM_FILTERS = [{ value: ALL, label: 'All' }, ...PROGRAMS.map((p) => ({ value: p, label: PROGRAM_LABELS[p] }))] as { value: Program | typeof ALL; label: string }[];
 const CLASS_FILTERS = [{ value: ALL, label: 'All' }, ...SCHOOL_STANDARDS.map((s) => ({ value: s, label: s }))] as { value: SchoolStandard | typeof ALL; label: string }[];
-
-const CATEGORY_OPTIONS: { value: StudentCategory; label: string }[] = [
-  { value: 'active', label: 'Active' },
-  { value: 'pending', label: 'Invitations' },
-  { value: 'unassigned', label: 'Unassigned' },
+const STATUS_FILTERS: { value: StudentStatus; label: string }[] = [
+  { value: 'active', label: 'Joined' },
+  { value: 'invited', label: 'Invited, not joined yet' },
 ];
 
-/** People › Students: search, filter, enroll, edit and move between batches. */
+/**
+ * People › Students, list first (Hick: it used to stack two buttons, the
+ * requests, a 3-way category switch and 3 filter rows above the first student):
+ * search + Filters (n) (a sheet with status, program, class and batch, shown as
+ * removable chips), a row while anyone waits to join, a row while invitations
+ * are pending (tapping it shows them), the list, and Add student pinned at the
+ * bottom with "Invite with a joining code" beside it (thumb reach).
+ */
 export function StudentsPanel() {
+  const palette = usePalette();
+  const tabBarHeight = useTabBarHeight();
   const version = useDataVersion();
-  const [category, setCategory] = useState<StudentCategory>('active');
+  const [status, setStatus] = useState<StudentStatus>('active');
   const [filter, setFilter] = useState<StudentFilter>(EMPTY_STUDENT_FILTER);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   // Another tab asked to show one batch's students (e.g. Home's "no batch yet").
   const nav = usePeopleNav();
   const [seenRequest, setSeenRequest] = useState(0);
   if (nav.studentBatch && nav.studentBatch.id !== seenRequest) {
     setSeenRequest(nav.studentBatch.id);
-    setCategory('active');
+    setStatus('active');
     setFilter({ ...EMPTY_STUDENT_FILTER, batch: nav.studentBatch.batch });
   }
   const [query, setQuery] = useState('');
@@ -93,23 +102,15 @@ export function StudentsPanel() {
   }, [filter.search]);
 
   const batches = useLoad(() => tuitionApi.batches(), [version], { cacheKey: 'batches' });
-  // Active: only active students. Pending: only invited. Unassigned: active with no batch.
-  const serverFilter = category === 'pending'
-    ? { q: query, accountStatus: 'invited' as const }
-    : category === 'unassigned'
-      ? { q: query, batchId: 'none', accountStatus: 'active' as const }
-      : { q: query, batchId: filter.batch === ALL ? null : filter.batch, accountStatus: 'active' as const };
-  const { data, error, loading, refreshing, refresh, reload } = useLoad(
-    () => tuitionApi.students(serverFilter),
-    [query, filter.batch, version, category]
-  );
-  // Separate count fetches for category badges.
-  const pendingCount = useLoad(() => tuitionApi.students({ accountStatus: 'invited' }).then((s) => s.length), [version]);
-  const unassignedCount = useLoad(() => tuitionApi.students({ batchId: 'none', accountStatus: 'active' }).then((s) => s.length), [version]);
+  // The same server queries as before: invited ones, or joined ones (optionally in one batch, or in none).
+  const serverFilter =
+    status === 'invited' ? { q: query, accountStatus: 'invited' as const } : { q: query, batchId: filter.batch === ALL ? null : filter.batch, accountStatus: 'active' as const };
+  const { data, error, loading, refreshing, refresh, reload } = useLoad(() => tuitionApi.students(serverFilter), [query, filter.batch, version, status]);
+  const invitedCount = useLoad(() => tuitionApi.students({ accountStatus: 'invited' }).then((s) => s.length), [version]);
 
   const batchList = batches.data ?? [];
-  const shown = category === 'pending' || category === 'unassigned' ? (data ?? []) : filterStudents(data ?? [], filter);
-  const filters = category === 'active' ? activeFilterCount(filter) : 0;
+  const shown = status === 'invited' ? (data ?? []) : filterStudents(data ?? [], filter);
+  const filters = (status === 'invited' ? 1 : 0) + (status === 'active' ? activeFilterCount(filter) : 0);
   // A batch filter for a batch that was deleted falls back to All.
   const batchFilterOk = filter.batch === ALL || filter.batch === NO_BATCH || !batches.data || batchList.some((b) => b.id === filter.batch);
   if (!batchFilterOk) set({ batch: ALL });
@@ -119,86 +120,164 @@ export function StudentsPanel() {
     ...batchList.map((b) => ({ value: b.id, label: b.name, count: b.studentCount })),
     { value: NO_BATCH, label: 'No batch' },
   ];
+  const batchName = (id: string) => (id === NO_BATCH ? 'No batch' : batchList.find((b) => b.id === id)?.name ?? 'Batch');
+  const clearAll = () => {
+    setStatus('active');
+    setFilter((f) => ({ ...EMPTY_STUDENT_FILTER, search: f.search }));
+  };
 
-  const categoryOptions = CATEGORY_OPTIONS.map((o) => ({
-    ...o,
-    count: o.value === 'pending' ? (pendingCount.data ?? 0) : o.value === 'unassigned' ? (unassignedCount.data ?? 0) : undefined,
-  }));
+  // Active filters as removable chips, so what's hiding students is always visible.
+  const chips: { key: string; label: string; remove: () => void }[] = [
+    ...(status === 'invited' ? [{ key: 'status', label: 'Invited, not joined', remove: () => setStatus('active') }] : []),
+    ...(status === 'active' && filter.program !== ALL ? [{ key: 'program', label: PROGRAM_LABELS[filter.program as Program], remove: () => set({ program: ALL }) }] : []),
+    ...(status === 'active' && filter.standard !== ALL ? [{ key: 'class', label: filter.standard, remove: () => set({ standard: ALL }) }] : []),
+    ...(status === 'active' && filter.batch !== ALL ? [{ key: 'batch', label: batchName(filter.batch), remove: () => set({ batch: ALL }) }] : []),
+  ];
 
   return (
-    <PanelScroll
-      onRefresh={() => {
-        refresh();
-        batches.reload();
-        pendingCount.reload();
-        unassignedCount.reload();
-      }}
-      refreshing={refreshing}
-    >
-      <Button label="Invite Students" icon={{ ios: 'qrcode', android: 'group_add' }} onPress={() => setInviting(true)} />
-      <Button label="Add student" variant="secondary" icon={{ ios: 'person.badge.plus', android: 'person_add' }} onPress={() => router.push({ pathname: '/student/new', params: { batchId: filter.batch !== ALL && filter.batch !== NO_BATCH ? filter.batch : '' } })} />
-      <FlashNotice flash={flash} onDismiss={clear} />
-      <PersonNotice kind="student" />
-      {/* Requests to join are handled in one inbox; here, one row while anyone is waiting. */}
-      <WaitingToJoinRow side="students" />
+    <View style={styles.fill}>
+      <PanelScroll
+        onRefresh={() => {
+          refresh();
+          batches.reload();
+          invitedCount.reload();
+        }}
+        refreshing={refreshing}
+      >
+        <FlashNotice flash={flash} onDismiss={clear} />
+        <PersonNotice kind="student" />
 
-      <Segmented label="Student category" options={categoryOptions} value={category} onChange={(c) => { setCategory(c); setFilter(EMPTY_STUDENT_FILTER); }} />
-
-      <SearchBox value={filter.search} onChangeText={(search) => set({ search })} placeholder="Search by name or email" label="Search students" />
-      {category === 'active' ? (
-        <View style={styles.filters}>
-          <FilterRow label="Program" options={PROGRAM_FILTERS} value={filter.program} onChange={(program) => set({ program })} />
-          <FilterRow label="Class" options={CLASS_FILTERS} value={filter.standard} onChange={(standard) => set({ standard })} />
-          <FilterRow label="Batch" options={batchFilters} value={filter.batch} onChange={(batch) => set({ batch })} />
+        <View style={styles.searchRow}>
+          <View style={styles.flex}>
+            <SearchBox value={filter.search} onChangeText={(search) => set({ search })} placeholder="Search by name or email" label="Search students" />
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={filters ? `Filters, ${filters} on` : 'Filters'}
+            onPress={() => setFiltersOpen(true)}
+            style={({ pressed }) => [styles.filtersButton, { borderColor: filters ? palette.primary : palette.border, backgroundColor: filters ? palette.primarySoft : palette.card }, pressed && styles.pressed]}
+          >
+            <Icon name={{ ios: 'line.3.horizontal.decrease.circle', android: 'filter_list' }} color={filters ? palette.primaryInk : palette.foreground} size={18} />
+            <Text style={[styles.filtersText, { color: filters ? palette.primaryInk : palette.foreground }]}>{filters ? `Filters (${filters})` : 'Filters'}</Text>
+          </Pressable>
         </View>
-      ) : null}
+        {chips.length ? (
+          <View style={styles.chipRow}>
+            {chips.map((c) => (
+              <Pressable
+                key={c.key}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove filter: ${c.label}`}
+                onPress={c.remove}
+                hitSlop={6}
+                style={({ pressed }) => [styles.chip, { backgroundColor: palette.primarySoft, borderColor: palette.primaryBorder }, pressed && styles.pressed]}
+              >
+                <Text style={[styles.chipText, { color: palette.primaryInk }]} numberOfLines={1}>
+                  {c.label}
+                </Text>
+                <Icon name={{ ios: 'xmark', android: 'close' }} color={palette.primaryInk} size={12} />
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
 
-      {loading ? (
-        <LoadingView label={category === 'pending' ? 'Loading invitations…' : 'Loading students…'} />
-      ) : error && !data ? (
-        <ErrorView message={`Couldn't load the students. ${error}`} onRetry={reload} />
-      ) : (
-        <>
-          {error ? <Notice tone="danger" text={`Couldn't refresh: ${error}`} /> : null}
-          {category === 'pending' ? (
-            <PendingInvitationsList students={shown} onAction={(msg, tone) => { show(msg, tone); bumpDataVersion(); }} />
-          ) : (
-            <>
-              <View style={styles.countRow}>
-                <Muted>{filters ? `${plural(shown.length, 'student')} match` : plural(shown.length, 'student')}</Muted>
-                {filters ? <ClearFilters onPress={() => setFilter(EMPTY_STUDENT_FILTER)} /> : null}
-              </View>
-              {data && data.length >= SERVER_LIMIT ? <Muted>Showing the first {SERVER_LIMIT} by name. Search to find anyone else.</Muted> : null}
-              {!shown.length ? (
-                <Card>
-                  <EmptyView
-                    icon={{ ios: 'person.3', android: 'groups' }}
-                    title={category === 'unassigned' ? 'No unassigned students' : filters ? 'No students match' : 'No students yet'}
-                    text={
-                      category === 'unassigned'
-                        ? 'All active students are in a batch.'
-                        : filters
-                          ? 'Try another search, or clear the filters.'
-                          : 'Add a student with their email and a starting password, or accept one who asked to join with your code.'
-                    }
-                    action={filters ? <Button label="Clear filters" variant="secondary" onPress={() => setFilter(EMPTY_STUDENT_FILTER)} /> : undefined}
-                  />
-                </Card>
-              ) : (
-                <Card style={styles.listCard}>
-                  {shown.map((s, i) => (
-                    <StudentRow key={s.id} student={s} onPress={() => router.push(studentHref(s.id))} last={i === shown.length - 1} />
-                  ))}
-                </Card>
-              )}
-            </>
-          )}
-        </>
-      )}
+        {/* Rows only while something waits: joining requests, and invitations not accepted yet. */}
+        <WaitingToJoinRow side="students" />
+        {status !== 'invited' && invitedCount.data ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${plural(invitedCount.data, 'student')} invited, not joined yet. Shows them`}
+            onPress={() => setStatus('invited')}
+            style={({ pressed }) => [styles.invitedRow, { backgroundColor: palette.card, borderColor: palette.border }, pressed && styles.pressed]}
+          >
+            <Icon name={{ ios: 'envelope', android: 'mail' }} color={palette.inkSoft} size={18} />
+            <Text style={[styles.invitedText, { color: palette.foreground }]}>
+              {plural(invitedCount.data, 'student')} invited, not joined yet
+            </Text>
+            <Icon name={{ ios: 'chevron.right', android: 'chevron_right' }} color={palette.mutedForeground} size={16} />
+          </Pressable>
+        ) : null}
+
+        {loading ? (
+          <SkeletonCard rows={5} label={status === 'invited' ? 'invitations' : 'students'} />
+        ) : error && !data ? (
+          <ErrorView message={`Couldn't load the students. ${error}`} onRetry={reload} />
+        ) : (
+          <>
+            {error ? <StaleNotice message={error} onRetry={reload} /> : null}
+            {status === 'invited' ? (
+              <PendingInvitationsList students={shown} onAction={(msg, tone) => { show(msg, tone); bumpDataVersion(); }} />
+            ) : (
+              <>
+                <View style={styles.countRow}>
+                  <Muted>{filters ? `${plural(shown.length, 'student')} match` : plural(shown.length, 'student')}</Muted>
+                  {filters ? <ClearFilters onPress={clearAll} /> : null}
+                </View>
+                {data && data.length >= SERVER_LIMIT ? <Muted>Showing the first {SERVER_LIMIT} by name. Search to find anyone else.</Muted> : null}
+                {!shown.length ? (
+                  <Card>
+                    <EmptyView
+                      icon={{ ios: 'person.3', android: 'groups' }}
+                      title={filter.batch === NO_BATCH && filters === 1 ? 'No students without a batch' : filters ? 'No students match' : 'No students yet'}
+                      text={
+                        filter.batch === NO_BATCH && filters === 1
+                          ? 'All joined students are in a batch.'
+                          : filters
+                            ? 'Try another search, or clear the filters.'
+                            : 'Add a student with their email and a starting password, or invite them with a joining code.'
+                      }
+                      action={filters ? <Button label="Clear filters" variant="secondary" onPress={clearAll} /> : undefined}
+                    />
+                  </Card>
+                ) : (
+                  <Card style={styles.listCard}>
+                    {shown.map((s, i) => (
+                      <StudentRow key={s.id} student={s} onPress={() => router.push(studentHref(s.id))} last={i === shown.length - 1} />
+                    ))}
+                  </Card>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </PanelScroll>
+
+      {/* The main action, in thumb reach above the tab bar. */}
+      <View style={[styles.footer, { marginBottom: tabBarHeight, borderTopColor: palette.border, backgroundColor: palette.background }]}>
+        <Button
+          label="Add student"
+          icon={{ ios: 'person.badge.plus', android: 'person_add' }}
+          onPress={() => router.push({ pathname: '/student/new', params: { batchId: filter.batch !== ALL && filter.batch !== NO_BATCH ? filter.batch : '' } })}
+          style={styles.flex}
+        />
+        <Button label="Invite" variant="secondary" icon={{ ios: 'qrcode', android: 'qr_code_2' }} onPress={() => setInviting(true)} accessibilityLabel="Invite students with a joining code" />
+      </View>
+
+      <DetailSheet
+        visible={filtersOpen}
+        title="Filters"
+        onClose={() => setFiltersOpen(false)}
+        footer={
+          <View style={styles.sheetFooter}>
+            <Button label="Clear" variant="secondary" onPress={clearAll} disabled={!filters} style={styles.flex} />
+            <Button label={`Show ${status === 'invited' ? 'invitations' : 'students'}`} onPress={() => setFiltersOpen(false)} style={styles.flex} />
+          </View>
+        }
+      >
+        <FilterRow label="Status" options={STATUS_FILTERS} value={status} onChange={(v) => setStatus(v)} />
+        {status === 'active' ? (
+          <>
+            <FilterRow label="Program" options={PROGRAM_FILTERS} value={filter.program} onChange={(program) => set({ program })} />
+            <FilterRow label="Class" options={CLASS_FILTERS} value={filter.standard} onChange={(standard) => set({ standard })} />
+            <FilterRow label="Batch" options={batchFilters} value={filter.batch} onChange={(batch) => set({ batch })} />
+          </>
+        ) : (
+          <Muted>Invited students haven&apos;t joined yet, so they have no batch to filter by.</Muted>
+        )}
+      </DetailSheet>
 
       {inviting ? <InviteStudentsPicker batches={batchList} onClose={() => setInviting(false)} /> : null}
-
-    </PanelScroll>
+    </View>
   );
 }
 
@@ -911,6 +990,17 @@ function createSuccessMessage(result: CreateStudentResult, email: string): strin
 
 const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
+  fill: { flex: 1 },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  filtersButton: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, minHeight: 44 },
+  filtersText: { fontSize: 14, fontWeight: '700' },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, minHeight: 32, maxWidth: 220 },
+  chipText: { fontSize: 13, fontWeight: '700', flexShrink: 1 },
+  invitedRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, minHeight: 48 },
+  invitedText: { flex: 1, fontSize: 14, fontWeight: '600' },
+  footer: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10, borderTopWidth: StyleSheet.hairlineWidth },
+  sheetFooter: { flexDirection: 'row', gap: 10 },
   pressed: { opacity: 0.75 },
   listCard: { paddingVertical: 0 },
   filters: { gap: 8 },

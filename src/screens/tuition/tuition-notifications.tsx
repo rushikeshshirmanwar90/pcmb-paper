@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useLoad } from '@/components/kit';
 import { useDataVersion } from '@/context/data-version';
 import { joinRequestsApi } from '@/services/tuition-api';
