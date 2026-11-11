@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import {
   Badge,
   Button,
@@ -22,6 +22,10 @@ import { formatAcademicYear, PROGRAM_LABELS } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
 import { useDataVersion } from '@/context/data-version';
 import { useTabNavigation } from '@/context/tab-context';
+import { SkeletonCard, StaleNotice } from '@/components/states';
+import { SubjectChips } from '@/components/subject-chips';
+import { attentionRows, type AttentionKind as TestAttentionKind } from '@/screens/teacher/attention';
+import { usePendingStudents } from '@/screens/tuition/requests-screen';
 import { AnnouncementsSection } from '@/screens/shared/announcements';
 import { NotificationBell } from '@/screens/shared/notification-bell';
 import {
@@ -37,16 +41,22 @@ import { useBackToHome } from '@/screens/tuition/admin-ui';
 import { batchHref } from '@/screens/tuition/batch-nav';
 import { InviteStudentsPicker } from '@/screens/tuition/invite-students';
 import { showStudents, showTeachers } from '@/screens/tuition/people-nav';
-import { TuitionNotificationsSheet, useJoinRequests } from '@/screens/tuition/tuition-notifications';
+import { useJoinRequests } from '@/screens/tuition/tuition-notifications';
 import { schoolApi, type TimetableEntry } from '@/services/school-api';
-import { enrollmentsApi, formatTime, tuitionApi, type Overview } from '@/services/tuition-api';
+import { formatTime, tuitionApi, type Overview } from '@/services/tuition-api';
 
 /** Classes listed under Today before "Show all". */
 const TODAY_LIMIT = 4;
 
+/** Test rows on the tuition's Home: paused students first, then live tests and fresh results (at most this many). */
+const TEST_ROWS = 3;
+
 /**
- * The tuition's home, in the order of what needs doing: what is waiting or
- * missing, quick ways to add people and batches, today's classes,
+ * The tuition's home, in the order of what needs doing (Home answers "what
+ * should I do now?"): Needs attention (everyone waiting to join, in one row
+ * that opens the Join requests inbox; students paused in a test; live tests;
+ * results just in; students with no batch; batches missing a teacher or
+ * timetable), quick ways to add people and batches, today's classes,
  * announcements, then each batch's syllabus progress.
  */
 export function TuitionHomeScreen() {
@@ -58,9 +68,11 @@ export function TuitionHomeScreen() {
   useBackToHome();
   const { data, error, loading, refreshing, refresh, reload } = useLoad(() => tuitionApi.overview(), [version]);
   const requests = useJoinRequests();
-  const enrollments = useLoad(() => enrollmentsApi.pending(), [version]);
+  const enrollments = usePendingStudents();
   const timetable = useLoad(() => schoolApi.timetable(), [version]);
-  const [showNotifications, setShowNotifications] = useState(false);
+  // Every test of the tuition: students paused and waiting for a decision come first.
+  // "Now" for the test rows is when the list loaded, so the rows match what was fetched.
+  const tests = useLoad(async () => ({ list: await schoolApi.tests(), at: Date.now() }), [version]);
   const [inviting, setInviting] = useState(false);
   const [allClasses, setAllClasses] = useState(false);
 
@@ -69,14 +81,19 @@ export function TuitionHomeScreen() {
   const today = classesOnDay(timetable.data ?? [], new Date().getDay());
   const shownClasses = allClasses ? today : today.slice(0, TODAY_LIMIT);
 
+  // Requests are one row here (see below); the rest come from attentionItems as before.
   const attention = data
     ? attentionItems({
-        pendingStudents: waitingStudents,
-        pendingTeachers: waitingTeachers,
+        pendingStudents: 0,
+        pendingTeachers: 0,
         unassignedStudents: data.totals.unassignedStudents,
         batches: data.batches,
       })
     : [];
+  const waiting = waitingStudents + waitingTeachers;
+  const testRows = tests.data ? attentionRows(tests.data.list, tests.data.at).filter((r) => r.kind !== 'opening').slice(0, TEST_ROWS) : [];
+  const openRequests = () => router.push('/requests' as Href);
+  const openTest = (id: string) => router.push({ pathname: '/test/[testId]', params: { testId: id } } as Href);
 
   const openAttention = (item: AttentionItem) => {
     const only = item.batches.length === 1 ? item.batches[0].id : null;
@@ -86,7 +103,7 @@ export function TuitionHomeScreen() {
         goToTab('people');
         break;
       case 'teachers':
-        setShowNotifications(true);
+        openRequests();
         break;
       case 'noBatch':
         showStudents(NO_BATCH);
@@ -107,25 +124,42 @@ export function TuitionHomeScreen() {
     <Screen
       title={user.tuition.name || 'Your tuition'}
       subtitle="Students, teachers and batches at a glance"
-      headerRight={<NotificationBell count={waitingTeachers} onPress={() => setShowNotifications(true)} />}
+      headerRight={<NotificationBell count={waiting} onPress={openRequests} />}
       onRefresh={() => {
         refresh();
         requests.reload();
         enrollments.reload();
         timetable.reload();
+        tests.reload();
       }}
       refreshing={refreshing}
     >
       {loading ? (
-        <LoadingView />
+        <>
+          <SkeletonCard rows={3} label="what needs attention" />
+          <SkeletonCard rows={2} label="today's classes" />
+        </>
       ) : error && !data ? (
         <ErrorView message={error} onRetry={reload} />
       ) : data ? (
         <>
-          {attention.length ? (
+          {error ? <StaleNotice message={error} onRetry={reload} /> : null}
+          {attention.length || waiting || testRows.length ? (
             <>
               <SectionTitle title="Needs attention" />
               <Card style={styles.listCard}>
+                {waiting ? (
+                  <ListRow
+                    icon={ATTENTION_ICONS.students}
+                    title={`${waiting} waiting to join`}
+                    subtitle={[waitingStudents ? plural(waitingStudents, 'student') : null, waitingTeachers ? plural(waitingTeachers, 'teacher') : null].filter(Boolean).join(' · ') + ' · Open join requests'}
+                    onPress={openRequests}
+                    last={!testRows.length && !attention.length}
+                  />
+                ) : null}
+                {testRows.map((r, i) => (
+                  <TestAttentionRow key={`${r.kind}-${r.testId}`} kind={r.kind} title={r.title} detail={r.detail} subjects={r.subjects} last={i === testRows.length - 1 && !attention.length} onPress={() => openTest(r.testId)} />
+                ))}
                 {attention.map((item, i) => {
                   const text = attentionText(item);
                   return (
@@ -210,11 +244,6 @@ export function TuitionHomeScreen() {
           )}
         </>
       ) : null}
-      <TuitionNotificationsSheet
-        visible={showNotifications}
-        onClose={() => setShowNotifications(false)}
-        requests={requests}
-      />
       {inviting && data ? <InviteStudentsPicker batches={data.batches} onClose={() => setInviting(false)} /> : null}
     </Screen>
   );
@@ -250,6 +279,33 @@ function attentionText(item: AttentionItem): { title: string; subtitle: string }
     case 'noTimetable':
       return { title: `${plural(n, 'batch', 'batches')} ${n === 1 ? 'has' : 'have'} no timetable`, subtitle: nameList(item.batches) };
   }
+}
+
+/** A test that needs the tuition: students waiting in a paused test (first, in amber words), live, or results just in. */
+function TestAttentionRow({ kind, title, detail, subjects, last, onPress }: { kind: TestAttentionKind; title: string; detail: string; subjects: string; last: boolean; onPress: () => void }) {
+  const palette = usePalette();
+  const urgent = kind === 'waiting';
+  const icon: IconName = urgent ? { ios: 'pause.circle.fill', android: 'pause_circle' } : kind === 'live' ? { ios: 'dot.radiowaves.left.and.right', android: 'sensors' } : { ios: 'chart.bar', android: 'bar_chart' };
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${title}. ${detail}. Opens the test`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.row, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }, pressed && styles.pressed]}
+    >
+      <Icon name={icon} color={urgent ? palette.warningInk : palette.inkSoft} size={20} />
+      <View style={[styles.flex, styles.gap]}>
+        <Text style={[styles.rowTitle, { color: urgent ? palette.warningInk : palette.foreground }]} numberOfLines={2}>
+          {title}
+        </Text>
+        <SubjectChips subjects={subjects} />
+        <Text style={[styles.rowMeta, { color: palette.mutedForeground }]} numberOfLines={2}>
+          {detail}
+        </Text>
+      </View>
+      <Icon name={{ ios: 'chevron.right', android: 'chevron_right' }} color={palette.mutedForeground} size={16} />
+    </Pressable>
+  );
 }
 
 // ─── Summary and quick actions ─────────────────────────────────────────────
@@ -390,6 +446,7 @@ function BatchProgressRow({ batch, last, onPress }: { batch: Overview['batches']
 
 const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
+  gap: { gap: 3 },
   pressed: { opacity: 0.75 },
   listCard: { paddingVertical: 0, paddingHorizontal: 14, gap: 0 },
   inline: { flexDirection: 'row', alignItems: 'center', gap: 12 },
