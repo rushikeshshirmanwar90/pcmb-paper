@@ -25,6 +25,15 @@ export function subjectCounts(questions: readonly Pick<Question, 'subject'>[]): 
   return [...rows.values()];
 }
 
+/** How many questions have no subject; a paper with any cannot be printed under a correct subject split. */
+export const unresolvedSubjectCount = (questions: readonly Pick<Question, 'subject'>[]) => questions.filter(q => !subjectOf(q)).length;
+
+/** The message shown while questions have no subject, or null when every one has one. */
+export function unresolvedSubjectMessage(questions: readonly Pick<Question, 'subject'>[]): string | null {
+  const n = unresolvedSubjectCount(questions);
+  return n === 0 ? null : `${n} selected ${n === 1 ? 'question has' : 'questions have'} no subject, so the paper cannot be sorted by subject. Tap Edit and remove ${n === 1 ? 'it' : 'them'}, or pick the questions again from a single subject.`;
+}
+
 /** Distinct subjects in the order they first appear among the questions. */
 export const deriveSubjects = (questions: readonly Pick<Question, 'subject'>[]) => subjectCounts(questions).map(row => row.subject);
 

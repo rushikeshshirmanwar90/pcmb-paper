@@ -65,6 +65,7 @@ export function ExamSettingsStep({
   institute,
   subject,
   questionTotal,
+  blocked,
   stage,
   error,
   onGenerate,
@@ -78,6 +79,8 @@ export function ExamSettingsStep({
   institute: string;
   subject: string;
   questionTotal: number;
+  /** Why the paper cannot be made yet (questions without a subject); disables Generate. */
+  blocked: string | null;
   /** While the PDF is being made. */
   stage: { stage: PdfStage; count: number } | null;
   error: string | null;
@@ -90,7 +93,7 @@ export function ExamSettingsStep({
   const patchStyle = (patch: Partial<PaperStyle>) => onForm({ ...form, style: { ...form.style, ...patch } });
   const durationBad = !Number.isInteger(form.duration) || form.duration < DURATION_RANGE.min || form.duration > DURATION_RANGE.max;
   const title = form.title ?? titleDefault;
-  const missing = !title.trim() ? 'Add a paper title.' : durationBad ? `Set a duration from ${DURATION_RANGE.min} to ${DURATION_RANGE.max} minutes.` : null;
+  const missing = blocked ? blocked : !title.trim() ? 'Add a paper title.' : durationBad ? `Set a duration from ${DURATION_RANGE.min} to ${DURATION_RANGE.max} minutes.` : null;
   const busy = stage !== null;
   const hasLogo = !!logo.data;
   const logoGone = !logo.loading && !logo.error && !logo.data;
