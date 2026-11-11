@@ -18,6 +18,8 @@ import {
   useLoad,
   usePalette,
 } from '@/components/kit';
+import { SkeletonCard, StaleNotice } from '@/components/states';
+import { SubjectChips } from '@/components/subject-chips';
 import { useDataVersion } from '@/context/data-version';
 import { StudentInsightSheet } from '@/screens/teacher/student-insight';
 import { TestAnalysisSection } from '@/screens/teacher/test-analysis';
@@ -85,12 +87,12 @@ export function TuitionTestsScreen() {
       </View>
 
       {loading ? (
-        <LoadingView label="Loading tests…" />
+        <SkeletonCard rows={5} label="tests" />
       ) : error && !data ? (
         <ErrorView message={`Couldn't load the tests. ${error}`} onRetry={reload} />
       ) : (
         <>
-          {error ? <Notice tone="danger" text={`Couldn't refresh: ${error}`} /> : null}
+          {error ? <StaleNotice message={error} onRetry={reload} /> : null}
           {tests.length >= SERVER_LIMIT ? <Muted>Showing the newest {SERVER_LIMIT} tests. Pick a batch to see older ones.</Muted> : null}
           {!groups.length ? (
             <Card>
@@ -129,12 +131,13 @@ export function TuitionTestsScreen() {
 function TestRow({ test: t, onPress, last }: { test: TestSummary; onPress: () => void; last: boolean }) {
   const palette = usePalette();
   const p = participation(t);
-  const where = [t.batch.name || 'Batch removed', t.subject, t.standard].filter(Boolean).join(' · ');
+  // Subjects show as chips (a multi-subject test lists each), so this line is the batch and class.
+  const where = [t.batch.name || 'Batch removed', t.standard].filter(Boolean).join(' · ');
   const taken = t.status === 'scheduled' ? `${plural(t.batchStudents, 'student')} in the batch` : `${p.submitted} of ${p.total} submitted`;
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${t.title}, ${TEST_STATUS_LABEL[t.status]}. ${where}. ${whenLine(t)}. ${taken}${t.averageScore !== null ? `, average ${t.averageScore} of ${t.maxScore}` : ''}`}
+      accessibilityLabel={`${t.title}, ${TEST_STATUS_LABEL[t.status]}. ${where}${t.subject ? `, ${t.subject}` : ''}. ${whenLine(t)}. ${taken}${t.averageScore !== null ? `, average ${t.averageScore} of ${t.maxScore}` : ''}`}
       accessibilityHint="Opens the test's results"
       onPress={onPress}
       style={({ pressed }) => [styles.row, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }, pressed && styles.pressed]}
@@ -147,6 +150,7 @@ function TestRow({ test: t, onPress, last }: { test: TestSummary; onPress: () =>
           <Text style={[styles.meta, { color: palette.mutedForeground }]} numberOfLines={1}>
             {where}
           </Text>
+          <SubjectChips subjects={t.subject} />
         </View>
         <Badge label={TEST_STATUS_LABEL[t.status]} tone={STATUS_TONE[t.status]} />
       </View>
@@ -200,7 +204,7 @@ function TestDetailSheet({ id, onClose }: { id: string; onClose: () => void }) {
           <Card style={styles.listCard}>
             <View style={[styles.badges, { borderBottomColor: palette.border }]}>
               <Badge label={TEST_STATUS_LABEL[test.status]} tone={STATUS_TONE[test.status]} />
-              {test.subject ? <Badge label={test.subject} tone="violet" /> : null}
+              {test.subject ? <SubjectChips subjects={test.subject} /> : null}
               {test.standard ? <Badge label={test.standard} /> : null}
             </View>
             <InfoRow icon={{ ios: 'square.grid.2x2', android: 'grid_view' }} label="Batch" value={test.batch.name || 'Batch removed'} />

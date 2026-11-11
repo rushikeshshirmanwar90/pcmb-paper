@@ -11,11 +11,9 @@ import { BatchAnalysisSection } from '@/screens/shared/batch-analysis';
 import { missingTeachers, plural, setupOf } from '@/screens/tuition/admin-filters';
 import { ActionRow, Avatar, InfoRow, OptionPicker, programTone, type PickerOption } from '@/screens/tuition/admin-ui';
 import { batchHref } from '@/screens/tuition/batch-nav';
-import { BatchSchedule } from '@/screens/tuition/batch-schedule';
 import { PersonNotice } from '@/screens/tuition/person-notice';
 import { studentHref, teacherHref } from '@/screens/tuition/person-nav';
 import { BatchForm, bankNote, classLabel, yearLabel } from '@/screens/tuition/tuition-batches';
-import { schoolApi } from '@/services/school-api';
 import { formatMinutes, tuitionApi, type Batch } from '@/services/tuition-api';
 
 // The batch's management screens, each its own route under /batch/[batchId]:
@@ -62,7 +60,6 @@ export const BatchDetailsScreen = tuitionOnly(function BatchDetailsScreen({ batc
   const router = useRouter();
   const version = useDataVersion();
   const { data, error, loading, refreshing, refresh, reload } = useBatch(batchId);
-  const timetable = useLoad(() => schoolApi.timetable(batchId), [batchId, version], { cacheKey: `timetable:${batchId}` });
   // The syllabus scan is the slow call, so it waits for the batch instead of competing with it.
   const coverage = useLoad(() => tuitionApi.batchCoverage(batchId), [batchId, version], { enabled: !!data, cacheKey: `coverage:${batchId}` });
   const batch = data?.batch;
@@ -119,24 +116,10 @@ export const BatchDetailsScreen = tuitionOnly(function BatchDetailsScreen({ batc
             batch.classes.classes ? `${plural(batch.classes.classes, 'class', 'classes')} · ${formatMinutes(batch.classes.weeklyMinutes)} a week` : 'Each subject’s days and times'
           }
           onPress={() => router.push(batchHref(batchId, 'schedule'))}
-        />
-        <ActionRow
-          icon={{ ios: 'gearshape', android: 'settings' }}
-          title="Batch Settings"
-          subtitle="Name, program, class, subjects, classroom"
-          onPress={() => router.push(batchHref(batchId, 'settings'))}
           last
         />
       </Card>
-
-      <SectionTitle title="Weekly Schedule" />
-      {timetable.data ? (
-        <BatchSchedule entries={timetable.data.filter((entry) => entry.batch.id === batch.id)} />
-      ) : timetable.error ? (
-        <Muted>Couldn&apos;t load the schedule. {timetable.error}</Muted>
-      ) : (
-        <Muted>Loading the schedule…</Muted>
-      )}
+      {/* The week itself is on the Schedule page (the row above sums it up), so it isn't repeated here. */}
       {batch.schedule.length ? (
         <Muted>
           {plural(batch.schedule.length, 'older class time', 'older class times')} without a subject {batch.schedule.length === 1 ? 'is' : 'are'} kept from before. Open the
@@ -162,6 +145,18 @@ export const BatchDetailsScreen = tuitionOnly(function BatchDetailsScreen({ batc
       </Card>
 
       <BatchAnalysisSection batchId={batch.id} />
+
+      {/* Changed rarely, so last (serial position). */}
+      <SectionTitle title="More" />
+      <Card style={styles.listCard}>
+        <ActionRow
+          icon={{ ios: 'gearshape', android: 'settings' }}
+          title="Batch Settings"
+          subtitle="Name, program, class, subjects, classroom"
+          onPress={() => router.push(batchHref(batchId, 'settings'))}
+          last
+        />
+      </Card>
     </StackScreen>
   );
 });
