@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, ActivityIndicator, FlatList, KeyboardAvoidingView, Pressable, ScrollView, type ScrollViewInstance, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, FlatList, KeyboardAvoidingView, Pressable, ScrollView, type ScrollViewInstance, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/app-text';
 import { Illustration } from '@/design/illustrations';
 import { NeoIconButton, NeoText } from '@/design/neo-kit';
 import { haptic } from '@/design/haptics';
 import { StepSlide, useStepDirection } from '@/design/motion';
+import { SubmittingAnswers } from '@/screens/student/practice/working-screens';
 import { StatusBar } from 'expo-status-bar';
 import { confirmAction } from '@/components/account-section';
 import {
@@ -437,7 +438,11 @@ function Runner({
     try {
       // Every answer goes with the submission, saved or not.
       const all = questions.map((q) => ({ index: q.index, selected: answersRef.current.get(q.index) ?? null }));
-      onSubmittedRef.current(await studentApi.submitAssessment(a.id, all));
+      // The submitting screen stays long enough to read, so a fast server doesn't make it flash (display only).
+      const shownAtLeast = new Promise((done) => setTimeout(done, 1200));
+      const result = await studentApi.submitAssessment(a.id, all);
+      await shownAtLeast;
+      onSubmittedRef.current(result);
     } catch (e) {
       submittedRef.current = false;
       setError(e instanceof Error ? e.message : "Couldn't submit. Check your internet and try again.");
@@ -642,13 +647,6 @@ function Runner({
 
       <SheetFooter>
         <ErrorText message={error} />
-        {/* Only that it's on its way: the result shows once the server has marked it. */}
-        {submitting ? (
-          <View style={styles.submitting} accessible accessibilityLabel="Submitting your answers">
-            <ActivityIndicator size="small" color={palette.primary} />
-            <Text style={[styles.saveText, { color: palette.mutedForeground }]}>Submitting your answers…</Text>
-          </View>
-        ) : null}
         <View style={styles.row}>
           <Button label="Previous" variant="secondary" icon={{ ios: 'chevron.left', android: 'chevron_left' }} onPress={() => {
               haptic.tap();
@@ -665,6 +663,8 @@ function Runner({
         </View>
         {!last ? <QuietButton label="Submit now" onPress={askSubmit} disabled={submitting} /> : null}
       </SheetFooter>
+      {/* Over the whole runner until the server has marked it; the result follows. */}
+      {submitting ? <SubmittingAnswers answered={questions.filter((x) => isAnswered(x.index)).length} total={questions.length} /> : null}
     </KeyboardAvoidingView>
   );
 }
@@ -1198,7 +1198,6 @@ const styles = StyleSheet.create({
   saveStatus: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2, alignSelf: 'flex-start' },
   saveText: { fontSize: 12, lineHeight: 16 },
   resultHeader: { gap: 14 },
-  submitting: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 24 },
   gridToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 12, borderRadius: Neo.radius.md, borderWidth: Neo.border.width },
   gridToggleText: { fontSize: 14, fontFamily: face.bold, fontVariant: ['tabular-nums'] },
   gridPanel: { borderBottomWidth: Neo.border.width, paddingHorizontal: 16, paddingVertical: 12 },

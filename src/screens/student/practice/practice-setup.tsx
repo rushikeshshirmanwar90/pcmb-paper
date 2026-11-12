@@ -10,7 +10,7 @@ import { haptic } from '@/design/haptics';
 import { hardShadow, Neo } from '@/design/tokens';
 import { face } from '@/design/type';
 import { column, SheetFooter, SheetHeader, type TopicPick } from '@/screens/student/assessment-session';
-import { PreparingPractice } from '@/screens/student/practice/preparing-practice';
+import { PreparingPractice } from '@/screens/student/practice/working-screens';
 import {
   chapterKeyOf,
   chaptersOfPicked,

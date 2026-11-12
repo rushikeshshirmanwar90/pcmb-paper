@@ -6,6 +6,7 @@ import Animated, {
   FadeOutUp,
   useAnimatedStyle,
   useReducedMotion,
+  type SharedValue,
   useSharedValue,
   withDelay,
   withRepeat,
@@ -17,29 +18,18 @@ import { usePalette } from '@/components/kit';
 import { hardShadow, Neo } from '@/design/tokens';
 import { face } from '@/design/type';
 
-// What students see while their practice is being made (it can take a few
-// seconds): a stack of question cards being dealt, and a few lines on what is
-// happening. Each line is true of what the server does; none promises a time
+// Full screens for the waits students sit through: making a practice test
+// and submitting one. Each has its own picture and a few lines on what is
+// happening. Every line is true of what the server does; none promises a time
 // or shows a made-up percentage. The lines go through once and stop on the
-// last, so nothing repeats as if it were stuck. Reduce Motion: the cards stay
-// still and the lines just change.
+// last, so nothing repeats as if it were stuck. Reduce Motion: the pictures
+// stay still and the lines just change.
 
 const STEP_MS = 1700;
 
-function linesFor(topics: number, questions: number, minutes: number, mix: string) {
-  return [
-    'Picking the best questions for you',
-    `Covering all ${topics} topic${topics === 1 ? '' : 's'} you chose`,
-    `Mixing ${mix}`,
-    `Setting your timer: ${minutes} min`,
-    `Getting your ${questions} questions ready`,
-    'Almost ready…',
-  ];
-}
-
-export function PreparingPractice({ topics, questions, minutes, mix }: { topics: number; questions: number; minutes: number; /** "40% easy · 40% medium · 20% hard" */ mix: string }) {
+/** The shared layout: a picture, a title, lines that change, hopping dots and a line of facts. */
+function WorkingScreen({ art, title, lines, facts }: { art: React.ReactNode; title: string; lines: string[]; facts: string }) {
   const palette = usePalette();
-  const lines = linesFor(topics, questions, minutes, mix);
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
@@ -49,24 +39,47 @@ export function PreparingPractice({ topics, questions, minutes, mix }: { topics:
 
   return (
     <View style={[StyleSheet.absoluteFill, styles.wrap, { backgroundColor: palette.background }]} accessibilityViewIsModal>
-      <CardDeck />
+      {art}
       <View style={styles.copy}>
         <Text style={[styles.title, { color: palette.foreground }]} accessibilityRole="header">
-          Preparing your practice
+          {title}
         </Text>
         <View style={styles.lineSlot} accessibilityLiveRegion="polite">
           <Animated.View key={index} entering={FadeInDown.duration(260)} exiting={FadeOutUp.duration(200)} style={styles.lineInner}>
             <Text style={[styles.line, { color: palette.foreground }]} numberOfLines={2}>
-              {lines[index]}
+              {lines[Math.min(index, lines.length - 1)]}
             </Text>
           </Animated.View>
         </View>
         <Dots />
-        <Text style={[styles.facts, { color: palette.mutedForeground }]}>
-          {questions} questions · {topics} topic{topics === 1 ? '' : 's'} · about {minutes} min
-        </Text>
+        <Text style={[styles.facts, { color: palette.mutedForeground }]}>{facts}</Text>
       </View>
     </View>
+  );
+}
+
+/** While Start practice makes the test: question cards being dealt. */
+export function PreparingPractice({ topics, questions, minutes, mix }: { topics: number; questions: number; minutes: number; /** "40% easy · 40% medium · 20% hard" */ mix: string }) {
+  const t = `${topics} topic${topics === 1 ? '' : 's'}`;
+  return (
+    <WorkingScreen
+      art={<CardDeck />}
+      title="Preparing your practice"
+      lines={['Picking the best questions for you', `Covering all ${t} you chose`, `Mixing ${mix}`, `Setting your timer: ${minutes} min`, `Getting your ${questions} questions ready`, 'Almost ready…']}
+      facts={`${questions} questions · ${t} · about ${minutes} min`}
+    />
+  );
+}
+
+/** While a practice test is submitted and marked: an answer sheet being checked. */
+export function SubmittingAnswers({ answered, total }: { answered: number; total: number }) {
+  return (
+    <WorkingScreen
+      art={<AnswerSheet />}
+      title="Submitting your test"
+      lines={['Sending your answers', 'Checking each answer', 'Adding up your score', 'Finding your strong and weak topics', 'Preparing your result', 'Almost done…']}
+      facts={`${answered} of ${total} questions answered`}
+    />
   );
 }
 
@@ -135,6 +148,84 @@ function CardDeck() {
   );
 }
 
+/**
+ * An answer sheet being marked: a tick lands on each row in turn, then the
+ * score stamp thumps down on the corner; the sheet clears and it starts again.
+ */
+function AnswerSheet() {
+  const palette = usePalette();
+  const reduce = useReducedMotion();
+  // 0 → 4: the four rows get their ticks; 4 → 5: the stamp; then a short rest and back to 0.
+  const p = useSharedValue(reduce ? 5 : 0);
+
+  useEffect(() => {
+    if (reduce) return;
+    p.value = withRepeat(
+      withSequence(
+        withDelay(250, withTiming(4, { duration: 1500, easing: Easing.linear })),
+        withTiming(5, { duration: 320, easing: Easing.out(Easing.back(2)) }),
+        withDelay(700, withTiming(5, { duration: 0 })),
+        withTiming(0, { duration: 0 })
+      ),
+      -1
+    );
+  }, [p, reduce]);
+
+  const stamp = useAnimatedStyle(() => {
+    const k = Math.min(1, Math.max(0, p.value - 4));
+    return { opacity: k > 0 ? 1 : 0, transform: [{ scale: 1.6 - k * 0.6 }, { rotate: `${-14 + k * 2}deg` }] };
+  });
+  // A pen glides down the sheet with the ticks.
+  const pen = useAnimatedStyle(() => {
+    const row = Math.min(p.value, 4);
+    return { opacity: p.value >= 4 ? 0 : 1, transform: [{ translateY: Math.floor(Math.min(row, 3.999)) * ROW_STEP }, { translateX: (row % 1) * 6 }, { rotate: '-28deg' }] };
+  });
+
+  return (
+    <View style={styles.deck} accessible={false} importantForAccessibility="no-hide-descendants">
+      <View style={[styles.card, styles.sheet, { borderColor: palette.ink, backgroundColor: palette.primarySoft, transform: [{ rotate: '-6deg' }, { translateX: -10 }] }]} />
+      <View style={[styles.card, styles.sheet, { borderColor: palette.ink, backgroundColor: palette.card }, hardShadow(Neo.shadow.md, palette.ink)]}>
+        <View style={styles.sheetHead}>
+          <View style={[styles.bar, { backgroundColor: palette.ink, width: '46%' }]} />
+          <View style={[styles.bar, { backgroundColor: palette.ink, width: '24%', opacity: 0.5 }]} />
+        </View>
+        {[0, 1, 2, 3].map((i) => (
+          <SheetRow key={i} row={i} p={p} filled={[1, 3, 0, 2][i]} />
+        ))}
+        <Animated.View style={[styles.pen, pen]}>
+          <View style={[styles.penBody, { backgroundColor: palette.primary, borderColor: palette.ink }]} />
+          <View style={[styles.penTip, { borderTopColor: palette.ink }]} />
+        </Animated.View>
+        <Animated.View style={[styles.stamp, { borderColor: palette.ink, backgroundColor: palette.primary }, hardShadow(Neo.shadow.sm, palette.ink), stamp]}>
+          <Text style={[styles.stampText, { color: palette.ink }]}>✓</Text>
+        </Animated.View>
+      </View>
+    </View>
+  );
+}
+
+const ROW_STEP = 34;
+
+/** One question on the sheet: four answer bubbles (one filled) and the tick it gets when marked. */
+function SheetRow({ row, p, filled }: { row: number; p: SharedValue<number>; filled: number }) {
+  const palette = usePalette();
+  const tick = useAnimatedStyle(() => {
+    const k = Math.min(1, Math.max(0, (p.value - row) * 2));
+    return { opacity: k, transform: [{ scale: 0.4 + k * 0.6 }] };
+  });
+  return (
+    <View style={styles.sheetRow}>
+      <Text style={[styles.rowNum, { color: palette.ink }]}>{row + 1}</Text>
+      {[0, 1, 2, 3].map((b) => (
+        <View key={b} style={[styles.bubble, { borderColor: palette.ink, backgroundColor: b === filled ? palette.ink : 'transparent' }]} />
+      ))}
+      <Animated.View style={[styles.tick, { backgroundColor: palette.primary, borderColor: palette.ink }, tick]}>
+        <Text style={[styles.tickText, { color: palette.ink }]}>✓</Text>
+      </Animated.View>
+    </View>
+  );
+}
+
 /** Three dots that hop in turn: it's working. */
 function Dots() {
   const palette = usePalette();
@@ -190,4 +281,17 @@ const styles = StyleSheet.create({
   dots: { flexDirection: 'row', gap: 8, height: 16, alignItems: 'flex-end' },
   dot: { width: 8, height: 8, borderRadius: 4 },
   facts: { fontSize: 14, lineHeight: 20, fontFamily: face.medium, textAlign: 'center' },
+  sheet: { gap: 10, paddingTop: 16 },
+  sheetHead: { gap: 6, marginBottom: 4 },
+  sheetRow: { flexDirection: 'row', alignItems: 'center', gap: 7, height: 24 },
+  rowNum: { width: 12, fontSize: 12, fontFamily: face.heavy },
+  bubble: { width: 16, height: 16, borderRadius: 8, borderWidth: Neo.border.width },
+  tick: { marginLeft: 'auto', width: 22, height: 22, borderRadius: 11, borderWidth: Neo.border.width, alignItems: 'center', justifyContent: 'center' },
+  tickText: { fontSize: 12, lineHeight: 14, fontFamily: face.heavy },
+  // Placed so the tip, after the tilt, lands just left of row 1's tick.
+  pen: { position: 'absolute', right: 40, top: 10, alignItems: 'center' },
+  penBody: { width: 10, height: 44, borderWidth: Neo.border.width, borderRadius: 3 },
+  penTip: { width: 0, height: 0, borderLeftWidth: 5, borderRightWidth: 5, borderTopWidth: 9, borderLeftColor: 'transparent', borderRightColor: 'transparent', marginTop: -1 },
+  stamp: { position: 'absolute', right: -18, bottom: -18, width: 58, height: 58, borderRadius: 29, borderWidth: Neo.border.width, alignItems: 'center', justifyContent: 'center' },
+  stampText: { fontSize: 26, lineHeight: 30, fontFamily: face.heavy },
 });
