@@ -216,10 +216,13 @@ test('random picks ask how many; shortages report what was actually added', asyn
   await new Promise(resolve => setImmediate(resolve));
   const tree = render();
   assert.equal(session.questions.length, 1);
-  const ack = find(tree, 'Notice', p => /^Added/.test(p.text));
+  const ack = find(tree, 'Notice', p => p.title === '1 question added');
   assert.equal(ack.props.tone, 'warning');
-  assert.equal(ack.props.text, 'Added 1 of 3: only 1 more match these filters. Physics now has 1 question selected.');
-  assert.equal(find(tree, 'Field', p => p.label === 'Number of questions').props.value, '', 'the number clears after adding');
+  assert.equal(ack.props.text, 'Only 1 of 3 matched these filters. Physics now has 1 question selected.');
+  // After adding, the box and button give way to the message and a way back to them, with the number kept.
+  assert.equal(find(tree, 'Field', p => p.label === 'Number of questions'), undefined);
+  find(tree, 'Pressable', p => p.accessibilityLabel === 'Edit number of questions').props.onPress();
+  assert.equal(find(render(), 'Field', p => p.label === 'Number of questions').props.value, '3');
   assert.ok(find(tree, 'Button', p => p.label === 'Done'), 'Done closes the list');
   assert.equal(find(tree, 'Button', p => p.label.startsWith('Next')), undefined, 'no Next: subject button');
   assert.equal(find(tree, 'Field', p => p.label === 'Search Questions'), undefined, 'no search box');
@@ -382,9 +385,15 @@ test('filters: Topics stays when a chapter is picked, sources start unpicked, an
   find(tree, 'Field', p => p.label === 'Number of questions').props.onChangeText('4');
   tree = render();
   find(tree, 'Button', p => p.label === 'Add 4 at random').props.onPress();
+  // While adding: a loading line instead of the box.
+  tree = render();
+  assert.ok(find(tree, 'ActivityIndicator'));
+  assert.ok(find(tree, 'View', p => p.accessibilityLabel === 'Adding 4 questions'));
+  assert.equal(find(tree, 'Field', p => p.label === 'Number of questions'), undefined);
   await new Promise(resolve => setImmediate(resolve));
   tree = render();
   const ack = find(tree, 'Notice', p => p.tone === 'success');
-  assert.equal(ack.props.text, 'Added 4 questions at random. Physics now has 4 questions selected.');
+  assert.equal(ack.props.title, '4 questions added successfully');
+  assert.equal(ack.props.text, 'Physics now has 4 questions selected.');
   assert.equal(session.questions.length, 4);
 });

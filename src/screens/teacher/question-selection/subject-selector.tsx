@@ -88,7 +88,10 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   // What the last "Add at random" did, shown right under its button.
-  const [added, setAdded] = useState<{ tone: 'success' | 'warning'; text: string } | null>(null);
+  // While it shows, the number box and its button are hidden; "Edit number of questions" brings them back.
+  const [added, setAdded] = useState<{ tone: 'success' | 'warning'; title: string; text: string } | null>(null);
+  // How many the running "Add at random" asked for, for its loading line.
+  const [adding, setAdding] = useState(0);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const paging = useRef(false);
@@ -151,7 +154,7 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
   };
   const random = async (requested: number) => {
     if (randomBusy.current || requested < 1) return;
-    randomBusy.current = true; setWorking(true); setError(null); setAdded(null);
+    randomBusy.current = true; setWorking(true); setError(null); setAdded(null); setAdding(requested);
     const count = Math.min(requested, MAX_SELECTED - totalSelected);
     try {
       if (count < 1) throw new Error(`The selection already has ${MAX_SELECTED} questions.`);
@@ -161,18 +164,18 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
       // Exactly as many as asked for (never past the overall limit), even if the bank sends more.
       const result = addQuestions(current.questions, found, current.questions.length + Math.min(count, Math.max(0, MAX_SELECTED - live.current.totalSelected)));
       onChange({ ...current, questions: result.list });
-      setRandomText('');
       setMessage(null);
       const now = `${current.subject} now has ${result.list.length} question${result.list.length === 1 ? '' : 's'} selected.`;
       if (result.added) haptic.success();
       else haptic.warning();
+      const n = `${result.added} question${result.added === 1 ? '' : 's'}`;
       setAdded(!result.added
-        ? { tone: 'warning', text: 'No more questions match these filters. Choose more chapters or topics, or another source.' }
+        ? { tone: 'warning', title: 'No questions added', text: 'No more questions match these filters. Choose more chapters or topics, or another source.' }
         : result.added < requested
-          ? { tone: 'warning', text: `Added ${result.added} of ${requested}: only ${result.added} more match these filters. ${now}` }
-          : { tone: 'success', text: `Added ${result.added} question${result.added === 1 ? '' : 's'} at random. ${now}` });
+          ? { tone: 'warning', title: `${n} added`, text: `Only ${result.added} of ${requested} matched these filters. ${now}` }
+          : { tone: 'success', title: `${n} added successfully`, text: now });
     } catch (e) { if (alive.current) setError(e instanceof Error ? e.message : 'Could not choose questions.'); }
-    finally { randomBusy.current = false; if (alive.current) setWorking(false); }
+    finally { randomBusy.current = false; if (alive.current) { setWorking(false); setAdding(0); } }
   };
   const fresh = options.data?.key === listsKey ? options.data.data : null;
   // While other lists load (another source), the last ones stay, so no field disappears.
@@ -266,14 +269,27 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
                 // None picked: the whole bank (regular includes PYQs); PYQs alone narrows it.
                 changeScope({ ...scope, source: next.length === 1 ? next[0] : 'regular', sources: next });
               }} />
-            {/* How many to add at random from these filters; the button beside it adds exactly that many. */}
-            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
-              <View style={{ flex: 1 }}>
-                <Field label="Number of questions" value={randomText} onChangeText={v => { setRandomText(v.replace(/[^0-9]/g, '').slice(0, 3)); setAdded(null); }} placeholder="e.g. 10" keyboardType="number-pad" maxLength={3} returnKeyType="done" />
+            {/* Add at random, in three states: the number and its button; adding (loading); done (what happened, and a way to add more). */}
+            {working && adding ? (
+              <View accessible accessibilityLiveRegion="polite" accessibilityLabel={`Adding ${adding} questions`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.card }}>
+                <ActivityIndicator color={palette.primary} />
+                <Text style={{ color: palette.foreground, fontSize: 14, fontWeight: '600' }}>Adding {adding} question{adding === 1 ? '' : 's'}…</Text>
               </View>
-              <Button label={randomCount ? `Add ${randomCount} at random` : 'Add at random'} variant="tonal" icon={{ ios: 'dice', android: 'casino' }} onPress={() => void random(randomCount)} disabled={working || !!replacing || !randomCount} loading={working} style={compactButton} />
-            </View>
-            {working ? <Muted>Picking questions at random…</Muted> : added ? <Notice tone={added.tone} text={added.text} live onDismiss={() => setAdded(null)} /> : null}
+            ) : added ? (
+              <View style={{ gap: 6 }}>
+                <Notice tone={added.tone} title={added.title} text={added.text} live />
+                <Pressable accessibilityRole="button" accessibilityLabel="Edit number of questions" hitSlop={8} onPress={() => setAdded(null)} style={{ alignSelf: 'flex-start', minHeight: 32, justifyContent: 'center' }}>
+                  <Text style={{ color: palette.primaryInk, fontSize: 13, fontWeight: '600', textDecorationLine: 'underline' }}>Edit number of questions</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Field label="Number of questions" value={randomText} onChangeText={v => setRandomText(v.replace(/[^0-9]/g, '').slice(0, 3))} placeholder="e.g. 10" keyboardType="number-pad" maxLength={3} returnKeyType="done" />
+                </View>
+                <Button label={randomCount ? `Add ${randomCount} at random` : 'Add at random'} variant="tonal" icon={{ ios: 'dice', android: 'casino' }} onPress={() => void random(randomCount)} disabled={working || !!replacing || !randomCount} style={compactButton} />
+              </View>
+            )}
             {sources.length === 1 && sources[0] === 'pyq' ? <MultiSelectDropdown label="PYQ Years" options={data?.years.map(y => y.name) ?? []} selected={scope.years}
               placeholder="All years" allWhenNone applyOnDone showSelectedChips={false} onSelect={years => changeScope({ ...scope, years })} /> : null}
             {options.error ? <ErrorView message={options.error} onRetry={options.reload} /> : null}
