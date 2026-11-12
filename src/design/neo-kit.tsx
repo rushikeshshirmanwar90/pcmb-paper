@@ -13,7 +13,7 @@ import {
   type TextProps,
   type ViewStyle,
 } from 'react-native';
-import Animated, { Easing, LinearTransition, useAnimatedProps, useAnimatedStyle, useDerivedValue, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, useAnimatedProps, useAnimatedStyle, useDerivedValue, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 import { SymbolView } from 'expo-symbols';
 import type { IconName } from '@/components/kit';
@@ -843,8 +843,7 @@ export function NeoTabBar<K extends string>({ tabs, value, onChange }: { tabs: r
       {tabs.map((t) => {
         const on = t.key === value;
         return (
-          // The glide lives on a plain animated wrapper; the Pressable inside keeps its own (pressed) styles.
-          <Animated.View key={t.key} layout={TAB_LAYOUT} style={on ? styles.tabSlotOn : null}>
+          <View key={t.key} style={on ? styles.tabSlotOn : null}>
           <Pressable
             accessibilityRole="tab"
             accessibilityLabel={t.label}
@@ -855,21 +854,24 @@ export function NeoTabBar<K extends string>({ tabs, value, onChange }: { tabs: r
             <InkContext.Provider value={on ? p.onAccent : p.ink}>
               <NeoIcon name={t.icon} size={20} />
               {on ? (
-                <NeoText variant="label" numberOfLines={1} maxFontSizeMultiplier={1.3} style={styles.shrink}>
-                  {t.label}
-                </NeoText>
+                // The only motion: the new tab's label fades in, quickly (Reduce Motion: it just appears).
+                <Animated.View entering={TAB_LABEL_IN} style={styles.shrink}>
+                  <NeoText variant="label" numberOfLines={1} maxFontSizeMultiplier={1.3}>
+                    {t.label}
+                  </NeoText>
+                </Animated.View>
               ) : null}
             </InkContext.Provider>
           </Pressable>
-          </Animated.View>
+          </View>
         );
       })}
     </View>
   );
 }
 
-// The yellow pill glides to the tab you chose; a firm spring with no wobble (Reduce Motion: it jumps).
-const TAB_LAYOUT = LinearTransition.springify().damping(24).stiffness(320);
+// Tabs snap to their new places at once (feedback on the tap itself); nothing slides or springs.
+const TAB_LABEL_IN = FadeIn.duration(120);
 
 const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },

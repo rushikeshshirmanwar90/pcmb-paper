@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -65,6 +65,24 @@ export default function AppTabs({ tabs }: { tabs: AppTab[] }) {
 
   const neo = useDesign() === 'neo';
 
+  // Built once: switching tabs mustn't re-render every tab's screen.
+  const pages = useMemo(
+    () =>
+      tabs.map((tab) => (
+        <View key={`${tab.key}-page`} style={styles.page}>
+          {tab.render({})}
+        </View>
+      )),
+    [tabs]
+  );
+
+  // Student look: the page flips at once and the screens catch up just after,
+  // at a lower priority, so the bar never waits for them.
+  const handleNeoTabPress = (index: number) => {
+    internalPagerRef.current?.setPageWithoutAnimation(index);
+    startTransition(() => setActiveTab(index));
+  };
+
   const handleLayout = (e: LayoutChangeEvent) => {
     const width = e.nativeEvent.layout.width;
     setContainerWidth(width);
@@ -80,18 +98,17 @@ export default function AppTabs({ tabs }: { tabs: AppTab[] }) {
         orientation="horizontal"
         offscreenPageLimit={tabs.length - 1}
         onPageSelected={(e) => {
-          setActiveTab(e.nativeEvent.position);
+          const page = e.nativeEvent.position;
+          // Student look: a swipe (or the page flip after a tap) updates the screens at a lower priority too.
+          if (neo) startTransition(() => setActiveTab(page));
+          else setActiveTab(page);
         }}>
-        {tabs.map((tab) => (
-          <View key={`${tab.key}-page`} style={styles.page}>
-            {tab.render({})}
-          </View>
-        ))}
+        {pages}
       </PagerView>
 
       {/* ── Bottom Navigation Bar ── */}
       {neo ? (
-        <NeoTabs tabs={tabs} active={activeTab} onPress={handleTabPress} bottom={Math.max(insets.bottom, 8) + 8} />
+        <NeoTabs tabs={tabs} active={activeTab} onPress={handleNeoTabPress} bottom={Math.max(insets.bottom, 8) + 8} />
       ) : (
       <View
         style={[
@@ -174,14 +191,22 @@ export default function AppTabs({ tabs }: { tabs: AppTab[] }) {
 /** Student look: the floating ink pill; the current tab is a yellow pill with icon and label. */
 function NeoTabs({ tabs, active, onPress, bottom }: { tabs: AppTab[]; active: number; onPress: (index: number) => void; bottom: number }) {
   const p = useNeoPalette();
-  const items = tabs.map((t, i) => ({ key: String(i), label: t.label, icon: { ios: i === active ? t.icon.sf.selected : t.icon.sf.default, android: t.icon.md } }));
+  // The tapped tab lights up on the tap itself, before the screen switch has finished rendering.
+  const [tapped, setTapped] = useState<number | null>(null);
+  if (tapped !== null && tapped === active) setTapped(null);
+  const shown = tapped ?? active;
+  const press = (index: number) => {
+    setTapped(index);
+    onPress(index);
+  };
+  const items = tabs.map((t, i) => ({ key: String(i), label: t.label, icon: { ios: i === shown ? t.icon.sf.selected : t.icon.sf.default, android: t.icon.md } }));
   return (
     <>
       {/* Page colour under the lower half of the bar and the phone's nav area, so content never peeks out below it. */}
       <View pointerEvents="none" style={[styles.neoBand, { height: bottom + NEO_BAR / 2, backgroundColor: p.canvas }]} />
       <View pointerEvents="box-none" style={[styles.neoBarWrap, { bottom }]}>
         <View style={styles.neoBar}>
-          <NeoTabBar tabs={items} value={String(active)} onChange={(k) => onPress(Number(k))} />
+          <NeoTabBar tabs={items} value={String(shown)} onChange={(k) => press(Number(k))} />
         </View>
       </View>
     </>
