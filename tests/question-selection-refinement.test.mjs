@@ -117,6 +117,9 @@ test('browser overflow removes, undoes, replaces and reorders; Add at random pre
   const props = () => ({ session, subjects: ['Physics'], totalSelected: session.questions.length, onChange: next => { session = next; }, onSubject: () => {}, onClose: () => {} });
   const render = () => h.render(h.exports.Browser, props());
   let tree = render();
+  // The form comes first: no number box until Show questions.
+  assert.equal(find(tree, 'Field', p => p.label === 'Number of questions'), undefined);
+  find(tree, 'Button', p => p.label === 'Show questions').props.onPress(); tree = render();
   // Nothing is pre-set: the teacher types how many, then adds them.
   assert.equal(find(tree, 'Field', p => p.label === 'Number of questions').props.value, '');
   assert.equal(find(tree, 'Button', p => p.label === 'Add at random').props.disabled, true);
@@ -182,9 +185,14 @@ test('pagination keeps manual picks and source changes keep filters and selectio
   }, '\nexports.Browser = SubjectBrowser;');
   let session = { ...selection.selectSubjects([], ['Physics'], base, 3)[0], scope: { ...base, chapters: ['Motion'], topics: ['Velocity'], years: ['2020'] } };
   const render = () => h.render(h.exports.Browser, { session, subjects: ['Physics', 'Chemistry'], totalSelected: session.questions.length, onChange: next => { session = next; }, onSubject: () => {}, onClose: () => {} });
-  render();
-  await new Promise(resolve => setImmediate(resolve));
   let tree = render();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(requestedPages, [], 'nothing is loaded before Show questions');
+  assert.deepEqual(Array.from(find(render(), 'FlatList').props.data), []);
+  tree = render();
+  find(tree, 'Button', p => p.label === 'Show questions').props.onPress(); tree = render();
+  await new Promise(resolve => setImmediate(resolve));
+  tree = render();
   find(tree, 'FlatList').props.renderItem({ item: q('1'), index: 0 }).props.onToggle(q('1'));
   tree = render();
   find(tree, 'FlatList').props.onEndReached();
@@ -211,6 +219,7 @@ test('random picks ask how many; shortages report what was actually added', asyn
   }, '\nexports.Browser = SubjectBrowser;');
   let session = selection.selectSubjects([], ['Physics'], base, 3)[0];
   const render = () => h.render(h.exports.Browser, { session, subjects: ['Physics'], totalSelected: session.questions.length, onChange: next => { session = next; }, onSubject: () => {}, onClose: () => {} });
+  find(render(), 'Button', p => p.label === 'Show questions').props.onPress();
   find(render(), 'Field', p => p.label === 'Number of questions').props.onChangeText('3');
   find(render(), 'Button', p => p.label === 'Add 3 at random').props.onPress();
   await new Promise(resolve => setImmediate(resolve));
@@ -380,6 +389,27 @@ test('filters: Topics stays when a chapter is picked, sources start unpicked, an
   assert.deepEqual(Array.from(session.scope.sources), []);
   assert.equal(bankBody(session.scope).source, 'regular');
 
+  // Question level: none picked means every level; picking sends the bank's values (Difficult is Hard).
+  tree = render();
+  const level = find(tree, 'MultiSelectDropdown', p => p.label === 'Question level');
+  assert.deepEqual(Array.from(level.props.options), ['Easy', 'Medium', 'Difficult']);
+  assert.equal(level.props.placeholder, 'All levels');
+  assert.equal(bankBody(session.scope).levels, undefined);
+  level.props.onSelect(['Easy', 'Difficult']);
+  assert.deepEqual(Array.from(bankBody(session.scope).levels), ['Easy', 'Hard']);
+  assert.deepEqual(JSON.parse(listKeys.at(-1)).levels, undefined, 'the lists don\'t reload for a level');
+
+  // Questions and the number box only after Show questions; a filter change hides them again.
+  tree = render();
+  assert.equal(find(tree, 'Field', p => p.label === 'Number of questions'), undefined);
+  find(tree, 'Button', p => p.label === 'Show questions').props.onPress(); tree = render();
+  assert.ok(find(tree, 'Field', p => p.label === 'Number of questions'));
+  find(tree, 'MultiSelectDropdown', p => p.label === 'Question level').props.onSelect(['Easy']);
+  tree = render();
+  assert.equal(find(tree, 'Field', p => p.label === 'Number of questions'), undefined);
+  assert.ok(find(tree, 'Button', p => p.label === 'Show questions'));
+  find(tree, 'Button', p => p.label === 'Show questions').props.onPress(); tree = render();
+
   // Add at random: a clear success message right under the button.
   tree = render();
   find(tree, 'Field', p => p.label === 'Number of questions').props.onChangeText('4');
@@ -396,4 +426,18 @@ test('filters: Topics stays when a chapter is picked, sources start unpicked, an
   assert.equal(ack.props.title, '4 questions added successfully');
   assert.equal(ack.props.text, 'Physics now has 4 questions selected.');
   assert.equal(session.questions.length, 4);
+});
+
+test('every question card shows its level: Easy, Medium or Difficult', () => {
+  const h = harness('src/screens/teacher/question-selection/question-card.tsx');
+  const { levelOf, SelectionCard, SelectedQuestionRow } = h.exports;
+  assert.equal(levelOf({ difficulty: 'Easy' }), 'Easy');
+  assert.equal(levelOf({ difficulty: 'Medium' }), 'Medium');
+  assert.equal(levelOf({ difficulty: 'Mid' }), 'Medium');
+  assert.equal(levelOf({ difficulty: 'Hard' }), 'Difficult');
+  assert.equal(levelOf({ difficulty: '' }), null);
+  const card = h.render(SelectionCard, { question: { ...q('1'), difficulty: 'Hard' }, picked: false, disabled: false, onToggle() {}, onDetails() {} });
+  assert.ok(nodes(card).some(n => n.type === h.exports.LevelTag), 'the card has a level tag');
+  const row = h.render(SelectedQuestionRow, { question: q('2'), index: 0, onDetails() {} });
+  assert.ok(nodes(row).some(n => n.type === h.exports.LevelTag), 'the selected row has one too');
 });

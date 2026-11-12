@@ -6,6 +6,13 @@
 export type Course = 'Foundation' | 'Competitive';
 export type QuestionSource = 'regular' | 'pyq';
 export type CompetitiveExam = 'JEE' | 'NEET';
+/** The bank's difficulty values; teachers see Hard as "Difficult". */
+export type QuestionLevel = 'Easy' | 'Medium' | 'Hard';
+export const LEVEL_OPTIONS: { value: QuestionLevel; label: string }[] = [
+  { value: 'Easy', label: 'Easy' },
+  { value: 'Medium', label: 'Medium' },
+  { value: 'Hard', label: 'Difficult' },
+];
 
 // These are API selectors, not Question.source provenance strings. Keep in sync
 // with papers/readScope: regular is the superset, pyq narrows by exam and year.
@@ -32,6 +39,8 @@ export interface BankScope {
   source: QuestionSource;
   sources?: QuestionSource[];
   search?: string;
+  /** Question levels to keep; none means every level. */
+  levels?: QuestionLevel[];
   chapters: string[];
   topics: string[];
   years: string[];
@@ -108,6 +117,7 @@ export function bankBody(scope: BankScope): Record<string, unknown> {
     topics: scope.topics,
     years: (scope.sources ? scope.sources.length === 1 && scope.sources[0] === 'pyq' : scope.source === 'pyq') ? scope.years : [],
     ...(scope.search?.trim() ? { search: scope.search.trim() } : {}),
+    ...(scope.levels?.length ? { levels: scope.levels } : {}),
   };
 }
 

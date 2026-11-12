@@ -14,7 +14,7 @@ import { DropdownSelect } from '@/components/dropdown-select';
 import { MultiSelectDropdown } from '@/components/multi-select-dropdown';
 import { KeyboardSafeView } from '@/components/keyboard-safe-view';
 import { fetchBankOptions, fetchBankPage, fetchBankRandom } from '@/services/pdf-questions';
-import { bankBody, bankKey, sourceOptions, withChapters, type BankScope } from '@/screens/teacher/make-pdf/bank-scope';
+import { bankBody, bankKey, LEVEL_OPTIONS, sourceOptions, withChapters, type BankScope } from '@/screens/teacher/make-pdf/bank-scope';
 import { SelectionCard, SelectedQuestionRow } from './question-card';
 import { addQuestions, moveQuestion, removeQuestion, replaceQuestion } from '@/screens/teacher/make-pdf/model';
 import { QuestionPreview, questionMeta } from '@/screens/teacher/make-pdf/question-preview';
@@ -79,7 +79,7 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
   // The lists of chapters, topics and years come from the subject and sources only, not from the
   // chapters or topics picked: picking a chapter must not reload them (the Topics field would vanish
   // while they load) or shrink the Chapters list to what's picked.
-  const listsBody = useMemo(() => bankBody({ ...scope, chapters: [], topics: [], years: [], search: '' }), [scope]);
+  const listsBody = useMemo(() => bankBody({ ...scope, chapters: [], topics: [], years: [], levels: [], search: '' }), [scope]);
   const listsKey = JSON.stringify(listsBody);
   // Kept per scope: going back to filters already seen shows their lists at once, without a new request.
   const optionsKey = useCacheKeys().bankOptions(listsKey);
@@ -114,7 +114,11 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
   // Number of questions to add at random: empty until the teacher types one.
   const [randomText, setRandomText] = useState('');
   const randomCount = Math.min(Number(randomText) || 0, Math.max(0, MAX_SELECTED - totalSelected));
+  // The form comes first: no questions are loaded or shown until the teacher taps Show questions.
+  // Changing a filter afterwards hides them again until the next tap.
+  const [shown, setShown] = useState(false);
   useEffect(() => {
+    if (!shown) return;
     let cancelled = false;
     generation.current++;
     Promise.resolve().then(() => { if (!cancelled) { setLoading(true); setLoadingMore(false); setError(null); paging.current = false; } });
@@ -122,9 +126,9 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
       if (!cancelled) setPages({ key, items: page.questions, total: page.total, page: 1, more: page.hasMore });
     }).catch(e => { if (!cancelled) setError(e.message); }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [key, body, retry]);
+  }, [key, body, retry, shown]);
   const loadMore = async () => {
-    if (paging.current || loading || pages?.key !== key || !pages.more || error) return;
+    if (!shown || paging.current || loading || pages?.key !== key || !pages.more || error) return;
     paging.current = true;
     setLoadingMore(true);
     const askedGeneration = generation.current;
@@ -139,7 +143,8 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
   const changeScope = (next: BankScope) => {
     onChange({ ...session, scope: next });
     setAdded(null);
-    setMessage('Filters apply to browsing and random additions. Your selected questions are kept.');
+    setShown(false);
+    setMessage(null);
   };
   const toggle = (question: Question) => {
     const current = live.current.session;
@@ -187,7 +192,7 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
   const sources = scope.sources ?? (scope.source === 'pyq' ? ['pyq'] : []);
   const availableSources = sourceOptions(scope);
   const index = subjects.indexOf(session.subject);
-  const items = review ? session.questions : pages?.key === key ? pages.items : [];
+  const items = review ? session.questions : shown && pages?.key === key ? pages.items : [];
   const selected = (q: Question) => session.questions.some(item => item._id === q._id);
   const cannotAdd = (q: Question) => working || (replacing ? selected(q) : !selected(q) && totalSelected >= MAX_SELECTED);
   const remove = (question: Question) => {
@@ -269,6 +274,17 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
                 // None picked: the whole bank (regular includes PYQs); PYQs alone narrows it.
                 changeScope({ ...scope, source: next.length === 1 ? next[0] : 'regular', sources: next });
               }} />
+            <MultiSelectDropdown label="Question level" options={LEVEL_OPTIONS.map(l => l.label)}
+              selected={LEVEL_OPTIONS.filter(l => scope.levels?.includes(l.value)).map(l => l.label)} placeholder="All levels" allWhenNone applyOnDone showSelectedChips={false}
+              onSelect={values => changeScope({ ...scope, levels: LEVEL_OPTIONS.filter(l => values.includes(l.label)).map(l => l.value) })} />
+            {sources.length === 1 && sources[0] === 'pyq' ? <MultiSelectDropdown label="PYQ Years" options={data?.years.map(y => y.name) ?? []} selected={scope.years}
+              placeholder="All years" allWhenNone applyOnDone showSelectedChips={false} onSelect={years => changeScope({ ...scope, years })} /> : null}
+            {options.error ? <ErrorView message={options.error} onRetry={options.reload} /> : null}
+            {!shown ? <>
+              <Button label="Show questions" icon={{ ios: 'list.bullet.rectangle', android: 'list_alt' }} style={compactButton} onPress={() => { setMessage(null); setShown(true); }} />
+              <Muted>Choose the chapters, topics, sources and level you want, then tap Show questions.</Muted>
+            </> : <>
+              <Muted>{pages?.key === key && !loading ? `${pages.total} question${pages.total === 1 ? '' : 's'} match your choices` : 'Finding questions…'}</Muted>
             {/* Add at random, in three states: the number and its button; adding (loading); done (what happened, and a way to add more). */}
             {working && adding ? (
               <View accessible accessibilityLiveRegion="polite" accessibilityLabel={`Adding ${adding} questions`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.card }}>
@@ -290,18 +306,15 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
                 <Button label={randomCount ? `Add ${randomCount} at random` : 'Add at random'} variant="tonal" icon={{ ios: 'dice', android: 'casino' }} onPress={() => void random(randomCount)} disabled={working || !!replacing || !randomCount} style={compactButton} />
               </View>
             )}
-            {sources.length === 1 && sources[0] === 'pyq' ? <MultiSelectDropdown label="PYQ Years" options={data?.years.map(y => y.name) ?? []} selected={scope.years}
-              placeholder="All years" allWhenNone applyOnDone showSelectedChips={false} onSelect={years => changeScope({ ...scope, years })} /> : null}
-            {options.error ? <ErrorView message={options.error} onRetry={options.reload} /> : null}
-            <Muted>{pages?.key === key ? `${pages.total} Questions Available` : 'Finding questions…'}</Muted>
-            {pages && pages.page > 10 ? <Button label="Back to First Page" variant="secondary" style={compactButton} onPress={() => { setPages(null); setRetry(n => n + 1); }} /> : null}
+              {pages && pages.page > 10 ? <Button label="Back to First Page" variant="secondary" style={compactButton} onPress={() => { setPages(null); setRetry(n => n + 1); }} /> : null}
+            </>}
           </> : null}
           {error ? <ErrorView message={error} onRetry={() => { setError(null); setRetry(n => n + 1); }} /> : null}
           {message ? <Notice text={message} /> : null}
           {removed ? <Button label="Undo Remove" variant="secondary" style={compactButton} onPress={undo} disabled={working} /> : null}
           {!review && loading && items.length ? <ActivityIndicator color={palette.primary} /> : null}
         </View>}
-        ListEmptyComponent={loading ? (review ? undefined : <SkeletonCards count={3} lines={4} label="Loading questions" />) : !loading ? <Muted>{review ? 'No questions selected yet. Browse the questions and tick the ones you want, or add some at random.' : error ? '' : 'No questions match these filters.'}</Muted> : undefined}
+        ListEmptyComponent={!review && !shown ? undefined : loading ? (review ? undefined : <SkeletonCards count={3} lines={4} label="Loading questions" />) : !loading ? <Muted>{review ? 'No questions selected yet. Browse the questions and tick the ones you want, or add some at random.' : error ? '' : 'No questions match these filters.'}</Muted> : undefined}
         ListFooterComponent={loadingMore ? <ActivityIndicator color={palette.primary} /> : undefined}
         renderItem={({ item, index: at }) => review
           ? <SelectedQuestionRow question={item} index={at} onDetails={setPreview} onMenu={(question, anchor) => setMenu({ question, anchor })} />
