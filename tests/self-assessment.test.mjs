@@ -242,3 +242,13 @@ describe('quickSelection (Quick start defaults)', () => {
     assert.deepEqual(quickSelection([]), { selection: {}, basis: 'none' });
   });
 });
+
+describe('poolLabel (which questions a practice test used)', async () => {
+  const { poolLabel } = await import('../src/screens/student/self-assessment.ts');
+  test('in students\' words; tests from older servers count as PYQs only', () => {
+    assert.equal(poolLabel('all'), 'PYQs + other questions');
+    assert.equal(poolLabel('others'), 'Without PYQs');
+    assert.equal(poolLabel('pyqs'), 'PYQs only');
+    assert.equal(poolLabel(undefined), 'PYQs only');
+  });
+});

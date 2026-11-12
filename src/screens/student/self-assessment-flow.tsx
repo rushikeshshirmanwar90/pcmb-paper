@@ -36,7 +36,6 @@ import {
   isTopicPicked,
   MIN_QUESTIONS,
   MIX_INFO,
-  pickedQuestions,
   quickSelection,
   scopeOf,
   selectionLabel,
@@ -53,6 +52,7 @@ import {
 } from '@/screens/student/self-assessment';
 import { Reason } from '@/components/states';
 import { StepSlide, useStepDirection } from '@/design/motion';
+import { haptic } from '@/design/haptics';
 import { resultTone } from '@/screens/student/test-format';
 import { dayLabel } from '@/services/school-api';
 import {
@@ -61,6 +61,7 @@ import {
   studentApi,
   type AssessmentDetail,
   type AssessmentMix,
+  type AssessmentPool,
   type AssessmentPlan,
   type AssessmentSummary,
   type PracticeChapter,
@@ -201,7 +202,7 @@ function Home({ round, onClose, onNew, onOpen }: { round: number; onClose: () =>
 
   return (
     <View style={styles.flex}>
-      <SheetHeader title="Your self-assessments" onClose={onClose} />
+      <SheetHeader title="Your practice tests" onClose={onClose} />
       <ScrollView contentContainerStyle={[styles.body, column]}>
         <Card style={styles.hero}>
           <View style={styles.heroTop}>
@@ -209,13 +210,13 @@ function Home({ round, onClose, onNew, onOpen }: { round: number; onClose: () =>
               <Icon name={{ ios: 'checklist', android: 'fact_check' }} color={palette.primary} size={22} />
             </View>
             <View style={styles.flex}>
-              <Text style={[styles.heroTitle, { color: palette.foreground }]}>Test yourself</Text>
+              <Text style={[styles.heroTitle, { color: palette.foreground }]}>Practise and get scored</Text>
               <Text style={[styles.meta, { color: palette.mutedForeground }]}>
-                Pick chapters and topics. We choose past-year questions with the right mix of easy, medium and hard, then show which topics you&apos;re strong and weak in.
+                Pick a subject and topics, and choose whether to include PYQs. We pick a fair mix of easy, medium and hard, then show which topics you&apos;re strong and weak in.
               </Text>
             </View>
           </View>
-          <Button label="Start a self-assessment" icon={{ ios: 'play.fill', android: 'play_arrow' }} onPress={onNew} />
+          <Button label="Start practice" icon={{ ios: 'play.fill', android: 'play_arrow' }} onPress={onNew} />
         </Card>
 
         {loading && !data ? (
@@ -312,6 +313,8 @@ function Builder({
   const [mix, setMix] = useState<AssessmentMix>('smart');
   const [time, setTime] = useState<TimeChoice>('pace');
   const [negative, setNegative] = useState<'on' | 'off'>('on');
+  // Include PYQs (on by default): past-year questions mixed with the bank's other questions; off: the others only.
+  const [includePyqs, setIncludePyqs] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -337,14 +340,13 @@ function Builder({
   }
 
   const scope = useMemo(() => scopeOf(selection, chapters), [selection, chapters]);
-  const available = pickedQuestions(selection, chapters);
   const n = Number(count);
   const choices = timeChoices(n, subject);
   const suggested = suggestedMinutes(n, subject);
   const minutes = time === 'none' ? null : Number(choices[TIME_CHOICES.indexOf(time)]);
   const setup = useMemo(
-    () => ({ subject, scope, count: n, mix, durationMinutes: minutes, negativeMarking: negative === 'on' }),
-    [subject, scope, n, mix, minutes, negative]
+    () => ({ subject, scope, count: n, mix, durationMinutes: minutes, negativeMarking: negative === 'on', pool: (includePyqs ? 'all' : 'others') as AssessmentPool }),
+    [subject, scope, n, mix, minutes, negative, includePyqs]
   );
 
   // The plan, a moment after the choices settle; only the latest answer counts.
@@ -365,6 +367,9 @@ function Builder({
     };
   }, [planKey, setup]);
   const current = plan && plan.key === planKey ? plan : null;
+  // How many questions the picked topics have in the chosen pool (the server's count, once planned).
+  const availableNow = current?.plan?.plan.available.total;
+  const countLabel = availableNow === undefined ? '' : ` · ${availableNow} questions`;
   const planning = !!scope.length && !current;
   const tooFew = !!current?.plan && current.plan.plan.count < MIN_QUESTIONS;
 
@@ -382,7 +387,7 @@ function Builder({
       // The plan's seed makes the test the one the preview showed.
       onCreated(await studentApi.createAssessment({ ...setup, seed: current?.plan?.seed }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't make the self-assessment. Try again.");
+      setError(e instanceof Error ? e.message : "Couldn't make your practice test. Try again.");
     } finally {
       setCreating(false);
     }
@@ -423,7 +428,7 @@ function Builder({
 
   return (
     <KeyboardSafeView>
-      <SheetHeader title={stage === 'quick' ? 'New self-assessment' : `Customise · Step ${stage} of 3`} onBack={back} />
+      <SheetHeader title={stage === 'quick' ? 'Start practice' : `Customise · Step ${stage} of 3`} onBack={back} />
       <ScrollView contentContainerStyle={[styles.body, column]} keyboardShouldPersistTaps="handled">
         {stage === 'quick' ? (
           <>
@@ -434,7 +439,7 @@ function Builder({
               error={tree.error && !chapters.length ? tree.error : null}
               onRetry={tree.reload}
               basis={quickFor?.subject === subject ? quickFor.basis : null}
-              covers={scope.length ? `${selectionLabel(selection, chapters)} · ${available} questions` : ''}
+              covers={scope.length ? `${selectionLabel(selection, chapters)}${countLabel}` : ''}
               size={`${n} questions · ${minutes ? `${minutes} min` : 'no time limit'} · ${MIX_INFO[mix].label} mix · ${negative === 'on' ? '+4 / −1' : '+4 / 0'}`}
             />
             {scope.length && (current?.error || tooFew) ? <PlanPreview plan={current?.plan ?? null} error={current?.error ?? null} loading={planning} mix={mix} /> : null}
@@ -444,7 +449,7 @@ function Builder({
         <Step title="Subject" />
         <Chips choices={subjects} selected={subject} onChange={pickSubject} />
 
-        <Step title="Chapters and topics" detail={scope.length ? `${selectionLabel(selection, chapters)} · ${available} questions` : 'Pick at least one'} />
+        <Step title="Chapters and topics" detail={scope.length ? `${selectionLabel(selection, chapters)}${countLabel}` : 'Pick at least one'} />
         <View style={[styles.search, { borderColor: palette.border, backgroundColor: palette.card }]}>
           <Icon name={{ ios: 'magnifyingglass', android: 'search' }} color={palette.mutedForeground} size={16} />
           <TextInput
@@ -537,6 +542,8 @@ function Builder({
       </ScrollView>
       <SheetFooter>
         <ErrorText message={error} />
+        {/* Subject and topics above; which questions, right where you start (quick start and step 1). */}
+        {stage === 'quick' || stage === 1 ? <IncludePyqs value={includePyqs} onChange={setIncludePyqs} /> : null}
         {stage === 'quick' ? (
           <>
             {createButton('Quick start')}
@@ -558,6 +565,36 @@ function Builder({
         )}
       </SheetFooter>
     </KeyboardSafeView>
+  );
+}
+
+/**
+ * Include PYQs: a checkbox with a plain line under it. Ticked (the default),
+ * past-year questions come mixed with the bank's other questions; unticked,
+ * only the other questions. The whole row is the target.
+ */
+function IncludePyqs({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  const palette = usePalette();
+  return (
+    <Pressable
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: value }}
+      accessibilityLabel="Include PYQs"
+      accessibilityHint={value ? 'Past-year questions are mixed in' : 'Only other questions'}
+      onPress={() => {
+        haptic.select();
+        onChange(!value);
+      }}
+      style={({ pressed }) => [styles.checkRow, pressed && styles.pressedRow]}
+    >
+      <View style={[styles.checkBox, { borderColor: palette.ink, backgroundColor: value ? palette.primary : palette.card }]}>
+        {value ? <Icon name={{ ios: 'checkmark', android: 'check' }} color={palette.ink} size={16} /> : null}
+      </View>
+      <View style={styles.flex}>
+        <Text style={[styles.checkTitle, { color: palette.foreground }]}>Include PYQs</Text>
+        <Text style={[styles.meta, { color: palette.mutedForeground }]}>{value ? 'Past-year questions mixed with other questions' : 'Other questions only, no past-year questions'}</Text>
+      </View>
+    </Pressable>
   );
 }
 
@@ -773,6 +810,10 @@ function PlanPreview({ plan, error, loading, mix }: { plan: AssessmentPlan | nul
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  checkRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingVertical: 4 },
+  pressedRow: { opacity: 0.75 },
+  checkBox: { width: 26, height: 26, borderRadius: Neo.radius.xs, borderWidth: Neo.border.width, alignItems: 'center', justifyContent: 'center' },
+  checkTitle: { fontSize: 16, lineHeight: 21, fontFamily: face.semibold },
   flex: { flex: 1, minWidth: 0 },
   pressed: { opacity: 0.7 },
   empty: { opacity: 0.5 },

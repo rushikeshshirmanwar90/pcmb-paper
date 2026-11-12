@@ -211,8 +211,13 @@ export interface AssessmentScope {
   topics: string[];
 }
 
+/** Which questions a practice test draws from (server: lib/pyq.ts QUESTION_POOLS). Older servers ignore it and use PYQs. */
+export type AssessmentPool = 'pyqs' | 'all' | 'others';
+
 export interface AssessmentSetup {
   subject: SchoolSubject;
+  /** all: PYQs + the bank's other questions (Include PYQs ticked) · others: without PYQs · pyqs: PYQs only (what older apps got). */
+  pool?: AssessmentPool;
   scope: AssessmentScope[];
   count: number;
   mix: AssessmentMix;
@@ -250,6 +255,8 @@ export interface AssessmentSummary {
   title: string;
   subject: SchoolSubject;
   mix: AssessmentMix;
+  /** Missing from older servers: past-year questions only. */
+  pool?: AssessmentPool;
   state: 'ready' | 'in-progress' | 'submitted';
   scope: AssessmentScope[];
   questionCount: number;

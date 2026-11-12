@@ -43,6 +43,7 @@ import {
   secondsLeft,
   splitLabel,
   topicName,
+  poolLabel,
 } from '@/screens/student/self-assessment';
 import { clock, percentOf, resultTone, spokenDuration, subjectIcon } from '@/screens/student/test-format';
 import {
@@ -751,7 +752,7 @@ function Result({
             {a.title}
           </Text>
           <Text style={[styles.meta, { color: palette.mutedForeground }]}>
-            {a.subject} · {MIX_INFO[a.mix].label} mix · {splitLabel(a.plan)}
+            {a.subject} · {MIX_INFO[a.mix].label} mix · {splitLabel(a.plan)} · {poolLabel(a.pool)}
           </Text>
         </View>
 

@@ -269,6 +269,9 @@ export function answerRows<Q extends { index: number; standard: string; chapter:
 /** The rows a filter shows ("All", "Wrong" or "Skipped"), in order. */
 export const filterRows = <R extends { outcome: AnswerOutcome }>(rows: R[], filter: AnswerFilter) => (filter === 'all' ? rows : rows.filter((r) => r.outcome === filter));
 
+/** Which questions a test used, in students' words. */
+export const poolLabel = (pool: 'pyqs' | 'all' | 'others' | undefined) => (pool === 'others' ? 'Without PYQs' : pool === 'all' ? 'PYQs + other questions' : 'PYQs only');
+
 /** The line under an assessment in the list. */
 export function summaryLine(
   a: Pick<AssessmentSummary, 'state' | 'questionCount' | 'answeredCount' | 'result' | 'durationMinutes' | 'subject'> & { deadline?: string | null },

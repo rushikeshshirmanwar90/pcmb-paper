@@ -27,11 +27,12 @@ export const PRACTICE_TAB = 'practice';
 const RECENT_RESULTS = 2;
 
 /**
- * The Practice tab, in the order students use it (approved restructure):
- * Continue (unfinished work first) → Test yourself (the tab's one yellow
- * button, with tests left part-way right above it) → Practise past-year
- * questions (subject → chapter → topic are pushed pages) → Recent results (the
- * last two; Past results / See all open the rest, Retake is on each result).
+ * The Practice tab, one Practice for everything (approved restructure):
+ * Continue (unfinished work first) → Start practice (the tab's one yellow
+ * button: subject → topics → Include PYQs → start, with tests left part-way
+ * right above it) → Practise a chapter (subject → chapter → topic, one
+ * question at a time) → Recent results (the last two; Past results / See all
+ * open the rest, Retake is on each result).
  *
  * Only JEE and NEET have a question bank. Students of other programs see that
  * practice isn't available yet; nothing is loaded for them.
@@ -75,7 +76,7 @@ export function StudentPracticeScreen() {
   return (
     <Screen
       title="Practice"
-      subtitle="Practise PYQs or test yourself"
+      subtitle="Pick topics and practise"
       // Nothing loads without a question bank, so there's nothing to refresh.
       onRefresh={hasBank ? assessments.refresh : undefined}
       refreshing={assessments.refreshing}
@@ -87,9 +88,8 @@ export function StudentPracticeScreen() {
           {/* Unfinished work first (Zeigarnik). */}
           <ContinueCard />
 
-          {/* The tab's main action: one yellow button. */}
+          {/* The tab's main action: one yellow button (subject → topics → Include PYQs → start). */}
           <View style={styles.group}>
-            <SectionTitle title="Test yourself" />
             <TestYourselfCard
               going={going}
               now={now}
@@ -101,7 +101,7 @@ export function StudentPracticeScreen() {
           </View>
 
           <View style={styles.group}>
-            <SectionTitle title="Practise past-year questions" />
+            <SectionTitle title="Practise a chapter" />
             <SubjectChips subjects={subjects} onOpen={(s) => router.push(practiceSubjectHref(s))} />
           </View>
 
@@ -162,7 +162,7 @@ function TestYourselfCard({
         <View style={[styles.testIcon, { backgroundColor: palette.primary, borderColor: palette.ink }]}>
           <Icon name={{ ios: 'checklist', android: 'fact_check' }} color={palette.ink} size={22} />
         </View>
-        <Text style={[styles.testText, { color: palette.foreground }]}>Pick chapters, get a score for every topic.</Text>
+        <Text style={[styles.testText, { color: palette.foreground }]}>Choose a subject and topics, get a score for each topic.</Text>
       </View>
       {going.length ? (
         <View style={[styles.toFinish, { borderColor: palette.border }]}>
@@ -179,7 +179,7 @@ function TestYourselfCard({
           ))}
         </View>
       ) : null}
-      <Button label="Start a self-assessment" icon={{ ios: 'play.fill', android: 'play_arrow' }} onPress={onNew} />
+      <Button label="Start practice" icon={{ ios: 'play.fill', android: 'play_arrow' }} onPress={onNew} />
       {pastCount ? (
         <Pressable accessibilityRole="button" accessibilityLabel={`Past results, ${pastCount}`} onPress={onSeeAll} hitSlop={8} style={({ pressed }) => [styles.pastLink, pressed && styles.pressed]}>
           <Text style={[styles.pastText, { color: palette.foreground }]}>Past results ({pastCount})</Text>
@@ -264,7 +264,7 @@ function SubjectChips({ subjects, onOpen }: { subjects: SchoolSubject[]; onOpen:
               {s}
             </NeoText>
             <NeoText variant="caption" soft numberOfLines={2}>
-              PYQs by chapter
+              Chapter by chapter
             </NeoText>
           </PressableNeo>
           </View>
