@@ -7,7 +7,7 @@ import { Button, Card, DetailRow, ErrorView, Field, Icon, Muted, Notice, Section
 import { useCacheKeys } from '@/hooks/use-cache-keys';
 import { bumpDataVersion } from '@/context/data-version';
 import { FlowPage } from '@/screens/teacher/create-test/flow-page';
-import { useTestDraft } from '@/screens/teacher/create-test/draft';
+import { useLeaveCreateTest, useTestDraft } from '@/screens/teacher/create-test/draft';
 import { deriveScope, isDerived, uniqueLabels } from '@/screens/teacher/create-test/scope';
 import { DateField } from '@/screens/teacher/date-field';
 import { durationProblem, marksProblem, maxMarks, scheduleProblem, suggestClosing, timeOf, withDay, withTime } from '@/screens/teacher/test-schedule';
@@ -22,6 +22,7 @@ export function SetupScreen() {
   const router = useRouter();
   const palette = usePalette();
   const { draft, update, markSaved } = useTestDraft();
+  const leave = useLeaveCreateTest();
   // Shared by both pages of Create Test: the second page doesn't ask again.
   const { testBatches: batchesKey } = useCacheKeys();
   const batches = useLoad(() => schoolApi.testBatches(), [batchesKey], { cacheKey: batchesKey });
@@ -145,6 +146,7 @@ export function SetupScreen() {
       title="Test Setup (2 of 2)"
       subtitle="Access and settings"
       onBack={() => router.back()}
+      onClose={leave}
       error={error}
       footer={
         <View style={styles.row}>

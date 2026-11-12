@@ -1,4 +1,6 @@
-import { createContext, useContext, useMemo, useState, type PropsWithChildren } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type PropsWithChildren } from 'react';
+import { useNavigation, usePreventRemove } from 'expo-router';
+import { confirmAction } from '@/components/confirm-action';
 import { EMPTY_BANK_SCOPE, type BankScope } from '@/screens/teacher/make-pdf/bank-scope';
 import { timeOf, type StartMode } from '@/screens/teacher/test-schedule';
 import type { Question } from '@/types/pcmb';
@@ -67,6 +69,32 @@ export function CreateTestProvider({ children, initialBatchIds = [] }: PropsWith
   }, [draft, saved, initial]);
   return <DraftContext.Provider value={value}>{children}</DraftContext.Provider>;
 }
+
+const LeaveContext = createContext<() => void>(() => {});
+
+/**
+ * Guards leaving the whole Create Test flow (Back on page 1, Close on page 2,
+ * Android's Back on page 1): with anything entered it asks first, and Discard
+ * really leaves. Rendered in the flow's layout, so it guards the flow's route
+ * itself; going from page 2 back to page 1 isn't leaving and isn't asked about.
+ */
+export function CreateTestLeaveGuard({ children }: PropsWithChildren) {
+  const navigation = useNavigation();
+  const { dirty } = useTestDraft();
+  const [discarded, setDiscarded] = useState(false);
+  // `repeat` turns the guard off and redoes the blocked navigation (dispatching it again would be blocked again).
+  usePreventRemove(dirty && !discarded, ({ repeat }) =>
+    confirmAction('Discard this test?', 'It hasn\'t been created yet, so what you entered on both pages will be lost.', 'Discard', () => {
+      setDiscarded(true);
+      repeat();
+    })
+  );
+  const leave = useCallback(() => navigation.goBack(), [navigation]);
+  return <LeaveContext.Provider value={leave}>{children}</LeaveContext.Provider>;
+}
+
+/** Leaves the Create Test flow (asking first when something was entered). */
+export const useLeaveCreateTest = () => useContext(LeaveContext);
 
 export function useTestDraft(): Ctx {
   const ctx = useContext(DraftContext);
