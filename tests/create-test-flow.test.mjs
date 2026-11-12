@@ -77,7 +77,14 @@ describe('two full-screen routes share one draft', () => {
     assert.match(two, /Test Setup \(2 of 2\)/);
     assert.match(one, /router\.push\('\/create-test\/setup'/);
     assert.match(two, /router\.back\(\)/);
-    assert.match(one, /usePreventRemove\(dirty/);
+    // Leaving the flow (Back on page 1, Close on page 2) asks first; Discard repeats the blocked action.
+    const draft = read('src/screens/teacher/create-test/draft.tsx');
+    assert.match(draft, /usePreventRemove\(dirty && !discarded/);
+    assert.match(draft, /repeat\(\)/);
+    assert.doesNotMatch(draft + one, /dispatch\(data\.action\)/, 'redispatching while the guard is on blocks itself');
+    assert.match(read('src/app/create-test/_layout.tsx'), /<CreateTestLeaveGuard>/);
+    assert.match(one, /onBack=\{leave\}/);
+    assert.match(two, /onClose=\{leave\}/);
   });
 
   test('questions travel in the draft, not in the URL', () => {

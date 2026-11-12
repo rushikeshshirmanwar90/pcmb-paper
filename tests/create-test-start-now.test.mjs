@@ -32,7 +32,7 @@ function flow(startMode = 'now') {
     '@/components/multi-select-dropdown': { MultiSelectDropdown: 'MultiSelectDropdown' },
     '@/context/data-version': { bumpDataVersion() {} },
     '@/screens/teacher/create-test/flow-page': { FlowPage: 'FlowPage' },
-    '@/screens/teacher/create-test/draft': { useTestDraft: () => ({ draft, update: patch => Object.assign(draft, patch), markSaved() {} }) },
+    '@/screens/teacher/create-test/draft': { useTestDraft: () => ({ draft, update: patch => Object.assign(draft, patch), markSaved() {} }), useLeaveCreateTest: () => () => {} },
     '@/screens/teacher/create-test/scope': scope,
     '@/screens/teacher/date-field': { DateField: 'DateField' },
     '@/screens/teacher/test-schedule': schedule,
