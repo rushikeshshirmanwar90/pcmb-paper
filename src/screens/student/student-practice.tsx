@@ -3,18 +3,16 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/app-text';
 import { useRouter } from 'expo-router';
 import { Button, Card, ErrorView, Icon, Screen, SectionTitle, StatusChip, useLoad, usePalette } from '@/components/kit';
-import { Illustration, subjectArt } from '@/design/illustrations';
-import { NeoIcon, NeoTag, NeoText, PressableNeo } from '@/design/neo-kit';
+import { NeoTag } from '@/design/neo-kit';
 import { SkeletonCard, StaleNotice } from '@/components/states';
 import { programOf, programSubjects, questionBankOf, type SchoolSubject } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
 import { useTabDataVersion } from '@/context/data-version';
 import { ContinueCard } from '@/screens/student/practice/continue-card';
 import { PracticeUnavailable } from '@/screens/student/practice/practice-parts';
-import { assessmentHref, loadLastPractised, practiceSubjectHref } from '@/screens/student/practice/practice-links';
+import { assessmentHref, loadLastPractised } from '@/screens/student/practice/practice-links';
 import { summaryLine } from '@/screens/student/self-assessment';
 import { handOffAssessment, type FlowView } from '@/screens/student/self-assessment-flow';
-import { subjectIcon } from '@/screens/student/test-format';
 import { dayLabel } from '@/services/school-api';
 import { studentApi, type AssessmentSummary } from '@/services/student-api';
 import { face } from '@/design/type';
@@ -24,15 +22,13 @@ import { Neo } from '@/design/tokens';
 export const PRACTICE_TAB = 'practice';
 
 /** Results listed on the tab; the rest are a tap away in Past results. */
-const RECENT_RESULTS = 2;
+const RECENT_RESULTS = 3;
 
 /**
- * The Practice tab, one Practice for everything (approved restructure):
- * Continue (unfinished work first) → Start practice (the tab's one yellow
- * button: subject → topics → Include PYQs → start, with tests left part-way
- * right above it) → Practise a chapter (subject → chapter → topic, one
- * question at a time) → Recent results (the last two; Past results / See all
- * open the rest, Retake is on each result).
+ * The Practice tab, just three things, top to bottom: Start practice (the
+ * one yellow button: subject → topics → Include PYQs → start), Continue
+ * (tests left part-way, else the topic practised last), Recent results (the
+ * last three; See all opens the rest, Retake is on each result).
  *
  * Only JEE and NEET have a question bank. Students of other programs see that
  * practice isn't available yet; nothing is loaded for them.
@@ -85,27 +81,32 @@ export function StudentPracticeScreen() {
         <PracticeUnavailable program={program} />
       ) : (
         <>
-          {/* Unfinished work first (Zeigarnik). */}
-          <ContinueCard />
+          {/* 1. The tab's one job, at the top: subject → topics → Include PYQs → start. */}
+          <Button label="Start practice" size="lg" icon={{ ios: 'play.fill', android: 'play_arrow' }} onPress={newTest} accessibilityLabel="Start practice: pick a subject and topics" />
 
-          {/* The tab's main action: one yellow button (subject → topics → Include PYQs → start). */}
-          <View style={styles.group}>
-            <TestYourselfCard
-              going={going}
-              now={now}
-              pastCount={done.length}
-              onNew={newTest}
-              onOpen={(id) => setAssessing({ kind: 'session', id })}
-              onSeeAll={seeAll}
-            />
-          </View>
+          {/* 2. Continue: tests left part-way; with none, the topic practised last. */}
+          {going.length ? (
+            <View style={styles.group}>
+              <SectionTitle title="Continue" />
+              <Card style={styles.listCard}>
+                {going.map((a, i) => (
+                  <TestRow
+                    key={a.id}
+                    title={a.title}
+                    // The chip says started or not, so the line doesn't repeat it.
+                    meta={summaryLine(a, now).replace(/ · (In progress|Not started)/, '')}
+                    trailing={a.state === 'in-progress' ? <StatusChip kind="live" word="In progress" /> : <StatusChip kind="new" word="Not started" />}
+                    last={i === going.length - 1}
+                    onPress={() => setAssessing({ kind: 'session', id: a.id })}
+                  />
+                ))}
+              </Card>
+            </View>
+          ) : (
+            <ContinueCard />
+          )}
 
-          <View style={styles.group}>
-            <SectionTitle title="Practise a chapter" />
-            <SubjectChips subjects={subjects} onOpen={(s) => router.push(practiceSubjectHref(s))} />
-          </View>
-
-          {/* Results: the last two, the rest one tap away. Retake lives on each result's page. */}
+          {/* 3. Recent results: the last few; See all opens the rest. Retake is on each result. */}
           {assessments.loading && !assessments.data ? (
             <View style={styles.group}>
               <SectionTitle title="Recent results" />
@@ -130,63 +131,6 @@ export function StudentPracticeScreen() {
         </>
       )}
     </Screen>
-  );
-}
-
-// ─── Self-assessment ───────────────────────────────────────────────────────
-
-/**
- * What a self-assessment gives, in one line, and the one way to start one.
- * Tests left part-way sit right above the button, so they're finished first;
- * past results are one tap away.
- */
-function TestYourselfCard({
-  going,
-  now,
-  pastCount,
-  onNew,
-  onOpen,
-  onSeeAll,
-}: {
-  going: AssessmentSummary[];
-  now: number;
-  pastCount: number;
-  onNew: () => void;
-  onOpen: (id: string) => void;
-  onSeeAll: () => void;
-}) {
-  const palette = usePalette();
-  return (
-    <Card style={styles.testCard}>
-      <View style={styles.testIntro}>
-        <View style={[styles.testIcon, { backgroundColor: palette.primary, borderColor: palette.ink }]}>
-          <Icon name={{ ios: 'checklist', android: 'fact_check' }} color={palette.ink} size={22} />
-        </View>
-        <Text style={[styles.testText, { color: palette.foreground }]}>Choose a subject and topics, get a score for each topic.</Text>
-      </View>
-      {going.length ? (
-        <View style={[styles.toFinish, { borderColor: palette.border }]}>
-          {going.map((a, i) => (
-            <TestRow
-              key={a.id}
-              title={a.title}
-              // The chip says started or not, so the line doesn't repeat it.
-              meta={summaryLine(a, now).replace(/ · (In progress|Not started)/, '')}
-              trailing={a.state === 'in-progress' ? <StatusChip kind="live" word="In progress" /> : <StatusChip kind="new" word="Not started" />}
-              last={i === going.length - 1}
-              onPress={() => onOpen(a.id)}
-            />
-          ))}
-        </View>
-      ) : null}
-      <Button label="Start practice" icon={{ ios: 'play.fill', android: 'play_arrow' }} onPress={onNew} />
-      {pastCount ? (
-        <Pressable accessibilityRole="button" accessibilityLabel={`Past results, ${pastCount}`} onPress={onSeeAll} hitSlop={8} style={({ pressed }) => [styles.pastLink, pressed && styles.pressed]}>
-          <Text style={[styles.pastText, { color: palette.foreground }]}>Past results ({pastCount})</Text>
-          <Icon name={{ ios: 'chevron.right', android: 'chevron_right' }} color={palette.foreground} size={14} />
-        </Pressable>
-      ) : null}
-    </Card>
   );
 }
 
@@ -245,43 +189,7 @@ function SeeAll({ count, onPress }: { count: number; onPress: () => void }) {
   );
 }
 
-/** One tile per subject (two to a row), each opening its chapters: art, the name and what's inside. */
-function SubjectChips({ subjects, onOpen }: { subjects: SchoolSubject[]; onOpen: (s: SchoolSubject) => void }) {
-  return (
-    <View style={styles.tiles}>
-      {subjects.map((s) => {
-        const art = subjectArt(s);
-        return (
-          <View key={s} style={styles.tileSlot}>
-          <PressableNeo
-            radius={Neo.radius.lg}
-            onPress={() => onOpen(s)}
-            accessibilityLabel={`${s}: practise past-year questions by chapter`}
-            faceStyle={styles.tileFace}
-          >
-            {art ? <Illustration name={art} /> : <NeoIcon name={subjectIcon(s)} size={28} />}
-            <NeoText variant="subheading" numberOfLines={1}>
-              {s}
-            </NeoText>
-            <NeoText variant="caption" soft numberOfLines={2}>
-              Chapter by chapter
-            </NeoText>
-          </PressableNeo>
-          </View>
-        );
-      })}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  testCard: { gap: 16 },
-  testIntro: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  testIcon: { width: 44, height: 44, borderRadius: Neo.radius.md, borderWidth: Neo.border.width, alignItems: 'center', justifyContent: 'center' },
-  testText: { flex: 1, fontSize: 16, lineHeight: 22, fontFamily: face.semibold },
-  toFinish: { borderTopWidth: Neo.border.width, borderBottomWidth: Neo.border.width, marginHorizontal: -16, paddingHorizontal: 16 },
-  pastLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, minHeight: 44 },
-  pastText: { fontSize: 15, fontFamily: face.bold, textDecorationLine: 'underline' },
   flex: { flex: 1, minWidth: 0 },
   pressed: { opacity: 0.7 },
   group: { gap: 8 },
@@ -308,18 +216,7 @@ const styles = StyleSheet.create({
   headingTitle: { fontSize: 22, fontFamily: face.heavy, lineHeight: 28 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   actions: { gap: 10, marginTop: 4 },
-  startCard: { gap: 16, padding: 18, borderRadius: Neo.radius.lg },
-  rowFigure: { alignItems: 'flex-end' },
-  rowFigureLabel: { fontSize: 11, lineHeight: 14, fontFamily: face.semibold },
-  startTitle: { fontSize: 22, lineHeight: 28, fontFamily: face.heavy },
-  startText: { fontSize: 15, lineHeight: 21, marginTop: -6 },
-  trailingAction: { fontSize: 15, fontFamily: face.bold },
-  rowStrength: { fontSize: 17, fontFamily: face.heavy, fontVariant: ['tabular-nums'] },
-  subjectList: { paddingVertical: 0 },
   seeAll: { minHeight: 32, justifyContent: 'center' },
-  tiles: { flexDirection: 'row', flexWrap: 'wrap', marginRight: -12 },
-  tileSlot: { width: '50%', paddingRight: 12, marginBottom: 8 },
-  tileFace: { padding: 14, gap: 6, minHeight: 132 },
   seeAllText: { fontSize: 14, fontFamily: face.bold, textDecorationLine: 'underline' },
   inlineLoading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 20 },
 });
