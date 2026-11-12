@@ -308,6 +308,17 @@ export function topicsInChapters(picked: PickedTopicRef[], chapters: PickedChapt
 /** The questions a practice of `topics` topics can have: 5 to 15 for each topic. */
 export const questionWindow = (topics: number) => ({ min: PER_TOPIC_MIN * topics, max: PER_TOPIC_MAX * topics });
 
+/** The number of questions a student typed, checked against the window for their topics. */
+export function readCount(text: string, topics: number): { count: number | null; error: string | null } {
+  const { min, max } = questionWindow(topics);
+  const t = text.trim();
+  if (!t) return { count: null, error: 'Enter how many questions you want.' };
+  if (!/^\d+$/.test(t)) return { count: null, error: 'Enter a whole number, like 20.' };
+  const n = Number(t);
+  if (n < min || n > max) return { count: null, error: `Enter a number from ${min} to ${max} for ${topics} topic${topics === 1 ? '' : 's'}.` };
+  return { count: n, error: null };
+}
+
 /** The picked topics as the server's scope: one entry per subject, class and chapter (a whole chapter has no topics). */
 export function scopeFromPicked(picked: PickedTopicRef[]): AssessmentScope[] {
   const scope: AssessmentScope[] = [];

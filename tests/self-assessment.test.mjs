@@ -298,3 +298,24 @@ describe('Start practice: chapters, then topics from those chapters', async () =
     assert.deepEqual(topicsInChapters(picked, [{ subject: 'Mathematics', standard: '11th', chapter: 'Kinematics' }]), []);
   });
 });
+
+describe('readCount (a typed number of questions)', async () => {
+  const { readCount } = await import('../src/screens/student/self-assessment.ts');
+  test('a number inside the window for the topics is taken', () => {
+    assert.deepEqual(readCount('20', 2), { count: 20, error: null });
+    assert.deepEqual(readCount(' 10 ', 2), { count: 10, error: null });
+    assert.deepEqual(readCount('30', 2), { count: 30, error: null });
+    assert.deepEqual(readCount('5', 1), { count: 5, error: null });
+    assert.deepEqual(readCount('150', 10), { count: 150, error: null });
+  });
+  test('outside the window: says the range', () => {
+    assert.equal(readCount('9', 2).count, null);
+    assert.equal(readCount('9', 2).error, 'Enter a number from 10 to 30 for 2 topics.');
+    assert.equal(readCount('16', 1).error, 'Enter a number from 5 to 15 for 1 topic.');
+    assert.equal(readCount('0', 1).count, null);
+  });
+  test('empty, decimals, signs and letters are not numbers', () => {
+    assert.equal(readCount('', 2).error, 'Enter how many questions you want.');
+    for (const t of ['12.5', '-12', '1e2', 'ten', '1 2']) assert.equal(readCount(t, 2).count, null, t);
+  });
+});

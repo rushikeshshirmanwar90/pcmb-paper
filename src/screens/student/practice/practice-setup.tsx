@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '@/components/app-text';
 import { Button, DetailSheet, ErrorText, Icon, LoadingView, Muted, Segmented, useLoad, usePalette, ErrorView } from '@/components/kit';
-import { KeyboardSafeView } from '@/components/keyboard-safe-view';
+import { KeyboardAwareScrollView, KeyboardSafeView, useScrollIntoView } from '@/components/keyboard-safe-view';
 import { Reason } from '@/components/states';
 import { programOf, programSubjects, type SchoolSubject } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
@@ -16,6 +16,8 @@ import {
   MAX_TOPICS,
   PER_TOPIC_MAX,
   PER_TOPIC_MIN,
+  questionWindow,
+  readCount,
   scopeFromPicked,
   suggestedMinutes,
   topicsInChapters,
@@ -27,7 +29,7 @@ import { studentApi, type AssessmentDetail, type AssessmentPool, type PracticeCh
 // Start practice, as five dropdowns in the order students think it through:
 // Subjects (several) → Chapters (several, from those subjects) → Topics
 // (several, from those chapters) → Question type (PYQs, syllabus questions or
-// both) → How many questions (5–15 per topic picked). Then one button makes
+// both) → How many questions (typed, or − / +; 5–15 per topic picked). Then one button makes
 // the test and opens its first question. Each dropdown opens a sheet with the
 // choices; the next one waits until the one before it has something picked,
 // and says why. Taking a subject or chapter off takes what was under it too.
@@ -38,7 +40,10 @@ const POOLS: { value: AssessmentPool; label: string; hint: string }[] = [
   { value: 'others', label: 'Syllabus questions only', hint: 'Questions from your syllabus, no past-year questions' },
 ];
 
-type Sheet = 'subjects' | 'chapters' | 'topics' | 'type' | 'count' | null;
+type Sheet = 'subjects' | 'chapters' | 'topics' | 'type' | null;
+
+/** Until the student types a number: 10 questions per topic. */
+const DEFAULT_PER_TOPIC = 10;
 
 const keyOf = (p: PickedTopicRef) => `${p.subject}|${p.standard}|${p.chapter}|${p.topic}`;
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -67,7 +72,8 @@ export function PracticeSetup({
   const [picked, setPicked] = useState<Picked[]>([]);
   const [presetLeft, setPresetLeft] = useState(preset);
   const [pool, setPool] = useState<AssessmentPool>('all');
-  const [perTopic, setPerTopic] = useState(10);
+  // null until the student types (or taps − / +): then their number stays, even if topics change.
+  const [countText, setCountText] = useState<string | null>(null);
   const [sheet, setSheet] = useState<Sheet>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,8 +103,16 @@ export function PracticeSetup({
   }
 
   const topics = picked.length;
-  const count = topics * perTopic;
-  const blocked = !subjects.length ? 'Choose at least one subject.' : !chapters.length ? 'Choose at least one chapter.' : !topics ? 'Choose at least one topic.' : null;
+  const shownCount = countText ?? (topics ? String(topics * DEFAULT_PER_TOPIC) : '');
+  const typed = readCount(shownCount, topics);
+  const count = typed.count ?? 0;
+  const blocked = !subjects.length
+    ? 'Choose at least one subject.'
+    : !chapters.length
+      ? 'Choose at least one chapter.'
+      : !topics
+        ? 'Choose at least one topic.'
+        : typed.error;
 
   const pickSubjects = (next: SchoolSubject[]) => {
     setSubjects(next);
@@ -138,7 +152,7 @@ export function PracticeSetup({
   return (
     <KeyboardSafeView>
       <SheetHeader title="Start practice" onBack={onBack} />
-      <ScrollView contentContainerStyle={[styles.body, column]} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScrollView contentContainerStyle={[styles.body, column]} keyboardShouldPersistTaps="handled">
         <Muted>Choose what to practise. You can pick several subjects, chapters and topics.</Muted>
 
         <Dropdown
@@ -165,19 +179,12 @@ export function PracticeSetup({
           onPress={() => setSheet('topics')}
         />
         <Dropdown step={4} label="Question type" value={POOLS.find((p) => p.value === pool)!.label} placeholder="" onPress={() => setSheet('type')} />
-        <Dropdown
-          step={5}
-          label="Number of questions"
-          value={topics ? `${count} questions (${perTopic} per topic)` : null}
-          placeholder={`${PER_TOPIC_MIN}–${PER_TOPIC_MAX} per topic`}
-          disabledReason={!topics ? 'Choose topics first: you get 5 to 15 questions for each.' : null}
-          onPress={() => setSheet('count')}
-        />
-      </ScrollView>
+        <CountField step={5} topics={topics} text={shownCount} onText={setCountText} error={topics ? typed.error : null} minutes={count ? suggestedMinutes(count, subjects[0] ?? all[0]) : null} />
+      </KeyboardAwareScrollView>
       <SheetFooter>
         <ErrorText message={error} />
         <Button
-          label={topics ? `Start practice · ${count} questions` : 'Start practice'}
+          label={count ? `Start practice · ${count} questions` : 'Start practice'}
           size="lg"
           icon={{ ios: 'play.fill', android: 'play_arrow' }}
           onPress={() => void start()}
@@ -201,25 +208,107 @@ export function PracticeSetup({
         }}
         onClose={() => setSheet(null)}
       />
-      <ChoiceSheet
-        visible={sheet === 'count'}
-        title="Number of questions"
-        options={Array.from({ length: PER_TOPIC_MAX - PER_TOPIC_MIN + 1 }, (_, i) => {
-          const n = PER_TOPIC_MIN + i;
-          return { key: String(n), label: `${n * Math.max(1, topics)} questions`, hint: `${n} per topic · about ${suggestedMinutes(n * Math.max(1, topics), subjects[0] ?? all[0])} min` };
-        })}
-        value={String(perTopic)}
-        onPick={(v) => {
-          setPerTopic(Number(v));
-          setSheet(null);
-        }}
-        onClose={() => setSheet(null)}
-      />
     </KeyboardSafeView>
   );
 }
 
-// ─── The dropdown field ────────────────────────────────────────────────────
+// ─── The fields ────────────────────────────────────────────────────────────
+
+/** The numbered label above a field; the dot fills in once the field is done. */
+function StepLabel({ step, label, done }: { step: number; label: string; done: boolean }) {
+  const palette = usePalette();
+  return (
+    <View style={styles.labelRow}>
+      <View style={[styles.stepDot, { borderColor: palette.ink, backgroundColor: done ? palette.primary : palette.card }]}>
+        <Text style={[styles.stepNum, { color: palette.ink }]}>{step}</Text>
+      </View>
+      <Text style={[styles.label, { color: palette.foreground }]}>{label}</Text>
+    </View>
+  );
+}
+
+/**
+ * How many questions: typed, or one up or down with − and +. Says the range
+ * for the topics picked and about how long it takes; a number outside the
+ * range is shown as it is, with what to enter instead (never changed silently).
+ */
+function CountField({ step, topics, text, onText, error, minutes }: { step: number; topics: number; text: string; onText: (t: string) => void; error: string | null; minutes: number | null }) {
+  const palette = usePalette();
+  const scrollIntoView = useScrollIntoView();
+  const group = useRef<React.ComponentRef<typeof View>>(null);
+  const [focused, setFocused] = useState(false);
+  const { min, max } = questionWindow(topics);
+  const disabled = !topics;
+  const n = /^\d+$/.test(text.trim()) ? Number(text) : null;
+  const nudge = (by: number) => {
+    haptic.select();
+    onText(String(Math.min(max, Math.max(min, (n ?? min) + by))));
+  };
+  const edge = error ? palette.dangerInk : palette.ink;
+  return (
+    <View ref={group} style={styles.field}>
+      <StepLabel step={step} label="Number of questions" done={!disabled && !error} />
+      <View style={[styles.countRow, { opacity: disabled ? 0.5 : 1 }]}>
+        <StepButton icon={{ ios: 'minus', android: 'remove' }} label="One question fewer" disabled={disabled || (n !== null && n <= min)} onPress={() => nudge(-1)} />
+        <View style={[styles.countBox, { borderColor: edge, backgroundColor: focused ? palette.primarySoft : palette.card }, hardShadow(Neo.shadow.md, edge)]}>
+          <TextInput
+            value={text}
+            onChangeText={(t) => onText(t.replace(/[^0-9]/g, ''))}
+            keyboardType="number-pad"
+            returnKeyType="done"
+            maxLength={3}
+            editable={!disabled}
+            selectTextOnFocus
+            placeholder="–"
+            placeholderTextColor={palette.mutedForeground}
+            accessibilityLabel="Number of questions"
+            accessibilityHint={disabled ? 'Choose topics first' : `From ${min} to ${max}`}
+            onFocus={() => {
+              setFocused(true);
+              scrollIntoView?.(group.current);
+            }}
+            onBlur={() => setFocused(false)}
+            style={[styles.countInput, { color: palette.foreground }]}
+          />
+          <Text style={[styles.countUnit, { color: palette.mutedForeground }]}>questions</Text>
+        </View>
+        <StepButton icon={{ ios: 'plus', android: 'add' }} label="One question more" disabled={disabled || (n !== null && n >= max)} onPress={() => nudge(1)} />
+      </View>
+      {disabled ? (
+        <Text style={[styles.reason, { color: palette.mutedForeground }]}>Choose topics first: you get {PER_TOPIC_MIN} to {PER_TOPIC_MAX} questions for each.</Text>
+      ) : error ? (
+        <Text style={[styles.reason, { color: palette.dangerInk }]}>{error}</Text>
+      ) : (
+        <Text style={[styles.reason, { color: palette.mutedForeground }]}>
+          {min} to {max} for {topics} topic{topics === 1 ? '' : 's'}
+          {minutes ? ` · about ${minutes} min` : ''}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+function StepButton({ icon, label, disabled, onPress }: { icon: React.ComponentProps<typeof Icon>['name']; label: string; disabled: boolean; onPress: () => void }) {
+  const palette = usePalette();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.stepButton,
+        { borderColor: palette.ink, backgroundColor: palette.card, opacity: disabled ? 0.45 : 1 },
+        hardShadow(Neo.shadow.md, palette.ink),
+        pressed && styles.sink,
+      ]}
+    >
+      <Icon name={icon} color={palette.foreground} size={20} />
+    </Pressable>
+  );
+}
+
 
 /** A numbered field that opens its choices: label, what's picked (or a hint), a chevron. Says why when it can't open yet. */
 function Dropdown({ step, label, value, placeholder, disabledReason = null, onPress }: { step: number; label: string; value: string | null; placeholder: string; disabledReason?: string | null; onPress: () => void }) {
@@ -227,12 +316,7 @@ function Dropdown({ step, label, value, placeholder, disabledReason = null, onPr
   const disabled = !!disabledReason;
   return (
     <View style={styles.field}>
-      <View style={styles.labelRow}>
-        <View style={[styles.stepDot, { borderColor: palette.ink, backgroundColor: value ? palette.primary : palette.card }]}>
-          <Text style={[styles.stepNum, { color: palette.ink }]}>{step}</Text>
-        </View>
-        <Text style={[styles.label, { color: palette.foreground }]}>{label}</Text>
-      </View>
+      <StepLabel step={step} label={label} done={!!value} />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${value ?? placeholder}`}
@@ -586,6 +670,11 @@ const styles = StyleSheet.create({
   sink: { transform: [{ translateX: 2 }, { translateY: 2 }] },
   value: { flex: 1, fontSize: 15, lineHeight: 21, fontFamily: face.medium },
   reason: { fontSize: 13, lineHeight: 18 },
+  countRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  countBox: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 56, paddingHorizontal: 12, borderWidth: Neo.border.width, borderRadius: Neo.radius.md, marginRight: Neo.shadow.md, marginBottom: Neo.shadow.md },
+  countInput: { minWidth: 56, fontSize: 24, fontFamily: face.heavy, textAlign: 'center', paddingVertical: 6 },
+  countUnit: { fontSize: 15, fontFamily: face.medium },
+  stepButton: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center', borderWidth: Neo.border.width, borderRadius: Neo.radius.md, marginRight: Neo.shadow.md, marginBottom: Neo.shadow.md },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingVertical: 10, borderBottomWidth: Neo.border.width },
   rowLabel: { fontSize: 15, lineHeight: 21, fontFamily: face.medium },
   rowHint: { fontSize: 13, lineHeight: 18, marginTop: 1 },
