@@ -28,7 +28,6 @@ function flow(startMode = 'now') {
     'expo-router': { useRouter: () => ({ back() {} }) },
     '@/components/kit': kit,
     '@/hooks/use-cache-keys': { useCacheKeys: () => ({ bankOptions: (k) => `bank-options:${k}`, testBatches: 'test-batches' }) },
-    '@/components/dropdown-select': { DropdownSelect: 'DropdownSelect' },
     '@/components/multi-select-dropdown': { MultiSelectDropdown: 'MultiSelectDropdown' },
     '@/context/data-version': { bumpDataVersion() {} },
     '@/screens/teacher/create-test/flow-page': { FlowPage: 'FlowPage' },
@@ -44,7 +43,7 @@ function flow(startMode = 'now') {
   const code = ts.transpileModule(read('src/screens/teacher/create-test/setup-screen.tsx'), { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS } }).outputText;
   runInNewContext(code, { exports, require: id => { assert.ok(id in deps, id); return deps[id]; } });
   const render = () => { cursor = 0; loads = 0; return exports.SetupScreen(); };
-  const submit = async tree => { nodes(tree).find(n => n.type === 'Button' && n.props.label === 'Create Test').props.onPress(); await new Promise(resolve => setImmediate(resolve)); };
+  const submit = async tree => { nodes(tree).find(n => n.type === 'Button' && (n.props.label === 'Publish test' || n.props.label === 'Schedule test')).props.onPress(); await new Promise(resolve => setImmediate(resolve)); };
   return { draft, calls, render, submit };
 }
 
@@ -57,13 +56,13 @@ test('new drafts default to now and mode participates in unsaved changes', () =>
 test('switching preserves the schedule, questions, title and audience; now ignores stale times on submission', async () => {
   const f = flow();
   let tree = f.render();
-  assert.equal(nodes(tree).find(n => n.type === 'Segmented').props.value, 'now');
+  assert.equal(nodes(tree).find(n => n.type === 'Segmented' && n.props.label === 'When it opens').props.value, 'now');
   assert.equal(nodes(tree).filter(n => ['DateField', 'TimeField'].includes(n.type)).length, 0);
   const snapshot = JSON.stringify(f.draft);
-  nodes(tree).find(n => n.type === 'Segmented').props.onChange('later');
+  nodes(tree).find(n => n.type === 'Segmented' && n.props.label === 'When it opens').props.onChange('later');
   tree = f.render();
   assert.equal(nodes(tree).filter(n => ['DateField', 'TimeField'].includes(n.type)).length, 3);
-  nodes(tree).find(n => n.type === 'Segmented').props.onChange('now');
+  nodes(tree).find(n => n.type === 'Segmented' && n.props.label === 'When it opens').props.onChange('now');
   assert.equal(JSON.stringify(f.draft), snapshot);
   f.draft.date = new Date(2000, 0, 1);
   f.draft.end = '00:00';
@@ -83,7 +82,7 @@ test('restored later and legacy drafts retain local timezone scheduling and reje
     const f = flow(mode);
     f.draft.startMode = mode;
     const tree = f.render();
-    assert.equal(nodes(tree).find(n => n.type === 'Segmented').props.value, 'later');
+    assert.equal(nodes(tree).find(n => n.type === 'Segmented' && n.props.label === 'When it opens').props.value, 'later');
     await f.submit(tree);
     assert.equal(f.calls.length, 1);
     assert.equal(f.calls[0].startNow, false);

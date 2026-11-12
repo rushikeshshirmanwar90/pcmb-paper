@@ -31,7 +31,6 @@ const STEP_INFO: Record<Step, { index: number; title: string }> = {
   done: { index: 1, title: 'PDF ready' },
 };
 
-const DEFAULT_COUNT = 30;
 
 const newExamForm = (): ExamForm => ({
   title: null,
@@ -67,7 +66,6 @@ export function MakePdfFlow({
   const [step, setStep] = useState<Step>('select');
   const [kind, setKind] = useState<PdfKind>('exam');
   const [scope, setScope] = useState<BankScope>(EMPTY_BANK_SCOPE);
-  const [count, setCount] = useState(DEFAULT_COUNT);
   const [selected, setSelected] = useState<Question[]>([]);
   const [sessions, setSessions] = useState<SubjectSelection[]>([]);
   const [form, setForm] = useState<ExamForm>(newExamForm);
@@ -145,7 +143,6 @@ export function MakePdfFlow({
   const reset = () => {
     setStep('select');
     setScope(EMPTY_BANK_SCOPE);
-    setCount(DEFAULT_COUNT);
     setSelected([]);
     setSessions([]);
     setPdfError(null);
@@ -204,7 +201,6 @@ export function MakePdfFlow({
           onScope={setScope}
           sessions={sessions}
           onSessions={next => { setSessions(next); setSelected(selectedQuestions(next)); }}
-          count={count}
           onContinue={(questions) => {
             setSelected(questions);
             setStep('settings');

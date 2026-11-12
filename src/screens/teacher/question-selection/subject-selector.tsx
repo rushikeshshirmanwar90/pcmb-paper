@@ -17,22 +17,25 @@ import { bankBody, bankKey, sourceOptions, withChapters, type BankScope } from '
 import { SelectionCard, SelectedQuestionRow } from './question-card';
 import { addQuestions, moveQuestion, removeQuestion, replaceQuestion } from '@/screens/teacher/make-pdf/model';
 import { QuestionPreview, questionMeta } from '@/screens/teacher/make-pdf/question-preview';
-import { CountField } from '@/screens/teacher/make-pdf/ui';
-import { equalTargets, remaining, selectSubjects, targetTotal, type SubjectSelection } from './model';
+import { MAX_SELECTED, selectedCount, selectSubjects, type SubjectSelection } from './model';
 import type { Question } from '@/types/pcmb';
 
 const PAGE_SIZE = 20;
 
-/** Shared setup and review. Subject chips are deliberately disabled. */
-export function SubjectSelector({ sessions, onChange, subjects, base, total = 30, label = 'Subjects', searchable }: {
+/**
+ * Questions for one or more subjects: pick the subjects, then each subject's
+ * button opens its question bank. A subject's count is simply what's picked
+ * there; nothing is pre-filled. Shared by Create Test, Edit test and Make PDF.
+ */
+export function SubjectSelector({ sessions, onChange, subjects, base, label = 'Subjects', searchable }: {
   sessions: SubjectSelection[]; onChange: (sessions: SubjectSelection[]) => void;
-  subjects: string[]; base: BankScope; total?: number; label?: string; searchable?: boolean;
+  subjects: string[]; base: BankScope; label?: string; searchable?: boolean;
 }) {
   const [active, setActive] = useState<string | null>(null);
   const current = useRef(sessions);
   useEffect(() => { current.current = sessions; });
   const changeSubjects = (names: string[]) => {
-    const apply = () => onChange(selectSubjects(sessions, names, base, total));
+    const apply = () => onChange(selectSubjects(sessions, names, base));
     const lost = sessions.filter(s => !names.includes(s.subject) && s.questions.length);
     if (lost.length) {
       const count = lost.reduce((n, s) => n + s.questions.length, 0);
@@ -40,23 +43,19 @@ export function SubjectSelector({ sessions, onChange, subjects, base, total = 30
     } else apply();
   };
   const index = sessions.findIndex(s => s.subject === active);
+  const total = selectedCount(sessions);
   return <View style={{ gap: 12 }}>
     <MultiSelectDropdown label={label} searchable={searchable} options={subjects} selected={sessions.map(s => s.subject)} onSelect={changeSubjects}
-      placeholder="Select subjects" selectedLabel={n => `${n} Subjects Selected`} applyOnDone showSelectedChips={false} />
-    {sessions.map(s => <View key={s.subject} style={{ gap: 6 }}>
-      <CountField label={`${s.subject} target`} value={s.target} min={0} max={300}
-        onChange={target => onChange(sessions.map(item => item.subject === s.subject ? { ...item, target } : item))} />
-      <Button label={`${s.subject}: ${s.questions.length}/${s.target} — Select Questions`} variant="secondary" onPress={() => setActive(s.subject)} />
-    </View>)}
-    {sessions.length ? <>
-      <Muted>Total: {sessions.reduce((n, s) => n + s.questions.length, 0)}/{targetTotal(sessions)}</Muted>
-      <Button label="Distribute Equally" variant="secondary" onPress={() => {
-        const targets = equalTargets(targetTotal(sessions) || total, sessions.map(s => s.subject));
-        onChange(sessions.map((s, i) => ({ ...s, target: targets[i] })));
-      }} />
-    </> : null}
+      placeholder="Select subjects" selectedLabel={n => `${n} Subject${n === 1 ? '' : 's'} Selected`} applyOnDone showSelectedChips={false} />
+    {sessions.map(s => {
+      const n = s.questions.length;
+      return <Button key={s.subject} label={n ? `${s.subject}: ${n} question${n === 1 ? '' : 's'} · Change` : `${s.subject}: Choose questions`}
+        variant={n ? 'secondary' : 'tonal'} icon={n ? { ios: 'checkmark.circle', android: 'check_circle' } : { ios: 'plus.circle', android: 'add_circle' }}
+        onPress={() => setActive(s.subject)} />;
+    })}
+    {sessions.length ? <Muted>{total ? `Total: ${total} question${total === 1 ? '' : 's'}` : 'Open a subject to choose its questions: tick them one by one, or add some at random.'}</Muted> : null}
     {index >= 0 ? <SubjectBrowser key={active} session={sessions[index]} subjects={sessions.map(s => s.subject)}
-      totalSelected={sessions.reduce((n, s) => n + s.questions.length, 0)}
+      totalSelected={total}
       onChange={session => onChange(current.current.map(s => s.subject === session.subject ? session : s))}
       onSubject={setActive} onClose={() => setActive(null)} /> : null}
   </View>;
@@ -102,6 +101,9 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
   const [reorder, setReorder] = useState(false);
   const [removed, setRemoved] = useState<{ question: Question; index: number } | null>(null);
   const [search, setSearch] = useState(scope.search ?? '');
+  // How many to add at random: empty until the teacher types a number.
+  const [randomText, setRandomText] = useState('');
+  const randomCount = Math.min(Number(randomText) || 0, Math.max(0, MAX_SELECTED - totalSelected));
   useEffect(() => {
     const timer = setTimeout(() => {
       if (search !== (live.current.session.scope.search ?? '')) onChange({ ...live.current.session, scope: { ...live.current.session.scope, search } });
@@ -138,7 +140,7 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
     const current = live.current.session;
     const questions = replacing ? replaceQuestion(current.questions, replacing, question) : current.questions.some(q => q._id === question._id)
       ? removeQuestion(current.questions, question._id)
-      : addQuestions(current.questions, [question], current.questions.length + Math.max(0, 300 - live.current.totalSelected)).list;
+      : addQuestions(current.questions, [question], current.questions.length + Math.max(0, MAX_SELECTED - live.current.totalSelected)).list;
     if (questions) {
       live.current = { session: { ...current, questions }, totalSelected: live.current.totalSelected + questions.length - current.questions.length };
       onChange({ ...current, questions });
@@ -148,15 +150,19 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
   const random = async (requested: number) => {
     if (randomBusy.current || requested < 1) return;
     randomBusy.current = true; setWorking(true); setError(null);
-    const count = Math.min(requested, 300 - totalSelected);
+    const count = Math.min(requested, MAX_SELECTED - totalSelected);
     try {
-      if (count < 1) throw new Error('The selection already has 300 questions.');
+      if (count < 1) throw new Error(`The selection already has ${MAX_SELECTED} questions.`);
       const found = await fetchBankRandom(body, count, session.questions.map(q => q._id));
       if (!alive.current || liveKey.current !== key) return;
       const current = live.current.session;
-      const result = addQuestions(current.questions, found, Math.min(current.target, current.questions.length + Math.max(0, 300 - live.current.totalSelected)));
+      // Exactly as many as asked for (never past the overall limit), even if the bank sends more.
+      const result = addQuestions(current.questions, found, current.questions.length + Math.min(count, Math.max(0, MAX_SELECTED - live.current.totalSelected)));
       onChange({ ...current, questions: result.list });
-      setMessage(`Added ${result.added} of ${requested} requested. ${result.added < requested ? 'Not enough eligible questions; adjust the filters or target.' : ''}`);
+      setRandomText('');
+      setMessage(result.added < requested
+        ? `Added ${result.added} at random: only ${result.added} more match these filters. Widen the chapters or sources to find more.`
+        : `Added ${result.added} at random. Tap a question to take it out.`);
     } catch (e) { if (alive.current) setError(e instanceof Error ? e.message : 'Could not choose questions.'); }
     finally { randomBusy.current = false; if (alive.current) setWorking(false); }
   };
@@ -167,7 +173,7 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
   const index = subjects.indexOf(session.subject);
   const items = review ? session.questions : pages?.key === key ? pages.items : [];
   const selected = (q: Question) => session.questions.some(item => item._id === q._id);
-  const cannotAdd = (q: Question) => working || (replacing ? selected(q) : !selected(q) && totalSelected >= 300);
+  const cannotAdd = (q: Question) => working || (replacing ? selected(q) : !selected(q) && totalSelected >= MAX_SELECTED);
   const remove = (question: Question) => {
     const current = live.current.session;
     const at = current.questions.findIndex(q => q._id === question._id);
@@ -180,7 +186,7 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
     if (!removed) return;
     const current = live.current.session;
     if (current.questions.some(q => q._id === removed.question._id)) { setRemoved(null); return; }
-    if (live.current.totalSelected >= 300) { setMessage('The selection already has 300 questions.'); return; }
+    if (live.current.totalSelected >= MAX_SELECTED) { setMessage(`The selection already has ${MAX_SELECTED} questions.`); return; }
     const questions = [...current.questions];
     questions.splice(Math.min(removed.index, questions.length), 0, removed.question);
     onChange({ ...current, questions });
@@ -217,7 +223,7 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
         </View>
         <DropdownSelect label={`${index + 1} of ${subjects.length}`} options={subjects} selected={session.subject} onSelect={onSubject} required />
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-          <Text accessibilityLiveRegion="polite" style={{ color: palette.foreground }}>Selected: {session.questions.length}/{session.target}</Text>
+          <Text accessibilityLiveRegion="polite" style={{ color: palette.foreground, fontWeight: '600' }}>{session.questions.length} selected</Text>
           <Pressable accessibilityRole="button" onPress={() => { setReview(!review); setReplacing(null); setReorder(false); }} style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: 8 }}>
             <Text style={{ color: palette.primaryInk, fontWeight: '600' }}>{review ? 'Browse Questions' : 'View Selected >'}</Text>
           </Pressable>
@@ -257,14 +263,20 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
           {removed ? <Button label="Undo Remove" variant="secondary" style={compactButton} onPress={undo} disabled={working} /> : null}
           {!review && loading && items.length ? <ActivityIndicator color={palette.primary} /> : null}
         </View>}
-        ListEmptyComponent={loading ? (review ? undefined : <SkeletonCards count={3} lines={4} label="Loading questions" />) : !loading ? <Muted>{review ? 'No questions selected. Browse questions or fill the remaining target.' : error ? '' : 'No questions match these filters.'}</Muted> : undefined}
+        ListEmptyComponent={loading ? (review ? undefined : <SkeletonCards count={3} lines={4} label="Loading questions" />) : !loading ? <Muted>{review ? 'No questions selected yet. Browse the questions and tick the ones you want, or add some at random.' : error ? '' : 'No questions match these filters.'}</Muted> : undefined}
         ListFooterComponent={loadingMore ? <ActivityIndicator color={palette.primary} /> : undefined}
         renderItem={({ item, index: at }) => review
           ? <SelectedQuestionRow question={item} index={at} onDetails={setPreview} onMenu={(question, anchor) => setMenu({ question, anchor })} />
           : <SelectionCard question={item} picked={selected(item)} disabled={cannotAdd(item)} onToggle={toggle} onDetails={setPreview} />} />}
       {!reorder ? <View style={{ paddingHorizontal: 12, paddingVertical: 8, gap: 6, borderTopWidth: 1, borderTopColor: palette.border }}>
-        <Button label={remaining(session) ? `Fill Remaining ${remaining(session)}` : 'Target Complete'} onPress={() => void random(remaining(session))} disabled={working || !!replacing || !remaining(session)} loading={working} style={compactButton} />
-        <Button label={index < subjects.length - 1 ? 'Next Subject' : 'Review Subjects / Continue'} variant="secondary" style={compactButton} disabled={working} onPress={() => index < subjects.length - 1 ? onSubject(subjects[index + 1]) : onClose()} />
+        {/* Random picks: the teacher says how many when they want some (nothing is pre-set). */}
+        {!review ? <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Field label="Add at random" value={randomText} onChangeText={v => setRandomText(v.replace(/[^0-9]/g, '').slice(0, 3))} placeholder="How many?" keyboardType="number-pad" maxLength={3} returnKeyType="done" />
+          </View>
+          <Button label={randomCount ? `Add ${randomCount}` : 'Add'} variant="tonal" icon={{ ios: 'dice', android: 'casino' }} onPress={() => void random(randomCount)} disabled={working || !!replacing || !randomCount} loading={working} style={compactButton} />
+        </View> : null}
+        <Button label={index < subjects.length - 1 ? `Next: ${subjects[index + 1]}` : 'Back to subjects'} variant={index < subjects.length - 1 ? 'secondary' : 'primary'} style={compactButton} disabled={working} onPress={() => index < subjects.length - 1 ? onSubject(subjects[index + 1]) : onClose()} />
       </View> : null}
       <DetailSheet visible={!!preview} title="Question Details" onClose={() => setPreview(null)} footer={preview ? <Button
         label={replacing ? 'Use as Replacement' : selected(preview) ? 'Remove Selection' : 'Add Selection'} disabled={cannotAdd(preview)}

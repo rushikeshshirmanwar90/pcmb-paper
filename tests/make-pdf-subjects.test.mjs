@@ -135,13 +135,14 @@ describe('removing a subject', () => {
     assert.equal(dropdown.props.showSelectedChips, false);
   });
 
-  test('adding subjects needs no confirmation and spreads the target across them; one, two and three subjects work', () => {
-    for (const [names, targets] of [[['Physics'], [9]], [['Physics', 'Chemistry'], [5, 4]], [['Physics', 'Chemistry', 'Mathematics'], [3, 3, 3]]]) {
+  test('adding subjects needs no confirmation and starts each empty, with no numbers pre-filled; one, two and three subjects work', () => {
+    for (const names of [['Physics'], ['Physics', 'Chemistry'], ['Physics', 'Chemistry', 'Mathematics']]) {
       const { confirms, changes, dropdown } = setup([]);
       dropdown.props.onSelect(names);
       assert.equal(confirms.length, 0);
       assert.deepEqual(changes[0].map(s => s.subject), names);
-      assert.deepEqual(changes[0].map(s => s.target), targets);
+      assert.deepEqual(changes[0].map(s => s.questions.length), names.map(() => 0));
+      assert.ok(changes[0].every(s => !('target' in s)));
     }
   });
 

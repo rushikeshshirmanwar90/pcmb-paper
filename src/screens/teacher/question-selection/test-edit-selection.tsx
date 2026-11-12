@@ -14,7 +14,7 @@ export function TestEditSelection({ questions, subjects, exam, standard, onChang
   const base = { ...EMPTY_BANK_SCOPE, course: 'Competitive' as const, exam, standard };
   const [sessions, setSessions] = useState<SubjectSelection[]>(() => subjects.map(subject => {
     const picked = questions.filter(q => q.subject === subject || subject === 'Biology' && ['Botany', 'Zoology'].includes(q.subject));
-    return { subject, target: picked.length, scope: { ...base, subject }, questions: picked };
+    return { subject, scope: { ...base, subject }, questions: picked };
   }));
   const [error, setError] = useState<string | null>(null);
   return <StepLayout inset={0} footer={<Button label="Next: marking and timing" onPress={() => {

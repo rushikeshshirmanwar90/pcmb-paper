@@ -17,7 +17,6 @@ export interface TestDraft {
   chapters: string[];
   topics: string[];
   years: string[];
-  count: number;
   questions: Question[];
   audienceMode: 'all' | 'selected';
   studentIds: string[];
@@ -40,7 +39,7 @@ export function newDraft(batchIds: string[] = []): TestDraft {
   date.setHours(10, 0, 0, 0);
   return {
     requestId: `create_${Date.now()}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`,
-    title: '', batchIds, subject: '', selections: [], source: EMPTY_BANK_SCOPE.source, chapters: [], topics: [], years: [], count: 30, questions: [],
+    title: '', batchIds, subject: '', selections: [], source: EMPTY_BANK_SCOPE.source, chapters: [], topics: [], years: [], questions: [],
     audienceMode: 'all', studentIds: [], excludedStudentIds: [], startMode: 'now', date, start: timeOf(date), end: null, minutes: '60', correct: '4', wrong: '0',
   };
 }

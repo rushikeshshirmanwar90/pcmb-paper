@@ -12,11 +12,11 @@ import { selectedQuestions, selectionProblem, type SubjectSelection } from '@/sc
 import type { Question } from '@/types/pcmb';
 
 /** Setup remains in the existing PDF flow; each subject uses the shared browser. */
-export function OnePageSelect({ kind, onKind, scope, onScope, sessions, onSessions, count, onContinue, bottomInset }: {
+export function OnePageSelect({ kind, onKind, scope, onScope, sessions, onSessions, onContinue, bottomInset }: {
   kind: PdfKind; onKind: (kind: PdfKind) => void;
   scope: BankScope; onScope: (scope: BankScope) => void;
   sessions: SubjectSelection[]; onSessions: (sessions: SubjectSelection[]) => void;
-  count: number; onContinue: (questions: Question[]) => void; bottomInset: number;
+  onContinue: (questions: Question[]) => void; bottomInset: number;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
@@ -49,7 +49,7 @@ export function OnePageSelect({ kind, onKind, scope, onScope, sessions, onSessio
       <DropdownSelect label="Course" options={[...COURSES]} selected={scope.course} onSelect={course => change(withCourse(scope, course as Course))} />
       {scope.course ? <DropdownSelect label="Class" options={[...CLASSES[scope.course]]} selected={scope.standard} onSelect={standard => change(withClass(scope, standard))} /> : null}
       {scope.course === 'Competitive' ? <DropdownSelect label="Exam" options={[...COMPETITIVE_EXAMS]} selected={scope.exam} onSelect={exam => change(withExam(scope, exam as 'JEE' | 'NEET'))} /> : null}
-      {ready ? <SubjectSelector sessions={sessions} onChange={onSessions} subjects={subjectsOf(scope)} base={scope} total={count} label="Select Subjects" searchable /> : null}
+      {ready ? <SubjectSelector sessions={sessions} onChange={onSessions} subjects={subjectsOf(scope)} base={scope} label="Select Subjects" searchable /> : null}
       {error ? <Notice tone="danger" text={error} /> : null}
     </View>
   </StepLayout>;

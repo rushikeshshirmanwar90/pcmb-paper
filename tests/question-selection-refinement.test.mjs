@@ -105,7 +105,7 @@ test('answer highlights are opt-in and the original preview continues to hide ke
   assert.ok(find(shown, 'Text', p => p.accessibilityLabel === 'B, correct option'));
 });
 
-test('browser overflow removes, undoes, replaces and reorders; Fill Remaining preserves manual picks and rejects rapid repeats', async () => {
+test('browser overflow removes, undoes, replaces and reorders; Add at random preserves manual picks and rejects rapid repeats', async () => {
   let resolvePick;
   let requests = 0;
   const random = new Promise(resolve => { resolvePick = resolve; });
@@ -116,7 +116,12 @@ test('browser overflow removes, undoes, replaces and reorders; Fill Remaining pr
   const props = () => ({ session, subjects: ['Physics'], totalSelected: session.questions.length, onChange: next => { session = next; }, onSubject: () => {}, onClose: () => {} });
   const render = () => h.render(h.exports.Browser, props());
   let tree = render();
-  const fill = find(tree, 'Button', p => p.label === 'Fill Remaining 1');
+  // Nothing is pre-set: the teacher types how many, then adds them.
+  assert.equal(find(tree, 'Field', p => p.label === 'Add at random').props.value, '');
+  assert.equal(find(tree, 'Button', p => p.label === 'Add').props.disabled, true);
+  find(tree, 'Field', p => p.label === 'Add at random').props.onChangeText('1');
+  tree = render();
+  const fill = find(tree, 'Button', p => p.label === 'Add 1');
   fill.props.onPress(); fill.props.onPress();
   assert.equal(requests, 1);
   resolvePick([q('2'), q('3'), q('4')]);
@@ -142,7 +147,7 @@ test('browser overflow removes, undoes, replaces and reorders; Fill Remaining pr
   assert.equal(nodes(tree).filter(n => n.type === 'Button' && n.props.label === 'Reorder').length, 0);
   assert.equal(nodes(tree).filter(n => n.type === 'Button' && n.props.label.startsWith('Done')).length, 1);
   assert.equal(find(tree, 'QuestionActionMenu'), undefined);
-  assert.equal(find(tree, 'Button', p => p.label.startsWith('Fill Remaining') || p.label === 'Target Complete'), undefined);
+  assert.equal(find(tree, 'Field', p => p.label === 'Add at random'), undefined);
   find(tree, 'SelectedReorderList').props.onMove(0, 1); tree = render();
   assert.deepEqual(Array.from(session.questions, q => q._id), ['2', '1', '3']);
   find(tree, 'Button', p => p.label === 'Done').props.onPress(); tree = render(); openMenu();
@@ -196,7 +201,7 @@ test('pagination keeps manual picks and source changes keep filters and selectio
   assert.deepEqual(Array.from(bankBody(session.scope).source), ['pyq']);
 });
 
-test('empty selection can fill the entire target and shortages report actual additions', async () => {
+test('random picks ask how many; shortages report what was actually added', async () => {
   const h = harness('src/screens/teacher/question-selection/subject-selector.tsx', {
     '@/services/pdf-questions': {
       fetchBankPage: async () => ({ questions: [], total: 0, hasMore: false }), fetchBankOptions: async () => ({}),
@@ -205,12 +210,14 @@ test('empty selection can fill the entire target and shortages report actual add
   }, '\nexports.Browser = SubjectBrowser;');
   let session = selection.selectSubjects([], ['Physics'], base, 3)[0];
   const render = () => h.render(h.exports.Browser, { session, subjects: ['Physics'], totalSelected: session.questions.length, onChange: next => { session = next; }, onSubject: () => {}, onClose: () => {} });
-  find(render(), 'Button', p => p.label === 'Fill Remaining 3').props.onPress();
+  find(render(), 'Field', p => p.label === 'Add at random').props.onChangeText('3');
+  find(render(), 'Button', p => p.label === 'Add 3').props.onPress();
   await new Promise(resolve => setImmediate(resolve));
   const tree = render();
   assert.equal(session.questions.length, 1);
-  assert.match(find(tree, 'Notice').props.text, /Added 1 of 3 requested.*Not enough eligible/);
-  assert.ok(find(tree, 'Button', p => p.label === 'Review Subjects / Continue'));
+  assert.match(find(tree, 'Notice').props.text, /Added 1 at random: only 1 more match these filters/);
+  assert.equal(find(tree, 'Field', p => p.label === 'Add at random').props.value, '', 'the number clears after adding');
+  assert.ok(find(tree, 'Button', p => p.label === 'Back to subjects'));
 });
 
 

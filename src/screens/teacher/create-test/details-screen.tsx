@@ -64,43 +64,38 @@ export function DetailsScreen() {
 
   return (
     <FlowPage
-      title="Create Test (1 of 2)"
-      subtitle="Details and questions"
+      title="New test"
+      subtitle="Step 1 of 2 · Name, batches and questions"
       onBack={leave}
       error={tried ? problem : null}
-      footer={<Button label="Next: Test Setup" onPress={next} />}
+      footer={<Button label="Next: who and when" onPress={next} />}
     >
-      <SectionTitle title="Test details" />
-      <Field label="Test Name" value={draft.title} onChangeText={(title) => update({ title })} placeholder="Enter test name" maxLength={120} returnKeyType="done" error={tried && !draft.title.trim() ? 'Give the test a name.' : null} />
+      <Field label="Test name" value={draft.title} onChangeText={(title) => update({ title })} placeholder="e.g. Kinematics weekly test" maxLength={120} returnKeyType="done" error={tried && !draft.title.trim() ? 'Give the test a name.' : null} />
 
       {batches.loading && !batches.data ? <SkeletonCards count={1} lines={1} label="Loading batches" /> : null}
       {batches.error && !batches.data ? <ErrorView message={batches.error} onRetry={batches.reload} /> : null}
       {batches.data && !all.length ? <Notice tone="warning" title="No batches yet" text="Your tuition has no batches, so a test can't be set yet." /> : null}
       {all.length ? (
         <MultiSelectDropdown
-          label="Select Batches"
+          label="Batches"
           options={labels.map((l) => l.label)}
           selected={labels.filter((l) => draft.batchIds.includes(l.id)).map((l) => l.label)}
           onSelect={onBatches}
-          placeholder="Select multiple"
-          selectedLabel={(n) => `${n} Batch${n === 1 ? '' : 'es'} Selected`}
+          placeholder="Choose batches"
+          selectedLabel={(n) => `${n} batch${n === 1 ? '' : 'es'}`}
           applyOnDone searchable showSelectedChips
           icon={{ ios: 'person.3', android: 'groups', web: 'groups' }}
         />
       ) : null}
       {derivation && !derived && 'error' in derivation ? <Notice tone="warning" text={derivation.error} live /> : null}
 
-      {derived ? (
-        <>
-          <DetailRow label="Course / Exam / Class" value={derived.label} />
-        </>
-      ) : null}
+      {derived ? <DetailRow label="Exam and class" value={`${derived.exam} · Class ${derived.standard.replace(/\D/g, '')}`} /> : null}
       {notice ? <Notice tone="info" text={notice} live onDismiss={() => setNotice(null)} /> : null}
 
       {scope ? (
         <>
-          <SectionTitle title="Select questions" />
-          <SubjectSelector sessions={draft.selections} base={scope} subjects={derived?.subjects ?? []} total={draft.count}
+          <SectionTitle title="Questions" />
+          <SubjectSelector sessions={draft.selections} base={scope} subjects={derived?.subjects ?? []}
             onChange={selections => {
               const subjectsChanged = selections.length !== draft.selections.length || selections.some(s => !draft.selections.some(old => old.subject === s.subject));
               update({ selections, questions: selectedQuestions(selections), subject: selections.map(s => s.subject).join(', '), ...(subjectsChanged ? { studentIds: [], excludedStudentIds: [] } : {}) });

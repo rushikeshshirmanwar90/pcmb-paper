@@ -352,12 +352,12 @@ describe('the screens', () => {
     }
   });
 
-  test('the shared subject browser offers targets, additive random fill, manual picking and removal', () => {
+  test('the shared subject browser offers additive random picks (asked for, never pre-set), manual picking and removal', () => {
     const page = read('../src/screens/teacher/question-selection/subject-selector.tsx');
-    for (const text of ['Fill Remaining', 'SelectionCard', 'View Selected', 'QuestionActionMenu', 'onEndReached']) assert.ok(page.includes(text), text);
+    for (const text of ['Add at random', 'SelectionCard', 'View Selected', 'QuestionActionMenu', 'onEndReached']) assert.ok(page.includes(text), text);
     assert.ok(read('../src/screens/teacher/question-selection/action-menu.tsx').includes('Remove Question'));
     assert.ok(page.includes('SelectedQuestionRow'));
-    assert.doesNotMatch(page, /Custom random count|Add \$\{custom\} Random|label="Preview"/);
+    assert.doesNotMatch(page, /Custom random count|Add \$\{custom\} Random|label="Preview"|Fill Remaining|Distribute Equally|target/);
   });
 
   test('the flow never reads questions from anywhere but the exam-checked services', () => {
