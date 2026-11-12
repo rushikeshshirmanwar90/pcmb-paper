@@ -13,7 +13,7 @@ import { DEFAULT_PAPER_STYLE, type PaperStyle } from '@/shared/paper-style';
 import { cleanWatermark } from '@/shared/watermark';
 import { bankSummary, EMPTY_BANK_SCOPE, type BankScope } from '@/screens/teacher/make-pdf/bank-scope';
 import { DoneStep } from '@/screens/teacher/make-pdf/done-step';
-import { DEFAULT_DURATION_MINUTES, dayKey, ExamSettingsStep, startOfToday, type ExamForm } from '@/screens/teacher/make-pdf/exam-settings';
+import { dayKey, ExamSettingsStep, startOfToday, type ExamForm } from '@/screens/teacher/make-pdf/exam-settings';
 import { chaptersOf, marksPerQuestionFor, standardsOf, titleFromNames, type PdfKind } from '@/screens/teacher/make-pdf/model';
 import { PaperClassStep, PaperFormatStep, PaperQuestionsStep } from '@/screens/teacher/make-pdf/one-page';
 import { deriveSubjects, subjectHeader } from '@/screens/teacher/make-pdf/pdf-subjects';
@@ -40,7 +40,6 @@ const newExamForm = (): ExamForm => ({
   standard: null,
   paperSet: '1',
   date: startOfToday(),
-  duration: DEFAULT_DURATION_MINUTES,
   choice: 'answers',
   watermark: '',
   style: DEFAULT_PAPER_STYLE,
@@ -129,7 +128,6 @@ export function MakePdfFlow({
           paper: {
             paperSet: form.paperSet.trim() || '1',
             date: dayKey(form.date),
-            durationMinutes: form.duration || undefined,
             watermark: watermark || undefined,
             style,
           },

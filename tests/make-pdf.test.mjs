@@ -358,7 +358,10 @@ describe('the screens', () => {
     assert.match(exam, /More options/);
     assert.match(exam, /\{more \? <>/);
     const essentials = exam.slice(0, exam.indexOf('>More options<'));
-    for (const first of ['Paper title', 'DateField', 'Duration', 'What to print']) assert.ok(essentials.includes(first), first);
+    for (const first of ['Paper title', 'DateField', 'What to print']) assert.ok(essentials.includes(first), first);
+    // A paper made here has no time limit: none is asked for and none is sent.
+    assert.doesNotMatch(exam, /Duration|duration/);
+    assert.doesNotMatch(flow, /durationMinutes/);
     const folded = exam.slice(exam.indexOf('{more ? <>'));
     for (const later of ['Paper set', 'Look of the paper', 'Institute logo', 'Watermark']) assert.ok(folded.includes(later), later);
     assert.match(exam, /`Now: \$\{inUse\}`/);

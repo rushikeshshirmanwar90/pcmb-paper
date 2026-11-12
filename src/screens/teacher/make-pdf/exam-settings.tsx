@@ -14,11 +14,7 @@ import { PDF_CHOICES, type PdfChoice, type PdfStage } from '@/services/question-
 import { fetchInstituteLogo } from '@/services/institute-logo';
 import { DateField } from '@/screens/teacher/date-field';
 import { marksPerQuestionFor, questionCount } from '@/screens/teacher/make-pdf/model';
-import { CountField, Group, StepLayout } from '@/screens/teacher/make-pdf/ui';
-
-/** The paper's length, in minutes: 0 leaves the time out of the header. */
-export const DURATION_RANGE = { min: 0, max: 600 };
-export const DEFAULT_DURATION_MINUTES = 60;
+import { Group, StepLayout } from '@/screens/teacher/make-pdf/ui';
 
 export interface ExamForm {
   /** What the teacher typed for the paper's title; null until they do (the chapters' names are used). */
@@ -27,8 +23,6 @@ export interface ExamForm {
   standard: string | null;
   paperSet: string;
   date: Date;
-  /** NaN while the field is empty. */
-  duration: number;
   choice: PdfChoice;
   watermark: string;
   style: PaperStyle;
@@ -54,8 +48,8 @@ const labelsOf = <T extends string | number>(choices: { value: T; label: string 
   Object.fromEntries(choices.map((choice) => [String(choice.value), choice.label])) as Record<string, string>;
 
 /**
- * Step 3 for an exam paper. What every paper needs comes first (title, date,
- * duration, what to print); the rest (class label, paper set, look, institute
+ * The details of an exam paper. What every paper needs comes first (title, date,
+ * what to print; a paper made here has no time limit printed on it); the rest (class label, paper set, look, institute
  * logo, watermark) is under "More options", closed until asked for, with a
  * line saying what is in use. Nothing here is asked for a Smart PDF, which has
  * its own settings.
@@ -91,9 +85,8 @@ export function ExamSettingsStep({
   const palette = usePalette();
   const logo = useLoad(fetchInstituteLogo, []);
   const patchStyle = (patch: Partial<PaperStyle>) => onForm({ ...form, style: { ...form.style, ...patch } });
-  const durationBad = !Number.isInteger(form.duration) || form.duration < DURATION_RANGE.min || form.duration > DURATION_RANGE.max;
   const title = form.title ?? titleDefault;
-  const missing = !title.trim() ? 'Add a paper title.' : durationBad ? `Set a duration from ${DURATION_RANGE.min} to ${DURATION_RANGE.max} minutes.` : null;
+  const missing = !title.trim() ? 'Add a paper title.' : null;
   const busy = stage !== null;
   const hasLogo = !!logo.data;
   const logoGone = !logo.loading && !logo.error && !logo.data;
@@ -147,21 +140,7 @@ export function ExamSettingsStep({
             Total marks: {questionTotal * marksPerQuestionFor(form.standard ?? standardDefault)} ({marksPerQuestionFor(form.standard ?? standardDefault)} per question)
           </Muted>
         </View>
-        <View style={styles.row}>
-          <View style={styles.rowItem}>
-            <DateField label="Date" value={form.date} minimumDate={startOfToday()} onChange={(date) => onForm({ ...form, date })} />
-          </View>
-          <View style={styles.rowItem}>
-            <CountField
-              label="Duration (minutes)"
-              value={form.duration}
-              min={DURATION_RANGE.min}
-              max={DURATION_RANGE.max}
-              onChange={(duration) => onForm({ ...form, duration })}
-              hint="0 leaves it out"
-            />
-          </View>
-        </View>
+        <DateField label="Date" value={form.date} minimumDate={startOfToday()} onChange={(date) => onForm({ ...form, date })} />
       </Group>
 
       <Group title="What to print">
