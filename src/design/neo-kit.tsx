@@ -843,14 +843,14 @@ export function NeoTabBar<K extends string>({ tabs, value, onChange }: { tabs: r
       {tabs.map((t) => {
         const on = t.key === value;
         return (
-          <AnimatedPressable
-            key={t.key}
-            layout={TAB_LAYOUT}
+          // The glide lives on a plain animated wrapper; the Pressable inside keeps its own (pressed) styles.
+          <Animated.View key={t.key} layout={TAB_LAYOUT} style={on ? styles.tabSlotOn : null}>
+          <Pressable
             accessibilityRole="tab"
             accessibilityLabel={t.label}
             accessibilityState={{ selected: on }}
             onPress={() => onChange(t.key)}
-            style={({ pressed }: { pressed: boolean }) => [styles.tab, on ? styles.tabOn : styles.tabOff, { backgroundColor: on ? p.primary : p.surface, borderColor: p.ink }, pressed && !on && styles.pressed]}
+            style={({ pressed }) => [styles.tab, on ? styles.tabOn : styles.tabOff, { backgroundColor: on ? p.primary : p.surface, borderColor: p.ink }, pressed && !on && styles.pressed]}
           >
             <InkContext.Provider value={on ? p.onAccent : p.ink}>
               <NeoIcon name={t.icon} size={20} />
@@ -860,14 +860,14 @@ export function NeoTabBar<K extends string>({ tabs, value, onChange }: { tabs: r
                 </NeoText>
               ) : null}
             </InkContext.Provider>
-          </AnimatedPressable>
+          </Pressable>
+          </Animated.View>
         );
       })}
     </View>
   );
 }
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 // The yellow pill glides to the tab you chose; a firm spring with no wobble (Reduce Motion: it jumps).
 const TAB_LAYOUT = LinearTransition.springify().damping(24).stiffness(320);
 
@@ -924,6 +924,7 @@ const styles = StyleSheet.create({
   noticeClose: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', marginTop: -6, marginRight: -6 },
   tabBar: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 8, borderRadius: 22 },
   tab: { minHeight: 48, borderRadius: Neo.radius.md, borderWidth: Neo.border.width, alignItems: 'center', justifyContent: 'center' },
-  tabOn: { flexGrow: 1, flexShrink: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 14 },
+  tabOn: { flexDirection: 'row', gap: 8, paddingHorizontal: 14 },
+  tabSlotOn: { flexGrow: 1, flexShrink: 1, minWidth: 0 },
   tabOff: { width: 48 },
 });
