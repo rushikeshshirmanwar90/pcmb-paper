@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { BackHandler, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '@/components/app-text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -77,11 +77,25 @@ export type FlowView =
  * self-assessments, making a new one (chapters, topics, size, difficulty mix,
  * time), taking it and the topic-by-topic result.
  */
+// A self-assessment just made or started, handed to the page that opens it, so it shows without a reload.
+const handoff = new Map<string, AssessmentDetail>();
+export function handOffAssessment(detail: AssessmentDetail) {
+  handoff.set(detail.assessment.id, detail);
+}
+export function takeHandedOff(id: string): AssessmentDetail | undefined {
+  const detail = handoff.get(id);
+  handoff.delete(id);
+  return detail;
+}
+
 export function SelfAssessmentFlow({
   subject,
   start = { kind: 'home' },
   onClose,
+  page = false,
 }: {
+  /** Open as a page of its own (the /practice/assessment route) instead of a full-screen modal. */
+  page?: boolean;
   subject: SchoolSubject;
   /** Where it opens. Opened straight at a new or existing one, its back steps return to the Practice tab, not the list. */
   start?: FlowView;
@@ -113,10 +127,23 @@ export function SelfAssessmentFlow({
     else close();
   };
 
-  return (
-    <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={onBack}>
-      {/* A Modal is its own native window, where SafeAreaView reads no insets. It covers the whole
-          screen, so the app's own insets are the right ones. */}
+  // As a page, Android's back button steps back inside the flow first, as the modal did.
+  const onBackRef = useRef(onBack);
+  useEffect(() => {
+    onBackRef.current = onBack;
+  });
+  useEffect(() => {
+    if (!page) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onBackRef.current();
+      return true;
+    });
+    return () => sub.remove();
+  }, [page]);
+
+  // A Modal is its own native window, where SafeAreaView reads no insets. It covers the whole
+  // screen, so the app's own insets are the right ones (and the same holds for a full page).
+  const body = (
       <View style={[styles.root, { backgroundColor: palette.background, paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
         {view.kind === 'home' ? (
           <Home round={listRound} onClose={close} onNew={() => setView({ kind: 'build', subject, preset: null })} onOpen={(id) => setView({ kind: 'session', id })} />
@@ -135,13 +162,25 @@ export function SelfAssessmentFlow({
             backRef={backRef}
             onBack={home}
             onPractise={(s, t) => {
+              const href = practiceChapterHref({ subject: s, chapter: t.chapter, standard: t.standard, topic: t.topic || null });
+              // As a page, the chapter takes this page's place, so Back returns to where it was opened from.
+              if (page) {
+                bumpDataVersion();
+                router.replace(href);
+                return;
+              }
               close();
-              router.push(practiceChapterHref({ subject: s, chapter: t.chapter, standard: t.standard, topic: t.topic || null }));
+              router.push(href);
             }}
             onRetake={(s, topics) => setView({ kind: 'build', subject: s, preset: topics })}
           />
         )}
       </View>
+  );
+  if (page) return body;
+  return (
+    <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={onBack}>
+      {body}
     </Modal>
   );
 }
@@ -732,7 +771,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
   pressed: { opacity: 0.7 },
   empty: { opacity: 0.5 },
-  body: { padding: 16, gap: 14, paddingBottom: 24 },
+  body: { padding: 16, gap: 16, paddingBottom: 32 },
   meta: { fontSize: 13, lineHeight: 19, marginTop: 2 },
 
   hero: { gap: 14, padding: 16 },

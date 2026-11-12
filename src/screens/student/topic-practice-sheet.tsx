@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Pressable, type ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/app-text';
+import { PageFrame } from '@/components/stack-screen';
 import { useReducedMotion } from 'react-native-reanimated';
 import {
   Badge,
@@ -61,7 +62,10 @@ export function TopicPracticeSheet({
   next: nextStep = null,
   onAnswered,
   onClose,
+  page = false,
 }: {
+  /** Open as a page of its own (the /practice/session route) instead of a sheet over the screen. */
+  page?: boolean;
   node: PracticeNode;
   mode: PracticeMode;
   /** Every question here attempted now (counts as saved so far). */
@@ -192,9 +196,10 @@ export function TopicPracticeSheet({
   const showNext = summary && complete && nextStep !== null;
   const firstLoad = !first.data;
   const title = summary ? 'Session summary' : TITLES[mode];
+  const Frame = page ? PageFrame : DetailSheet;
 
   return (
-    <DetailSheet
+    <Frame
       visible
       scrollRef={scrollRef}
       title={title}
@@ -357,7 +362,7 @@ export function TopicPracticeSheet({
           ) : null}
         </View>
       )}
-    </DetailSheet>
+    </Frame>
   );
 }
 

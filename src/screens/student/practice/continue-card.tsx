@@ -1,14 +1,13 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/app-text';
 import { Card, Icon, SectionTitle, useLoad, usePalette, type IconName } from '@/components/kit';
 import { programOf, programSubjects, questionBankOf, type SchoolStandard } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
-import { bumpDataVersion, useTabDataVersion } from '@/context/data-version';
-import { loadLastPractised } from '@/screens/student/practice/practice-links';
+import { useTabDataVersion } from '@/context/data-version';
+import { assessmentHref, loadLastPractised, practiceSessionHref } from '@/screens/student/practice/practice-links';
 import { summaryLine } from '@/screens/student/self-assessment';
-import { SelfAssessmentFlow } from '@/screens/student/self-assessment-flow';
-import { TopicPracticeSheet } from '@/screens/student/topic-practice-sheet';
 import { ALL_CHAPTER_QUESTIONS, statsAt, type PracticeNode } from '@/screens/student/topic-practice';
 import { studentApi, type AssessmentSummary } from '@/services/student-api';
 import { face } from '@/design/type';
@@ -35,7 +34,7 @@ export function ContinueCard({ title = 'Continue' }: { title?: string }) {
     enabled: hasBank && !!lastPlace,
     cacheKey: lastPlace ? `practice-tree:${lastPlace.subject}` : undefined,
   });
-  const [open, setOpen] = useState<Item | null>(null);
+  const router = useRouter();
 
   const unfinished = (assessments.data ?? []).find((a) => a.state === 'in-progress') ?? null;
   let item: Item | null = unfinished ? { kind: 'assessment', a: unfinished } : null;
@@ -50,7 +49,7 @@ export function ContinueCard({ title = 'Continue' }: { title?: string }) {
       };
     }
   }
-  if (!hasBank || (!item && !open)) return null;
+  if (!hasBank || !item) return null;
 
   const icon: IconName = item?.kind === 'assessment' ? { ios: 'pause.circle', android: 'pause_circle' } : { ios: 'book', android: 'menu_book' };
   const name = item ? (item.kind === 'assessment' ? item.a.title : item.node.topic ?? `${item.node.chapter} · ${ALL_CHAPTER_QUESTIONS}`) : '';
@@ -69,7 +68,7 @@ export function ContinueCard({ title = 'Continue' }: { title?: string }) {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Continue ${name}. ${meta}`}
-              onPress={() => setOpen(item)}
+              onPress={() => router.push(item.kind === 'assessment' ? assessmentHref({ kind: 'session', id: item.a.id }) : practiceSessionHref(item.node, 'continue'))}
               style={({ pressed }) => [styles.row, pressed && { backgroundColor: palette.muted }]}
             >
               <View style={[styles.tile, { backgroundColor: palette.primary, borderColor: palette.ink }]}>
@@ -89,17 +88,6 @@ export function ContinueCard({ title = 'Continue' }: { title?: string }) {
           </Card>
         </>
       ) : null}
-      {open?.kind === 'topic' ? (
-        <TopicPracticeSheet
-          node={open.node}
-          mode="continue"
-          onClose={(changed) => {
-            setOpen(null);
-            if (changed) bumpDataVersion();
-          }}
-        />
-      ) : null}
-      {open?.kind === 'assessment' ? <SelfAssessmentFlow subject={open.a.subject} start={{ kind: 'session', id: open.a.id }} onClose={() => setOpen(null)} /> : null}
     </>
   );
 }

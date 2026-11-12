@@ -11,9 +11,9 @@ import { useSignedInUser } from '@/context/auth-context';
 import { useTabDataVersion } from '@/context/data-version';
 import { ContinueCard } from '@/screens/student/practice/continue-card';
 import { PracticeUnavailable } from '@/screens/student/practice/practice-parts';
-import { loadLastPractised, practiceSubjectHref } from '@/screens/student/practice/practice-links';
+import { assessmentHref, loadLastPractised, practiceSubjectHref } from '@/screens/student/practice/practice-links';
 import { retakeSetup, summaryLine } from '@/screens/student/self-assessment';
-import { SelfAssessmentFlow, type FlowView } from '@/screens/student/self-assessment-flow';
+import { handOffAssessment, type FlowView } from '@/screens/student/self-assessment-flow';
 import { subjectIcon } from '@/screens/student/test-format';
 import { dayLabel } from '@/services/school-api';
 import { studentApi, type AssessmentSummary } from '@/services/student-api';
@@ -43,7 +43,11 @@ export function StudentPracticeScreen() {
   const subjects = programSubjects(program);
   const hasBank = questionBankOf(program) !== null;
   /** Where self-assessment is open at, or null when it's closed. */
-  const [assessing, setAssessing] = useState<FlowView | null>(null);
+  /** Self-assessment opens as a page of its own: the list, making one, or one assessment. */
+  const setAssessing = (view: FlowView) => {
+    if (view.kind === 'session' && view.initial) handOffAssessment(view.initial);
+    router.push(assessmentHref(view.kind === 'session' ? { kind: 'session', id: view.id } : view));
+  };
   /** The result whose "Retake weak topics" is making and starting its test, and which one couldn't and why. */
   const [retake, setRetake] = useState<{ busyId: string | null; error: { id: string; message: string } | null }>({ busyId: null, error: null });
 
@@ -168,7 +172,6 @@ export function StudentPracticeScreen() {
           </View>
         </>
       )}
-      {assessing ? <SelfAssessmentFlow start={assessing} subject={newSubject} onClose={() => setAssessing(null)} /> : null}
     </Screen>
   );
 }

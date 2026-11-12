@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AccessibilityInfo, ActivityIndicator, FlatList, KeyboardAvoidingView, Pressable, ScrollView, type ScrollViewInstance, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/app-text';
 import { Illustration } from '@/design/illustrations';
+import { NeoIconButton, NeoText } from '@/design/neo-kit';
+import { StatusBar } from 'expo-status-bar';
 import { confirmAction } from '@/components/account-section';
 import {
   Badge,
@@ -182,37 +184,30 @@ export function AssessmentSession({
 
 // ─── Shared chrome ─────────────────────────────────────────────────────────
 
+/** The page's header, like every other page: a square back button (or a round close), the title, any extras. */
 export function SheetHeader({ title, onBack, onClose, trailing }: { title: string; onBack?: () => void; onClose?: () => void; trailing?: React.ReactNode }) {
-  const palette = usePalette();
   return (
-    <View style={[styles.header, { borderBottomColor: palette.border, backgroundColor: palette.card }]}>
+    <View style={styles.header}>
+      <StatusBar style="dark" />
       <View style={[styles.headerInner, column]}>
-        {onBack ? <IconButton icon={{ ios: 'chevron.left', android: 'arrow_back' }} label="Back" onPress={onBack} /> : null}
-        <Text accessibilityRole="header" style={[styles.headerTitle, { color: palette.foreground }]} numberOfLines={1}>
+        {onBack ? <NeoIconButton icon={{ ios: 'chevron.left', android: 'arrow_back' }} label="Back" shape="square" onPress={onBack} /> : null}
+        <NeoText variant="heading" accessibilityRole="header" numberOfLines={2} style={styles.headerTitle}>
           {title}
-        </Text>
+        </NeoText>
         {trailing}
-        {onClose ? <IconButton icon={{ ios: 'xmark', android: 'close' }} label="Close" onPress={onClose} /> : null}
+        {onClose ? <NeoIconButton icon={{ ios: 'xmark', android: 'close' }} label="Close" onPress={onClose} /> : null}
       </View>
     </View>
   );
 }
 
+/** Actions pinned at the bottom of the page, on the page colour under a 2px rule. */
 export function SheetFooter({ children }: { children: React.ReactNode }) {
   const palette = usePalette();
   return (
-    <View style={[styles.footer, { borderTopColor: palette.border, backgroundColor: palette.card }]}>
+    <View style={[styles.footer, { borderTopColor: palette.ink, backgroundColor: palette.background }]}>
       <View style={[styles.footerInner, column]}>{children}</View>
     </View>
-  );
-}
-
-function IconButton({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
-  const palette = usePalette();
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} hitSlop={4} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
-      <Icon name={icon} color={palette.foreground} size={18} />
-    </Pressable>
   );
 }
 
@@ -1140,15 +1135,15 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 10 },
   pressed: { opacity: 0.7 },
 
-  header: { borderBottomWidth: Neo.border.width },
-  headerInner: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, minHeight: 56 },
-  headerTitle: { flex: 1, fontSize: 17, fontFamily: face.bold, paddingHorizontal: 8 },
+  header: {},
+  headerInner: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, minHeight: 64 },
+  headerTitle: { flex: 1, minWidth: 0 },
   iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22 },
   quiet: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, paddingHorizontal: 12, alignSelf: 'center' },
   quietText: { fontSize: 15, fontFamily: face.bold },
   footer: { borderTopWidth: Neo.border.width },
-  footerInner: { padding: 16, paddingBottom: 12, gap: 6 },
-  body: { padding: 16, gap: 14, paddingBottom: 24 },
+  footerInner: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, gap: 8 },
+  body: { padding: 16, gap: 16, paddingBottom: 32 },
 
   hero: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   heroTile: { width: 52, height: 52, borderRadius: Neo.radius.lg, alignItems: 'center', justifyContent: 'center' },

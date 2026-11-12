@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useRouter } from 'expo-router';
 import { Card, EmptyView, ErrorView, Muted, useLoad } from '@/components/kit';
 import { SkeletonCard, StaleNotice } from '@/components/states';
@@ -7,7 +7,7 @@ import { programOf, programSubjects, questionBankOf, SCHOOL_SUBJECTS, type Schoo
 import { useSignedInUser } from '@/context/auth-context';
 import { bumpDataVersion, useTabDataVersion } from '@/context/data-version';
 import { ChapterList, ChapterView, NodeView, PracticeUnavailable } from '@/screens/student/practice/practice-parts';
-import { findChapter, findTopic, practiceChapterHref, saveLastPractised, WHOLE_CHAPTER } from '@/screens/student/practice/practice-links';
+import { findChapter, findTopic, practiceChapterHref, practiceSessionHref, saveLastPractised, sessionFromParams, WHOLE_CHAPTER } from '@/screens/student/practice/practice-links';
 import { PRACTICE_TAB } from '@/screens/student/student-practice';
 import { TopicPracticeSheet } from '@/screens/student/topic-practice-sheet';
 import { applyAnswer, coverageLabel, nextPlace, statsAt, type PracticeMode, type PracticeNode } from '@/screens/student/topic-practice';
@@ -78,7 +78,6 @@ export function PracticeChapterScreen({
   const { user, program, subject, hasBank } = useAccess(subjectParam);
   const trees = usePracticeTree(subject, hasBank);
   const tree = trees.data && trees.data.subject === subject ? (trees.data as PracticeTree) : null;
-  const [session, setSession] = useState<{ node: PracticeNode; mode: PracticeMode } | null>(null);
   const unavailable = !hasBank || tree?.available === false;
 
   const chapter = tree && chapterParam ? findChapter(tree.chapters, chapterParam, standardParam) : null;
@@ -89,7 +88,8 @@ export function PracticeChapterScreen({
 
   const title = topic?.topic ?? chapter?.chapter ?? chapterParam ?? 'Chapter';
   const start = (node: PracticeNode, mode: PracticeMode) => {
-    setSession({ node, mode });
+    // Practising opens a page of its own, with room to work.
+    router.push(practiceSessionHref(node, mode));
     // Remembered for "Continue" on Home and the Practice tab.
     void saveLastPractised(user.id, { subject: node.subject, standard: node.standard, chapter: node.chapter, topic: node.topic, at: Date.now() });
   };
@@ -119,41 +119,72 @@ export function PracticeChapterScreen({
     );
   }
 
-  const sessionStats = session && tree ? statsAt(tree.chapters, session.node) : null;
-  const sessionNext = session && tree ? nextPlace(tree.chapters, session.node) : null;
-
   return (
     <StackScreen title={title} subtitle={chapter && title !== chapter.chapter ? `${subject} · ${chapter.chapter}` : subject ?? undefined} onRefresh={unavailable ? undefined : trees.refresh} refreshing={trees.refreshing}>
       {trees.error && tree ? <StaleNotice message={trees.error} onRetry={trees.reload} /> : null}
       {body}
-      {session ? (
-        <TopicPracticeSheet
-          node={session.node}
-          mode={session.mode}
-          complete={!!sessionStats && sessionStats.questions > 0 && sessionStats.remaining === 0}
-          next={
-            sessionNext && subject
-              ? {
-                  label: sessionNext.label,
-                  onGo: () =>
-                    router.replace(
-                      practiceChapterHref({ subject, chapter: sessionNext.chapter, standard: sessionNext.standard, topic: sessionNext.topic ?? (sessionNext.kind === 'chapter' ? null : WHOLE_CHAPTER) })
-                    ),
-                }
-              : null
-          }
-          // Counts move as each answer is saved, so they're already right on the way back.
-          onAnswered={(at, delta) => trees.setData((prev) => (prev && prev.subject === session.node.subject ? applyAnswer(prev, at, delta) : prev))}
-          onClose={(changed) => {
-            setSession(null);
-            // Then the server's own numbers, in the background.
-            if (changed) bumpDataVersion();
-          }}
-        />
-      ) : null}
     </StackScreen>
   );
 }
+
+/**
+ * A practice session as a page of its own (/practice/session): the questions
+ * with room to work, Submit and Next pinned at the bottom. The chapter's
+ * counts move as answers are saved here; the screens behind reload theirs
+ * when this page closes (Back, the swipe or Android's back button alike).
+ */
+export function PracticeSessionScreen(params: { subject?: string; standard?: string; chapter?: string; topic?: string; mode?: string }) {
+  const router = useRouter();
+  const link = sessionFromParams(params);
+  const { subject, hasBank } = useAccess(link?.at.subject);
+  const trees = usePracticeTree(subject, hasBank);
+  const tree = trees.data && trees.data.subject === subject ? (trees.data as PracticeTree) : null;
+  const changed = useRef(false);
+  useEffect(
+    () => () => {
+      if (changed.current) bumpDataVersion();
+    },
+    []
+  );
+  const goBack = () => (router.canGoBack() ? router.back() : router.replace(PRACTICE_HOME));
+
+  if (!link || !subject) {
+    return (
+      <StackScreen title="Practice" onBack={goBack}>
+        <NotFound text="This practice link isn't complete. Pick a topic again from Practice." />
+      </StackScreen>
+    );
+  }
+  const node: PracticeNode = { subject, standard: link.at.standard as SchoolStandard, chapter: link.at.chapter, topic: link.at.topic };
+  const stats = tree ? statsAt(tree.chapters, node) : null;
+  const next = tree ? nextPlace(tree.chapters, node) : null;
+  return (
+    <TopicPracticeSheet
+      page
+      node={node}
+      mode={link.mode}
+      complete={!!stats && stats.questions > 0 && stats.remaining === 0}
+      next={
+        next
+          ? {
+              label: next.label,
+              onGo: () => router.replace(practiceChapterHref({ subject, chapter: next.chapter, standard: next.standard, topic: next.topic ?? (next.kind === 'chapter' ? null : WHOLE_CHAPTER) })),
+            }
+          : null
+      }
+      onAnswered={(at, delta) => {
+        changed.current = true;
+        trees.setData((prev) => (prev && prev.subject === subject ? applyAnswer(prev, at, delta) : prev));
+      }}
+      onClose={(didChange) => {
+        if (didChange) changed.current = true;
+        goBack();
+      }}
+    />
+  );
+}
+
+const PRACTICE_HOME = '/' as const;
 
 function NotFound({ text }: { text: string }) {
   return (

@@ -47,3 +47,32 @@ describe('the saved Continue place', () => {
     for (const bad of [null, 'x', {}, { ...good, at: '1' }, { ...good, topic: 3 }, { ...good, chapter: undefined }]) assert.equal(isLastPractised(bad), false);
   });
 });
+
+describe('practice session and self-assessment pages', async () => {
+  const { practiceSessionHref, sessionFromParams, assessmentHref, assessmentFromParams } = await import('../src/screens/student/practice/practice-place.ts');
+  const parse = (href) => Object.fromEntries(new URL(`https://x${href}`).searchParams);
+  test('a session link round-trips, with or without a topic', () => {
+    const at = { subject: 'Physics', standard: '11th', chapter: 'Laws of Motion & Friction', topic: 'Newton’s 2nd law' };
+    const href = practiceSessionHref(at, 'retry');
+    assert.ok(href.startsWith('/practice/session?'));
+    assert.deepEqual(sessionFromParams(parse(href)), { at, mode: 'retry' });
+    const whole = practiceSessionHref({ ...at, topic: null }, 'continue');
+    assert.deepEqual(sessionFromParams(parse(whole)), { at: { ...at, topic: null }, mode: 'continue' });
+  });
+  test('an incomplete session link, or an unknown mode, means nothing', () => {
+    assert.equal(sessionFromParams({ subject: 'Physics', standard: '11th', mode: 'continue' }), null);
+    assert.equal(sessionFromParams({ subject: 'Physics', standard: '11th', chapter: 'Optics', mode: 'cheat' }), null);
+  });
+  test('self-assessment links: list, one assessment, making one with topics picked', () => {
+    assert.equal(assessmentHref({ kind: 'home' }), '/practice/assessment');
+    assert.deepEqual(assessmentFromParams(parse(assessmentHref({ kind: 'session', id: 'a b/1' }))), { kind: 'session', id: 'a b/1' });
+    const preset = [{ standard: '11th', chapter: 'Vectors', topic: 'Dot product' }];
+    assert.deepEqual(assessmentFromParams(parse(assessmentHref({ kind: 'build', subject: 'Physics', preset }))), { kind: 'build', subject: 'Physics', preset });
+    assert.deepEqual(assessmentFromParams(parse(assessmentHref({ kind: 'build', subject: 'Physics', preset: null }))), { kind: 'build', subject: 'Physics', preset: null });
+  });
+  test('a broken topics list still opens the builder, with nothing picked', () => {
+    assert.deepEqual(assessmentFromParams({ new: 'Physics', topics: '{nope' }), { kind: 'build', subject: 'Physics', preset: null });
+    assert.deepEqual(assessmentFromParams({ new: 'Physics', topics: '[["only two","x"]]' }), { kind: 'build', subject: 'Physics', preset: null });
+    assert.deepEqual(assessmentFromParams({}), { kind: 'home' });
+  });
+});
