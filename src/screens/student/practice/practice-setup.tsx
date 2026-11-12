@@ -7,19 +7,30 @@ import { Reason } from '@/components/states';
 import { programOf, programSubjects, type SchoolSubject } from '@/constants/school';
 import { useSignedInUser } from '@/context/auth-context';
 import { haptic } from '@/design/haptics';
-import { StepSlide, useStepDirection } from '@/design/motion';
 import { hardShadow, Neo } from '@/design/tokens';
 import { face } from '@/design/type';
 import { column, SheetFooter, SheetHeader, type TopicPick } from '@/screens/student/assessment-session';
-import { MAX_TOPICS, PER_TOPIC_MAX, PER_TOPIC_MIN, scopeFromPicked, suggestedMinutes, type PickedTopicRef } from '@/screens/student/self-assessment';
+import {
+  chapterKeyOf,
+  chaptersOfPicked,
+  MAX_TOPICS,
+  PER_TOPIC_MAX,
+  PER_TOPIC_MIN,
+  scopeFromPicked,
+  suggestedMinutes,
+  topicsInChapters,
+  type PickedChapterRef,
+  type PickedTopicRef,
+} from '@/screens/student/self-assessment';
 import { studentApi, type AssessmentDetail, type AssessmentPool, type PracticeChapter } from '@/services/student-api';
 
-// Start practice, as four dropdowns in the order students think it through:
-// Subjects (several) → Topics (several, from those subjects) → Question type
-// (PYQs, other questions or both) → How many questions (5–15 per topic
-// picked). Then one button makes the test and opens its first question.
-// Each dropdown opens a sheet with the choices; the next one waits until the
-// one before it has something picked, and says why.
+// Start practice, as five dropdowns in the order students think it through:
+// Subjects (several) → Chapters (several, from those subjects) → Topics
+// (several, from those chapters) → Question type (PYQs, other questions or
+// both) → How many questions (5–15 per topic picked). Then one button makes
+// the test and opens its first question. Each dropdown opens a sheet with the
+// choices; the next one waits until the one before it has something picked,
+// and says why. Taking a subject or chapter off takes what was under it too.
 
 const POOLS: { value: AssessmentPool; label: string; hint: string }[] = [
   { value: 'all', label: 'PYQs + other questions', hint: 'Past-year questions mixed with the rest of the bank' },
@@ -27,11 +38,14 @@ const POOLS: { value: AssessmentPool; label: string; hint: string }[] = [
   { value: 'others', label: 'Other questions only', hint: 'No past-year questions' },
 ];
 
-type Sheet = 'subjects' | 'topics' | 'type' | 'count' | null;
+type Sheet = 'subjects' | 'chapters' | 'topics' | 'type' | 'count' | null;
 
 const keyOf = (p: PickedTopicRef) => `${p.subject}|${p.standard}|${p.chapter}|${p.topic}`;
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 type Picked = PickedTopicRef;
+
+/** "3 chapters: Optics, Waves +1" */
+const summary = (n: number, noun: string, names: string[]) => `${n} ${noun}${n === 1 ? '' : 's'}: ${names.slice(0, 2).join(', ')}${n > 2 ? ` +${n - 2}` : ''}`;
 
 export function PracticeSetup({
   initialSubject,
@@ -40,7 +54,7 @@ export function PracticeSetup({
   onCreated,
 }: {
   initialSubject: SchoolSubject;
-  /** "Retake my weak topics": these topics come picked. */
+  /** "Retake my weak topics": these topics (and their chapters) come picked. */
   preset: TopicPick[] | null;
   onBack: () => void;
   /** The test, made and started: practice opens on its first question. */
@@ -49,6 +63,7 @@ export function PracticeSetup({
   const user = useSignedInUser();
   const all = programSubjects(programOf(user));
   const [subjects, setSubjects] = useState<SchoolSubject[]>(() => [all.includes(initialSubject) ? initialSubject : all[0]]);
+  const [chapters, setChapters] = useState<PickedChapterRef[]>([]);
   const [picked, setPicked] = useState<Picked[]>([]);
   const [presetLeft, setPresetLeft] = useState(preset);
   const [pool, setPool] = useState<AssessmentPool>('all');
@@ -65,7 +80,7 @@ export function PracticeSetup({
     return map;
   }, [trees.data]);
 
-  // Retake: pick the result's weak topics once their chapters are here.
+  // Retake: pick the result's weak topics, and their chapters, once the chapters are here.
   const presetChapters = chaptersBy.get(subjects[0]);
   if (presetLeft && presetChapters?.length) {
     const next: Picked[] = [];
@@ -77,17 +92,23 @@ export function PracticeSetup({
       if (!next.some((x) => keyOf(x) === keyOf(item)) && next.length < MAX_TOPICS) next.push(item);
     }
     setPresetLeft(null);
+    setChapters(chaptersOfPicked(next));
     setPicked(next);
   }
 
   const topics = picked.length;
   const count = topics * perTopic;
-  const blocked = !subjects.length ? 'Choose at least one subject.' : !topics ? 'Choose at least one topic.' : null;
+  const blocked = !subjects.length ? 'Choose at least one subject.' : !chapters.length ? 'Choose at least one chapter.' : !topics ? 'Choose at least one topic.' : null;
 
   const pickSubjects = (next: SchoolSubject[]) => {
     setSubjects(next);
-    // Topics of a subject taken out go with it.
-    setPicked((prev) => prev.filter((p) => next.includes(p.subject)));
+    const left = chapters.filter((c) => next.includes(c.subject));
+    setChapters(left);
+    setPicked((prev) => topicsInChapters(prev, left));
+  };
+  const pickChapters = (next: PickedChapterRef[]) => {
+    setChapters(next);
+    setPicked((prev) => topicsInChapters(prev, next));
   };
 
   const start = async () => {
@@ -113,12 +134,12 @@ export function PracticeSetup({
     }
   };
 
-  const topicNames = picked.map((p) => p.topic || p.chapter);
+  const treeProps = { chaptersBy, loading: trees.loading, error: trees.error && !trees.data ? trees.error : null, onRetry: trees.reload };
   return (
     <KeyboardSafeView>
       <SheetHeader title="Start practice" onBack={onBack} />
       <ScrollView contentContainerStyle={[styles.body, column]} keyboardShouldPersistTaps="handled">
-        <Muted>Choose what to practise. You can pick several subjects and topics.</Muted>
+        <Muted>Choose what to practise. You can pick several subjects, chapters and topics.</Muted>
 
         <Dropdown
           step={1}
@@ -129,15 +150,23 @@ export function PracticeSetup({
         />
         <Dropdown
           step={2}
-          label="Topics"
-          value={topics ? `${topics} topic${topics === 1 ? '' : 's'}: ${topicNames.slice(0, 2).join(', ')}${topics > 2 ? ` +${topics - 2}` : ''}` : null}
-          placeholder="Choose topics"
+          label="Chapters"
+          value={chapters.length ? summary(chapters.length, 'chapter', chapters.map((c) => c.chapter)) : null}
+          placeholder="Choose chapters"
           disabledReason={!subjects.length ? 'Choose a subject first.' : null}
+          onPress={() => setSheet('chapters')}
+        />
+        <Dropdown
+          step={3}
+          label="Topics"
+          value={topics ? summary(topics, 'topic', picked.map((p) => p.topic || p.chapter)) : null}
+          placeholder="Choose topics"
+          disabledReason={!chapters.length ? 'Choose chapters first: topics come from the chapters you pick.' : null}
           onPress={() => setSheet('topics')}
         />
-        <Dropdown step={3} label="Question type" value={POOLS.find((p) => p.value === pool)!.label} placeholder="" onPress={() => setSheet('type')} />
+        <Dropdown step={4} label="Question type" value={POOLS.find((p) => p.value === pool)!.label} placeholder="" onPress={() => setSheet('type')} />
         <Dropdown
-          step={4}
+          step={5}
           label="Number of questions"
           value={topics ? `${count} questions (${perTopic} per topic)` : null}
           placeholder={`${PER_TOPIC_MIN}–${PER_TOPIC_MAX} per topic`}
@@ -159,17 +188,8 @@ export function PracticeSetup({
       </SheetFooter>
 
       <SubjectsSheet visible={sheet === 'subjects'} all={all} value={subjects} onChange={pickSubjects} onClose={() => setSheet(null)} />
-      <TopicsSheet
-        visible={sheet === 'topics'}
-        subjects={subjects}
-        chaptersBy={chaptersBy}
-        loading={trees.loading}
-        error={trees.error && !trees.data ? trees.error : null}
-        onRetry={trees.reload}
-        value={picked}
-        onChange={setPicked}
-        onClose={() => setSheet(null)}
-      />
+      <ChaptersSheet visible={sheet === 'chapters'} subjects={subjects} {...treeProps} value={chapters} onChange={pickChapters} onClose={() => setSheet(null)} />
+      <TopicsSheet visible={sheet === 'topics'} chapters={chapters} {...treeProps} value={picked} onChange={setPicked} onClose={() => setSheet(null)} />
       <ChoiceSheet
         visible={sheet === 'type'}
         title="Question type"
@@ -299,15 +319,103 @@ function ChoiceSheet({ visible, title, options, value, onPick, onClose }: { visi
 /** Short names so three subject tabs fit on a narrow phone. */
 const tabName = (s: SchoolSubject) => (s === 'Mathematics' ? 'Maths' : s);
 
+type TreeProps = {
+  chaptersBy: Map<SchoolSubject, PracticeChapter[]>;
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+};
+
 /**
- * Topics from the subjects picked, in two levels: first the chapters of a
- * subject (one tab per subject when there are several, each showing how many
- * of its topics are picked), then, on tapping a chapter, its topics on their
- * own page with a way back. Search, tabs and the way back stay pinned. The
- * search looks in the open tab and points to another subject when only that
- * one has matches. Up to 10 topics in all.
+ * What the chapter and topic sheets share: a search box and, with several
+ * subjects, one tab each (showing how many are picked there), both pinned
+ * while the list scrolls. Switching tabs starts the list from the top.
  */
-function TopicsSheet({
+function useSubjectTabs(subjects: SchoolSubject[]) {
+  const [search, setSearch] = useState('');
+  const [tab, setTab] = useState<SchoolSubject | null>(null);
+  const listRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  // A subject taken out can't stay open here.
+  const subject = tab && subjects.includes(tab) ? tab : subjects[0];
+  const showTab = (s: SchoolSubject) => {
+    setTab(s);
+    listRef.current?.scrollTo({ y: 0, animated: false });
+  };
+  return { search, setSearch, query: search.trim().toLowerCase(), subject, showTab, listRef };
+}
+
+function PinnedSearchTabs({
+  search,
+  onSearch,
+  placeholder,
+  subjects,
+  subject,
+  countIn,
+  onTab,
+  clearLabel,
+  onClear,
+}: {
+  search: string;
+  onSearch: (v: string) => void;
+  placeholder: string;
+  subjects: SchoolSubject[];
+  subject: SchoolSubject;
+  countIn: (s: SchoolSubject) => number;
+  onTab: (s: SchoolSubject) => void;
+  clearLabel: string;
+  onClear: (() => void) | null;
+}) {
+  const palette = usePalette();
+  return (
+    <>
+      <View style={[styles.search, { borderColor: palette.ink, backgroundColor: palette.card }]}>
+        <Icon name={{ ios: 'magnifyingglass', android: 'search' }} color={palette.mutedForeground} size={16} />
+        <TextInput
+          value={search}
+          onChangeText={onSearch}
+          placeholder={placeholder}
+          placeholderTextColor={palette.mutedForeground}
+          accessibilityLabel={placeholder}
+          autoCorrect={false}
+          style={[styles.searchInput, { color: palette.foreground }]}
+        />
+        {onClear ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={clearLabel} onPress={onClear} hitSlop={8}>
+            <Text style={[styles.clear, { color: palette.foreground }]}>Clear</Text>
+          </Pressable>
+        ) : null}
+      </View>
+      {subjects.length > 1 ? (
+        <Segmented
+          label="Subject"
+          value={subject}
+          onChange={(s) => {
+            haptic.select();
+            onTab(s);
+          }}
+          options={subjects.map((s) => ({ value: s, label: tabName(s), count: countIn(s) || undefined }))}
+        />
+      ) : (
+        <Text style={[styles.overline, { color: palette.mutedForeground }]}>{subject.toUpperCase()}</Text>
+      )}
+    </>
+  );
+}
+
+/** Empty states, and a way to the subject that has the matches when this one has none. */
+function NoMatches({ query, subject, elsewhere, onTab, empty }: { query: string; subject: SchoolSubject; elsewhere: SchoolSubject[]; onTab: (s: SchoolSubject) => void; empty: string }) {
+  return (
+    <>
+      <Muted>{query ? `Nothing in ${subject} matches.` : empty}</Muted>
+      {elsewhere.map((s) => (
+        <Button key={s} label={`See matches in ${s}`} variant="secondary" onPress={() => onTab(s)} />
+      ))}
+    </>
+  );
+}
+
+/** Step 2: chapters of the subjects picked. Up to 10 (each needs at least one topic). */
+function ChaptersSheet({
   visible,
   subjects,
   chaptersBy,
@@ -317,186 +425,150 @@ function TopicsSheet({
   value,
   onChange,
   onClose,
-}: {
-  visible: boolean;
-  subjects: SchoolSubject[];
-  chaptersBy: Map<SchoolSubject, PracticeChapter[]>;
-  loading: boolean;
-  error: string | null;
-  onRetry: () => void;
-  value: Picked[];
-  onChange: (v: Picked[]) => void;
-  onClose: () => void;
-}) {
-  const palette = usePalette();
-  const [search, setSearch] = useState('');
-  const [tab, setTab] = useState<SchoolSubject | null>(null);
-  const [chapterKey, setChapterKey] = useState<string | null>(null);
-  const listRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
-  const chaptersY = useRef(0);
-  const query = search.trim().toLowerCase();
-  // A subject taken out in step 1 can't stay open here.
-  const subject = tab && subjects.includes(tab) ? tab : subjects[0];
-  const several = subjects.length > 1;
+}: TreeProps & { visible: boolean; subjects: SchoolSubject[]; value: PickedChapterRef[]; onChange: (v: PickedChapterRef[]) => void; onClose: () => void }) {
+  const { search, setSearch, query, subject, showTab, listRef } = useSubjectTabs(subjects);
   const named = (text: string) => text.toLowerCase().includes(query);
-  const matches = (c: PracticeChapter) => !query || named(c.chapter) || c.topics.some((t) => named(t.topic));
-  const shownIn = (s: SchoolSubject) => (chaptersBy.get(s) ?? []).filter(matches);
-  const chapters = subject ? shownIn(subject) : [];
-  const elsewhere = query && !chapters.length ? subjects.filter((s) => s !== subject && shownIn(s).length) : [];
-  const chapterId = (c: PracticeChapter) => `${c.standard}|${c.chapter}`;
-  const chapter = chapterKey ? (chaptersBy.get(subject) ?? []).find((c) => chapterId(c) === chapterKey) ?? null : null;
+  const shownIn = (s: SchoolSubject) => (chaptersBy.get(s) ?? []).filter((c) => !query || named(c.chapter) || c.topics.some((t) => named(t.topic)));
+  const list = subject ? shownIn(subject) : [];
+  const elsewhere = query && !list.length ? subjects.filter((s) => s !== subject && shownIn(s).length) : [];
+  const keys = new Set(value.map(chapterKeyOf));
+  const full = value.length >= MAX_TOPICS;
+  const toggle = (c: PickedChapterRef) => {
+    const k = chapterKeyOf(c);
+    if (keys.has(k)) onChange(value.filter((x) => chapterKeyOf(x) !== k));
+    else if (!full) onChange([...value, c]);
+  };
+
+  return (
+    <DetailSheet
+      visible={visible}
+      title="Chapters"
+      onClose={onClose}
+      scrollRef={listRef}
+      footer={<Button label={value.length ? `Done · ${value.length} picked` : 'Done'} onPress={onClose} />}
+      pinned={
+        <PinnedSearchTabs
+          search={search}
+          onSearch={setSearch}
+          placeholder="Search chapters"
+          subjects={subjects}
+          subject={subject}
+          countIn={(s) => value.filter((c) => c.subject === s).length}
+          onTab={showTab}
+          clearLabel="Clear the chapters picked"
+          onClear={value.length ? () => onChange([]) : null}
+        />
+      }
+    >
+      <Muted>{full ? `That's ${MAX_TOPICS} chapters, the most for one practice. Take one off to pick another.` : 'Pick one or more. You choose their topics next.'}</Muted>
+      {loading && !chaptersBy.size ? (
+        <LoadingView label="Loading chapters…" />
+      ) : error ? (
+        <ErrorView message={error} onRetry={onRetry} />
+      ) : (
+        <View>
+          {!list.length ? <NoMatches query={query} subject={subject} elsewhere={elsewhere} onTab={showTab} empty="No chapters yet." /> : null}
+          {list.map((c) => {
+            const ref: PickedChapterRef = { subject, standard: c.standard, chapter: c.chapter };
+            const on = keys.has(chapterKeyOf(ref));
+            const hits = query && !named(c.chapter) ? c.topics.filter((t) => named(t.topic)).length : 0;
+            const hint = `${c.standard} · ${hits ? `${hits} topic${hits === 1 ? '' : 's'} match` : c.topics.length ? `${c.topics.length} topics` : 'whole chapter'}`;
+            return <Row key={chapterKeyOf(ref)} label={c.chapter} hint={hint} on={on} disabled={full && !on} onPress={() => toggle(ref)} />;
+          })}
+        </View>
+      )}
+    </DetailSheet>
+  );
+}
+
+/** Step 3: topics of the chapters picked, under each chapter's name. Up to 10 in all. */
+function TopicsSheet({
+  visible,
+  chapters,
+  chaptersBy,
+  loading,
+  error,
+  onRetry,
+  value,
+  onChange,
+  onClose,
+}: TreeProps & { visible: boolean; chapters: PickedChapterRef[]; value: Picked[]; onChange: (v: Picked[]) => void; onClose: () => void }) {
+  const palette = usePalette();
+  // Only the subjects that have a chapter picked get a tab.
+  const subjects = chapters.reduce<SchoolSubject[]>((acc, c) => (acc.includes(c.subject) ? acc : [...acc, c.subject]), []);
+  const { search, setSearch, query, subject, showTab, listRef } = useSubjectTabs(subjects);
+  const named = (text: string) => text.toLowerCase().includes(query);
+  // The picked chapters of a subject, in the syllabus order, each with the topics the search leaves.
+  const groupsIn = (s: SchoolSubject) =>
+    (chaptersBy.get(s) ?? [])
+      .filter((c) => chapters.some((x) => x.subject === s && x.standard === c.standard && x.chapter === c.chapter))
+      .map((c) => ({ c, shown: !query || named(c.chapter) ? c.topics : c.topics.filter((t) => named(t.topic)) }))
+      .filter(({ c, shown }) => shown.length || (!c.topics.length && (!query || named(c.chapter))));
+  const groups = subject ? groupsIn(subject) : [];
+  const elsewhere = query && !groups.length ? subjects.filter((s) => s !== subject && groupsIn(s).length) : [];
   const keys = new Set(value.map(keyOf));
   const full = value.length >= MAX_TOPICS;
-  const pickedIn = (c: PracticeChapter) => value.filter((p) => p.subject === subject && p.standard === c.standard && p.chapter === c.chapter).length;
   const toggle = (p: Picked) => {
     const k = keyOf(p);
     if (keys.has(k)) onChange(value.filter((x) => keyOf(x) !== k));
     else if (!full) onChange([...value, p]);
   };
-  // Forward (into a chapter, or to a later subject) slides in from the right.
-  const direction = useStepDirection(subjects.indexOf(subject) * 2 + (chapter ? 1 : 0));
-
-  const showTab = (s: SchoolSubject) => {
-    setTab(s);
-    setChapterKey(null);
-    chaptersY.current = 0;
-    listRef.current?.scrollTo({ y: 0, animated: false });
-  };
-  const openChapter = (c: PracticeChapter) => {
-    setChapterKey(chapterId(c));
-    listRef.current?.scrollTo({ y: 0, animated: false });
-  };
-  // Back to the chapters, at the place in the list the student left.
-  const backToChapters = () => {
-    setChapterKey(null);
-    const y = chaptersY.current;
-    requestAnimationFrame(() => listRef.current?.scrollTo({ y, animated: false }));
+  const row = (p: Picked, label: string) => {
+    const on = keys.has(keyOf(p));
+    return <Row key={keyOf(p)} label={label} on={on} disabled={full && !on} onPress={() => toggle(p)} />;
   };
 
-  const topicsShown = chapter ? (query && !named(chapter.chapter) ? chapter.topics.filter((t) => named(t.topic)) : chapter.topics) : [];
-
-  // Search, the subject tabs and the way back stay at the top while the list scrolls.
   return (
     <DetailSheet
       visible={visible}
       title="Topics"
       onClose={onClose}
-      onBackPress={chapter ? backToChapters : undefined}
-      onScrollY={(y) => {
-        if (!chapter) chaptersY.current = y;
-      }}
-      footer={<Button label={value.length ? `Done · ${value.length} of ${MAX_TOPICS} picked` : 'Done'} onPress={onClose} />}
       scrollRef={listRef}
+      footer={<Button label={value.length ? `Done · ${value.length} of ${MAX_TOPICS} picked` : 'Done'} onPress={onClose} />}
       pinned={
-        <>
-          <View style={[styles.search, { borderColor: palette.ink, backgroundColor: palette.card }]}>
-            <Icon name={{ ios: 'magnifyingglass', android: 'search' }} color={palette.mutedForeground} size={16} />
-            <TextInput
-              value={search}
-              onChangeText={setSearch}
-              placeholder={chapter ? 'Search topics in this chapter' : 'Search chapters and topics'}
-              placeholderTextColor={palette.mutedForeground}
-              accessibilityLabel={chapter ? 'Search topics in this chapter' : 'Search chapters and topics'}
-              autoCorrect={false}
-              style={[styles.searchInput, { color: palette.foreground }]}
-            />
-            {value.length ? (
-              <Pressable accessibilityRole="button" accessibilityLabel="Clear the topics picked" onPress={() => onChange([])} hitSlop={8}>
-                <Text style={[styles.clear, { color: palette.foreground }]}>Clear</Text>
-              </Pressable>
-            ) : null}
-          </View>
-          {several ? (
-            <Segmented
-              label="Subject"
-              value={subject}
-              onChange={(s) => {
-                haptic.select();
-                showTab(s);
-              }}
-              options={subjects.map((s) => {
-                const n = value.filter((p) => p.subject === s).length;
-                return { value: s, label: tabName(s), count: n || undefined };
-              })}
-            />
-          ) : (
-            <Text style={[styles.overline, { color: palette.mutedForeground }]}>{subject.toUpperCase()}</Text>
-          )}
-          {chapter ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Back to ${subject} chapters`}
-              onPress={backToChapters}
-              hitSlop={6}
-              style={({ pressed }) => [styles.backRow, pressed && styles.sink]}
-            >
-              <Icon name={{ ios: 'chevron.left', android: 'chevron_left' }} color={palette.foreground} size={18} />
-              <View style={styles.flex}>
-                <Text style={[styles.backLabel, { color: palette.mutedForeground }]}>All chapters</Text>
-                <Text style={[styles.chapterName, { color: palette.foreground }]} numberOfLines={2}>
-                  {chapter.chapter}
-                </Text>
-              </View>
-              <Text style={[styles.rowHint, { color: palette.mutedForeground }]}>{chapter.standard}</Text>
-            </Pressable>
-          ) : null}
-        </>
+        subject ? (
+          <PinnedSearchTabs
+            search={search}
+            onSearch={setSearch}
+            placeholder="Search topics"
+            subjects={subjects}
+            subject={subject}
+            countIn={(s) => value.filter((p) => p.subject === s).length}
+            onTab={showTab}
+            clearLabel="Clear the topics picked"
+            onClear={value.length ? () => onChange([]) : null}
+          />
+        ) : null
       }
     >
-      <Muted>{full ? `That's ${MAX_TOPICS} topics, the most for one practice. Take one off to pick another.` : `Pick up to ${MAX_TOPICS} topics.`}</Muted>
-
+      <Muted>{full ? `That's ${MAX_TOPICS} topics, the most for one practice. Take one off to pick another.` : `Pick up to ${MAX_TOPICS} topics from your chapters.`}</Muted>
       {loading && !chaptersBy.size ? (
-        <LoadingView label="Loading chapters…" />
+        <LoadingView label="Loading topics…" />
       ) : error ? (
         <ErrorView message={error} onRetry={onRetry} />
-      ) : chapter ? (
-        <StepSlide step={`${subject}|${chapterKey}`} direction={direction}>
-          {!topicsShown.length ? <Muted>No topic in this chapter matches.</Muted> : null}
-          {topicsShown.map((t) => {
-            const item: Picked = { subject, standard: chapter.standard, chapter: chapter.chapter, topic: t.topic };
-            const on = keys.has(keyOf(item));
-            return <Row key={keyOf(item)} label={t.topic} on={on} disabled={full && !on} onPress={() => toggle(item)} />;
-          })}
-        </StepSlide>
+      ) : !subject ? (
+        <Muted>Choose chapters first.</Muted>
       ) : (
-        <StepSlide step={`${subject}|chapters`} direction={direction} style={styles.subjectBlock}>
-          {!chapters.length ? <Muted>{query ? `Nothing in ${subject} matches.` : 'No chapters yet.'}</Muted> : null}
-          {elsewhere.map((s) => (
-            <Button key={s} label={`See matches in ${s}`} variant="secondary" onPress={() => showTab(s)} />
-          ))}
-          {chapters.map((c) => {
-            const ck = chapterId(c);
-            const whole: Picked = { subject, standard: c.standard, chapter: c.chapter, topic: '' };
-            if (!c.topics.length) {
-              // A chapter without named topics is one topic, taken whole.
-              return <Row key={ck} label={c.chapter} hint={c.standard} on={keys.has(keyOf(whole))} disabled={full && !keys.has(keyOf(whole))} onPress={() => toggle(whole)} />;
-            }
-            const picked = pickedIn(c);
-            const hits = query && !named(c.chapter) ? c.topics.filter((t) => named(t.topic)).length : 0;
-            const hint = `${c.standard} · ${hits ? `${hits} topic${hits === 1 ? '' : 's'} match` : `${c.topics.length} topics`}${picked ? ` · ${picked} picked` : ''}`;
+        <View style={styles.groups}>
+          {!groups.length ? <NoMatches query={query} subject={subject} elsewhere={elsewhere} onTab={showTab} empty="No topics here yet." /> : null}
+          {groups.map(({ c, shown }) => {
+            const base = { subject, standard: c.standard, chapter: c.chapter };
+            const pickedHere = value.filter((p) => p.subject === subject && p.standard === c.standard && p.chapter === c.chapter).length;
             return (
-              <Pressable
-                key={ck}
-                accessibilityRole="button"
-                accessibilityLabel={`${c.chapter}, ${hint}`}
-                accessibilityHint="Opens its topics"
-                onPress={() => openChapter(c)}
-                style={({ pressed }) => [styles.chapterRow, { borderBottomColor: palette.border }, pressed && { backgroundColor: palette.muted }]}
-              >
-                <View style={styles.flex}>
-                  <Text style={[styles.chapterName, { color: palette.foreground }]}>{c.chapter}</Text>
-                  <Text style={[styles.rowHint, { color: palette.mutedForeground }]}>{hint}</Text>
+              <View key={chapterKeyOf(base)}>
+                <View style={[styles.groupHead, { borderBottomColor: palette.border }]}>
+                  <Text style={[styles.chapterName, styles.flex, { color: palette.foreground }]}>{c.chapter}</Text>
+                  <Text style={[styles.rowHint, { color: palette.mutedForeground }]}>
+                    {c.standard}
+                    {pickedHere ? ` · ${pickedHere} picked` : ''}
+                  </Text>
                 </View>
-                {picked ? (
-                  <View style={[styles.pickedBadge, { borderColor: palette.ink, backgroundColor: palette.primary }]}>
-                    <Text style={[styles.pickedNum, { color: palette.ink }]}>{picked}</Text>
-                  </View>
-                ) : null}
-                <Icon name={{ ios: 'chevron.right', android: 'chevron_right' }} color={palette.foreground} size={16} />
-              </Pressable>
+                {/* A chapter without named topics is one topic, taken whole. */}
+                {!c.topics.length ? row({ ...base, topic: '' }, 'Whole chapter') : shown.map((t) => row({ ...base, topic: t.topic }, t.topic))}
+              </View>
             );
           })}
-        </StepSlide>
+        </View>
       )}
     </DetailSheet>
   );
@@ -523,12 +595,8 @@ const styles = StyleSheet.create({
   search: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: Neo.border.width, borderRadius: Neo.radius.md, paddingHorizontal: 12, minHeight: 48 },
   searchInput: { flex: 1, fontSize: 15, minHeight: 44 },
   clear: { fontSize: 14, fontFamily: face.bold, textDecorationLine: 'underline' },
-  subjectBlock: { gap: 4 },
   overline: { fontSize: 12, letterSpacing: 1.1, fontFamily: face.semibold },
-  chapterRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingVertical: 10, borderBottomWidth: Neo.border.width },
   chapterName: { fontSize: 15, lineHeight: 21, fontFamily: face.semibold },
-  backRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
-  backLabel: { fontSize: 12, lineHeight: 16, fontFamily: face.semibold },
-  pickedBadge: { minWidth: 24, height: 24, paddingHorizontal: 6, borderRadius: 12, borderWidth: Neo.border.width, alignItems: 'center', justifyContent: 'center' },
-  pickedNum: { fontSize: 12, fontFamily: face.heavy },
+  groups: { gap: 16 },
+  groupHead: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderBottomWidth: Neo.border.width },
 });

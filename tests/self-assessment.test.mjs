@@ -280,3 +280,21 @@ describe('Start practice: picked topics and the question window', async () => {
     ]);
   });
 });
+
+describe('Start practice: chapters, then topics from those chapters', async () => {
+  const { chaptersOfPicked, topicsInChapters, chapterKeyOf } = await import('../src/screens/student/self-assessment.ts');
+  const t = (subject, chapter, topic, standard = '11th') => ({ subject, standard, chapter, topic });
+  const picked = [t('Physics', 'Kinematics', 'Projectile'), t('Physics', 'Kinematics', 'Relative motion'), t('Chemistry', 'Mole concept', ''), t('Physics', 'Optics', 'Lenses', '12th')];
+  test('chaptersOfPicked: each chapter once, in the order first picked', () => {
+    assert.deepEqual(chaptersOfPicked(picked).map(chapterKeyOf), ['Physics|11th|Kinematics', 'Chemistry|11th|Mole concept', 'Physics|12th|Optics']);
+    assert.deepEqual(chaptersOfPicked([]), []);
+  });
+  test('topicsInChapters: a chapter taken off takes its topics with it', () => {
+    const left = topicsInChapters(picked, [{ subject: 'Physics', standard: '11th', chapter: 'Kinematics' }]);
+    assert.deepEqual(left.map((p) => p.topic), ['Projectile', 'Relative motion']);
+  });
+  test('topicsInChapters: same chapter name in another subject or class does not count', () => {
+    assert.deepEqual(topicsInChapters(picked, [{ subject: 'Physics', standard: '11th', chapter: 'Optics' }]), []);
+    assert.deepEqual(topicsInChapters(picked, [{ subject: 'Mathematics', standard: '11th', chapter: 'Kinematics' }]), []);
+  });
+});

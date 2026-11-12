@@ -285,6 +285,26 @@ export interface PickedTopicRef {
   topic: string;
 }
 
+/** A chapter picked in Start practice (its topics are picked in the next step). */
+export type PickedChapterRef = Omit<PickedTopicRef, 'topic'>;
+
+export const chapterKeyOf = (c: PickedChapterRef) => `${c.subject}|${c.standard}|${c.chapter}`;
+
+/** The chapters the picked topics come from, each once, in order. */
+export function chaptersOfPicked(picked: PickedTopicRef[]): PickedChapterRef[] {
+  const out: PickedChapterRef[] = [];
+  for (const { subject, standard, chapter } of picked) {
+    if (!out.some((c) => chapterKeyOf(c) === chapterKeyOf({ subject, standard, chapter }))) out.push({ subject, standard, chapter });
+  }
+  return out;
+}
+
+/** Only the picked topics whose chapter is still picked. */
+export function topicsInChapters(picked: PickedTopicRef[], chapters: PickedChapterRef[]): PickedTopicRef[] {
+  const keep = new Set(chapters.map(chapterKeyOf));
+  return picked.filter((p) => keep.has(chapterKeyOf(p)));
+}
+
 /** The questions a practice of `topics` topics can have: 5 to 15 for each topic. */
 export const questionWindow = (topics: number) => ({ min: PER_TOPIC_MIN * topics, max: PER_TOPIC_MAX * topics });
 

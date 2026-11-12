@@ -912,8 +912,6 @@ export function DetailSheet({
   children,
   footer,
   pinned,
-  onBackPress,
-  onScrollY,
   onRefresh,
   refreshing = false,
   scrollRef,
@@ -924,10 +922,6 @@ export function DetailSheet({
   footer?: ReactNode;
   /** Stays put under the title while the rest scrolls (search, tabs). */
   pinned?: ReactNode;
-  /** Android back: a step back inside the sheet instead of closing it. */
-  onBackPress?: () => void;
-  /** Where the list is scrolled to, to come back to the same place. */
-  onScrollY?: (y: number) => void;
   onRefresh?: () => void;
   refreshing?: boolean;
   scrollRef?: React.Ref<React.ComponentRef<typeof ScrollView>>;
@@ -936,7 +930,7 @@ export function DetailSheet({
   const insets = useSafeAreaInsets();
   const neo = useNeo();
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onBackPress ?? onClose}>
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={[styles.flex, { backgroundColor: palette.background }]}>
         {neo ? <NeoSheetHeader title={title} onClose={onClose} /> : (
         <View style={[styles.sheetHeader, { borderBottomColor: palette.border, backgroundColor: palette.card, paddingTop: Platform.OS === 'ios' ? 12 : insets.top + 8 }]}>
@@ -955,8 +949,6 @@ export function DetailSheet({
         ) : null}
         <ScrollView
           ref={scrollRef}
-          onScroll={onScrollY ? (e) => onScrollY(e.nativeEvent.contentOffset.y) : undefined}
-          scrollEventThrottle={onScrollY ? 64 : undefined}
           contentContainerStyle={[styles.sheetBody, { paddingBottom: footer ? 16 : Math.max(insets.bottom, 16) + 8 }]}
           refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={neo ? palette.ink : palette.primary} /> : undefined}
         >
