@@ -142,7 +142,7 @@ test('browser overflow removes, undoes, replaces and reorders; Add at random pre
   find(tree, 'Button', p => p.label === 'Undo Remove').props.onPress(); tree = render();
   assert.deepEqual(Array.from(session.questions, q => q._id), ['1', '2', '3']);
   assert.equal(nodes(tree).filter(n => n.type === 'Button' && n.props.label === 'Reorder').length, 1);
-  assert.equal(nodes(tree).filter(n => n.type === 'Button' && n.props.label.startsWith('Done')).length, 0);
+  assert.equal(nodes(tree).filter(n => n.type === 'Button' && n.props.label.startsWith('Done')).length, 1, 'only the footer Done, which closes the list');
   find(tree, 'Button', p => p.label === 'Reorder').props.onPress(); tree = render();
   assert.equal(nodes(tree).filter(n => n.type === 'Button' && n.props.label === 'Reorder').length, 0);
   assert.equal(nodes(tree).filter(n => n.type === 'Button' && n.props.label.startsWith('Done')).length, 1);
@@ -217,7 +217,8 @@ test('random picks ask how many; shortages report what was actually added', asyn
   assert.equal(session.questions.length, 1);
   assert.match(find(tree, 'Notice').props.text, /Added 1 at random: only 1 more match these filters/);
   assert.equal(find(tree, 'Field', p => p.label === 'Number of questions').props.value, '', 'the number clears after adding');
-  assert.ok(find(tree, 'Button', p => p.label === 'Back to subjects'));
+  assert.ok(find(tree, 'Button', p => p.label === 'Done'), 'Done closes the list');
+  assert.equal(find(tree, 'Button', p => p.label.startsWith('Next')), undefined, 'no Next: subject button');
   assert.equal(find(tree, 'Field', p => p.label === 'Search Questions'), undefined, 'no search box');
 });
 
@@ -242,6 +243,8 @@ test('anchored popup dismisses outside and Android Back without closing the brow
   assert.equal(closed, 0);
   find(tree, 'Modal').props.onRequestClose();
   assert.equal(closed, 1);
+  find(tree, 'Button', p => p.label === 'Done').props.onPress();
+  assert.equal(closed, 2, 'Done closes the question list');
 });
 
 test('popup measures its content and clamps above/below at phone screen edges', () => {

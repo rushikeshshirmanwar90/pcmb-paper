@@ -268,7 +268,8 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
           ? <SelectedQuestionRow question={item} index={at} onDetails={setPreview} onMenu={(question, anchor) => setMenu({ question, anchor })} />
           : <SelectionCard question={item} picked={selected(item)} disabled={cannotAdd(item)} onToggle={toggle} onDetails={setPreview} />} />}
       {!reorder ? <View style={{ paddingHorizontal: 12, paddingVertical: 8, gap: 6, borderTopWidth: 1, borderTopColor: palette.border }}>
-        <Button label={index < subjects.length - 1 ? `Next: ${subjects[index + 1]}` : 'Back to subjects'} variant={index < subjects.length - 1 ? 'secondary' : 'primary'} style={compactButton} disabled={working} onPress={() => index < subjects.length - 1 ? onSubject(subjects[index + 1]) : onClose()} />
+        {/* Done closes the question list; the picks are already kept. Another subject opens from its own button. */}
+        <Button label="Done" style={compactButton} disabled={working} onPress={onClose} />
       </View> : null}
       <DetailSheet visible={!!preview} title="Question Details" onClose={() => setPreview(null)} footer={preview ? <Button
         label={replacing ? 'Use as Replacement' : selected(preview) ? 'Remove Selection' : 'Add Selection'} disabled={cannotAdd(preview)}
