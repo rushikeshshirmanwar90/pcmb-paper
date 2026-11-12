@@ -167,7 +167,6 @@ function QuestionCard({ question, dark }: { question: Question; dark: boolean })
 function QuestionsScreenComponent() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
-  const accent = getPalette(scheme === 'dark').primary;
   const { activeKey, questionsMode, setQuestionsMode } = useTabNavigation();
   const tabBarHeight = useTabBarHeight();
 
@@ -182,14 +181,11 @@ function QuestionsScreenComponent() {
   // Tests for batches are set from the Tests tab; this tab makes PDF papers.
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: colors.background }]}>
-      <AppHeader title="Make a paper" subtitle="An exam paper or classroom slides, from JEE and NEET questions" />
+      {/* One header only: the flow's own, with the way back to Papers and the step. */}
       <View style={[styles.mainWrapper, { maxWidth: MaxContentWidth }]}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Back to Papers" onPress={() => setQuestionsMode('pdfs')} hitSlop={8} style={({ pressed }) => [styles.papersBack, pressed && { opacity: 0.7 }]}>
-          <SymbolView name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }} tintColor={accent} size={16} />
-          <Text style={[styles.papersBackText, { color: accent }]}>Papers</Text>
-        </Pressable>
         <MakePdfFlow
           onViewPdfs={() => setQuestionsMode('pdfs')}
+          onExit={() => setQuestionsMode('pdfs')}
           bottomInset={tabBarHeight}
           active={activeKey === 'questions'}
         />
@@ -681,8 +677,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-  papersBack: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, alignSelf: 'flex-start', paddingHorizontal: 16 },
-  papersBackText: { fontSize: 15, fontWeight: '700' },
   mainWrapper: {
     flex: 1,
     width: '100%',

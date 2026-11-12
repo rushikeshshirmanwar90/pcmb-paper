@@ -329,13 +329,34 @@ describe('the screens', () => {
     assert.match(dropdown, /required \? options\.filter/);
   });
 
-  test('one screen offers Exam PDF and Smart PDF and chooses the questions; no wizard steps remain', () => {
+  test('three named steps: what to make (each kind explained) and the class, then the questions, then the details', () => {
     const page = read('../src/screens/teacher/make-pdf/one-page.tsx');
-    assert.match(page, /label: 'Exam PDF'/);
-    assert.match(page, /label: 'Smart PDF'/);
+    // Step 1 explains both kinds in a teacher's words instead of a bare switch.
+    assert.match(page, /exam: \{ title: 'Exam paper', text: '[^']+answer key/);
+    assert.match(page, /smart: \{ title: 'Classroom slides', text: '[^']+slide/);
+    assert.equal((page.match(/<ChoiceCard/g) ?? []).length, 2);
     assert.match(flow, /useState<PdfKind>/);
-    assert.equal((flow.match(/<OnePageSelect/g) ?? []).length, 1);
-    for (const gone of ['<ScopeStep', '<ReviewStep', '<MethodStep', '<ManualPicker']) assert.ok(!flow.includes(gone), gone);
+    assert.equal((flow.match(/<PaperTypeStep/g) ?? []).length, 1);
+    assert.equal((flow.match(/<PaperQuestionsStep/g) ?? []).length, 1);
+    // One header says where the teacher is, and the first step leads back to Papers.
+    assert.match(flow, /`Step \$\{info\.index \+ 1\} of \$\{STEPS\}/);
+    assert.match(flow, /const STEPS = 3;/);
+    assert.match(flow, /onExit\?\.\(\)/);
+    const tab = read('../src/app/questions.tsx');
+    assert.match(tab, /onExit=\{\(\) => setQuestionsMode\('pdfs'\)\}/);
+    assert.doesNotMatch(tab, /<AppHeader title="Make a paper"/, 'no second header above the flow');
+    for (const gone of ['<ScopeStep', '<ReviewStep', '<MethodStep', '<ManualPicker', '<OnePageSelect']) assert.ok(!flow.includes(gone), gone);
+  });
+
+  test('paper details: the essentials first, the rest under More options with what is in use', () => {
+    assert.match(exam, /More options/);
+    assert.match(exam, /\{more \? <>/);
+    const essentials = exam.slice(0, exam.indexOf('>More options<'));
+    for (const first of ['Paper title', 'DateField', 'Duration', 'What to print']) assert.ok(essentials.includes(first), first);
+    const folded = exam.slice(exam.indexOf('{more ? <>'));
+    for (const later of ['Paper set', 'Look of the paper', 'Institute logo', 'Watermark']) assert.ok(folded.includes(later), later);
+    assert.match(exam, /`Now: \$\{inUse\}`/);
+    assert.match(exam, /Make paper · /);
   });
 
   test('only an Exam PDF gets the paper settings; a Smart PDF gets its own and none of the paper\'s', () => {
