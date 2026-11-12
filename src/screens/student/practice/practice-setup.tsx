@@ -26,16 +26,16 @@ import { studentApi, type AssessmentDetail, type AssessmentPool, type PracticeCh
 
 // Start practice, as five dropdowns in the order students think it through:
 // Subjects (several) → Chapters (several, from those subjects) → Topics
-// (several, from those chapters) → Question type (PYQs, other questions or
+// (several, from those chapters) → Question type (PYQs, syllabus questions or
 // both) → How many questions (5–15 per topic picked). Then one button makes
 // the test and opens its first question. Each dropdown opens a sheet with the
 // choices; the next one waits until the one before it has something picked,
 // and says why. Taking a subject or chapter off takes what was under it too.
 
 const POOLS: { value: AssessmentPool; label: string; hint: string }[] = [
-  { value: 'all', label: 'PYQs + other questions', hint: 'Past-year questions mixed with the rest of the bank' },
+  { value: 'all', label: 'PYQs + syllabus questions', hint: 'Past-year questions mixed with questions from your syllabus' },
   { value: 'pyqs', label: 'PYQs only', hint: 'Only past-year exam questions' },
-  { value: 'others', label: 'Other questions only', hint: 'No past-year questions' },
+  { value: 'others', label: 'Syllabus questions only', hint: 'Questions from your syllabus, no past-year questions' },
 ];
 
 type Sheet = 'subjects' | 'chapters' | 'topics' | 'type' | 'count' | null;

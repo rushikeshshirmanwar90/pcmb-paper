@@ -221,7 +221,7 @@ export interface AssessmentSetup {
   subject: SchoolSubject;
   /** Every subject in the test (servers from the question-pool branch on). */
   subjects?: SchoolSubject[];
-  /** all: PYQs + the bank's other questions (Include PYQs ticked) · others: without PYQs · pyqs: PYQs only (what older apps got). */
+  /** all: PYQs + syllabus questions (the bank's other questions) · others: syllabus questions only, no PYQs · pyqs: PYQs only (what older apps got). Students see "syllabus questions" for others. */
   pool?: AssessmentPool;
   scope: AssessmentScope[];
   count: number;

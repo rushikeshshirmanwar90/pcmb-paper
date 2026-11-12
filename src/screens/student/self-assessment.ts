@@ -323,7 +323,7 @@ export function scopeFromPicked(picked: PickedTopicRef[]): AssessmentScope[] {
 }
 
 /** Which questions a test used, in students' words. */
-export const poolLabel = (pool: 'pyqs' | 'all' | 'others' | undefined) => (pool === 'others' ? 'Without PYQs' : pool === 'all' ? 'PYQs + other questions' : 'PYQs only');
+export const poolLabel = (pool: 'pyqs' | 'all' | 'others' | undefined) => (pool === 'others' ? 'Syllabus questions only' : pool === 'all' ? 'PYQs + syllabus questions' : 'PYQs only');
 
 /** The line under an assessment in the list. */
 export function summaryLine(
