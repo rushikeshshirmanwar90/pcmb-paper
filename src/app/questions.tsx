@@ -36,7 +36,6 @@ import { subjectsFor } from '@/constants/syllabus';
 const FOUNDATION_STANDARDS: Standard[] = ['9th', '10th'];
 const JEE_NEET_STANDARDS: Standard[] = ['11th', '12th'];
 
-
 // ─── Question Card ─────────────────────────────────────────────────────────
 
 function QuestionCard({ question, dark }: { question: Question; dark: boolean }) {
@@ -47,8 +46,8 @@ function QuestionCard({ question, dark }: { question: Question; dark: boolean })
     question.difficulty === 'Easy'
       ? { bg: palette.successSoft, text: palette.successInk }
       : question.difficulty === 'Hard'
-      ? { bg: palette.dangerSoft, text: palette.dangerInk }
-      : { bg: palette.warningSoft, text: palette.warningInk };
+        ? { bg: palette.dangerSoft, text: palette.dangerInk }
+        : { bg: palette.warningSoft, text: palette.warningInk };
 
   const subjColor = { bg: palette.violetSoft, text: palette.violet };
   const cardBg = palette.card;
@@ -110,37 +109,37 @@ function QuestionCard({ question, dark }: { question: Question; dark: boolean })
           </View>
         ) : null
       ) : (
-      <View style={styles.optionsGrid}>
-        {options.map(([key, text]) => {
-          const optionImages = question.optionDiagramUrls?.[key as 'A' | 'B' | 'C' | 'D'] ?? [];
-          const isCorrect = question.correctAnswer === key;
-          const optBg = isCorrect ? palette.successSoft : palette.background;
-          const optBorder = isCorrect ? palette.successBorder : palette.border;
-          const optTextColor = isCorrect ? palette.successInk : palette.inkSoft;
-          return (
-            <View
-              key={key}
-              style={[
-                styles.optionBox,
-                { backgroundColor: optBg, borderColor: optBorder },
-              ]}
-            >
-              <Text
+        <View style={styles.optionsGrid}>
+          {options.map(([key, text]) => {
+            const optionImages = question.optionDiagramUrls?.[key as 'A' | 'B' | 'C' | 'D'] ?? [];
+            const isCorrect = question.correctAnswer === key;
+            const optBg = isCorrect ? palette.successSoft : palette.background;
+            const optBorder = isCorrect ? palette.successBorder : palette.border;
+            const optTextColor = isCorrect ? palette.successInk : palette.inkSoft;
+            return (
+              <View
+                key={key}
                 style={[
-                  styles.optionKey,
-                  { color: isCorrect ? palette.success : mutedColor },
+                  styles.optionBox,
+                  { backgroundColor: optBg, borderColor: optBorder },
                 ]}
               >
-                {key}
-              </Text>
-              <View style={styles.optionTextWrap}>
-                <MathText text={text} fontSize={14} color={optTextColor} />
-                <Diagrams urls={optionImages} maxHeight={160} />
+                <Text
+                  style={[
+                    styles.optionKey,
+                    { color: isCorrect ? palette.success : mutedColor },
+                  ]}
+                >
+                  {key}
+                </Text>
+                <View style={styles.optionTextWrap}>
+                  <MathText text={text} fontSize={14} color={optTextColor} />
+                  <Diagrams urls={optionImages} maxHeight={160} />
+                </View>
               </View>
-            </View>
-          );
-        })}
-      </View>
+            );
+          })}
+        </View>
       )}
 
       {/* Explanation */}
@@ -266,8 +265,8 @@ function BrowseQuestions({
     filters.examCategory === 'Foundation'
       ? FOUNDATION_STANDARDS
       : filters.examCategory === 'JEE/NEET'
-      ? JEE_NEET_STANDARDS
-      : [...FOUNDATION_STANDARDS, ...JEE_NEET_STANDARDS];
+        ? JEE_NEET_STANDARDS
+        : [...FOUNDATION_STANDARDS, ...JEE_NEET_STANDARDS];
 
   const availableSubjects = subjectsFor(filters.examCategory, filters.standard);
 
@@ -344,56 +343,56 @@ function BrowseQuestions({
             {loading ? 'Finding questions…' : `${questions.length} questions available`}
           </Text>
           <View style={styles.toolbarActions}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Save these ${questions.length} questions as a PDF`}
-            accessibilityState={{ disabled: loading || makingPdf || questions.length === 0, busy: makingPdf }}
-            disabled={loading || makingPdf || questions.length === 0}
-            onPress={handleMakePdf}
-            style={({ pressed }) => [
-              styles.filterToggleBtn,
-              { borderWidth: 1, borderColor: palette.primary },
-              (loading || questions.length === 0) && styles.disabled,
-              pressed && styles.pressed,
-            ]}
-          >
-            {makingPdf ? (
-              <ActivityIndicator size="small" color={palette.primary} />
-            ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Save these ${questions.length} questions as a PDF`}
+              accessibilityState={{ disabled: loading || makingPdf || questions.length === 0, busy: makingPdf }}
+              disabled={loading || makingPdf || questions.length === 0}
+              onPress={handleMakePdf}
+              style={({ pressed }) => [
+                styles.filterToggleBtn,
+                { borderWidth: 1, borderColor: palette.primary },
+                (loading || questions.length === 0) && styles.disabled,
+                pressed && styles.pressed,
+              ]}
+            >
+              {makingPdf ? (
+                <ActivityIndicator size="small" color={palette.primary} />
+              ) : (
+                <SymbolView
+                  name={{ ios: 'doc.richtext', android: 'picture_as_pdf', web: 'picture_as_pdf' }}
+                  tintColor={palette.primary}
+                  size={16}
+                />
+              )}
+              <Text style={[styles.filterToggleText, { color: palette.primary }]}>PDF</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: showFilters }}
+              onPress={() => setShowFilters((visible) => !visible)}
+              style={({ pressed }) => [
+                styles.filterToggleBtn,
+                { backgroundColor: palette.primary },
+                pressed && styles.pressed,
+              ]}
+            >
               <SymbolView
-                name={{ ios: 'doc.richtext', android: 'picture_as_pdf', web: 'picture_as_pdf' }}
-                tintColor={palette.primary}
+                name={{ ios: 'slider.horizontal.3', android: 'tune', web: 'tune' }}
+                tintColor={palette.onPrimary}
                 size={16}
               />
-            )}
-            <Text style={[styles.filterToggleText, { color: palette.primary }]}>PDF</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ expanded: showFilters }}
-            onPress={() => setShowFilters((visible) => !visible)}
-            style={({ pressed }) => [
-              styles.filterToggleBtn,
-              { backgroundColor: palette.primary },
-              pressed && styles.pressed,
-            ]}
-          >
-            <SymbolView
-              name={{ ios: 'slider.horizontal.3', android: 'tune', web: 'tune' }}
-              tintColor={palette.onPrimary}
-              size={16}
-            />
-            <Text style={[styles.filterToggleText, { color: palette.onPrimary }]}>
-              {showFilters ? 'Hide Filters' : 'Filters'}
-            </Text>
-            {activeFilterCount > 0 && (
-              <View style={[styles.filterCountBadge, { backgroundColor: palette.primaryInk }]}>
-                <Text style={[styles.filterCountText, { color: palette.onPrimary }]}>
-                  {activeFilterCount}
-                </Text>
-              </View>
-            )}
-          </Pressable>
+              <Text style={[styles.filterToggleText, { color: palette.onPrimary }]}>
+                {showFilters ? 'Hide Filters' : 'Filters'}
+              </Text>
+              {activeFilterCount > 0 && (
+                <View style={[styles.filterCountBadge, { backgroundColor: palette.primaryInk }]}>
+                  <Text style={[styles.filterCountText, { color: palette.onPrimary }]}>
+                    {activeFilterCount}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
           </View>
         </View>
         {makingPdf ? (
