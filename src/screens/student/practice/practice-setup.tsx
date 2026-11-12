@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Keyboard, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '@/components/app-text';
 import { Button, DetailSheet, ErrorText, Icon, LoadingView, Muted, Segmented, useLoad, usePalette, ErrorView } from '@/components/kit';
 import { KeyboardAwareScrollView, KeyboardSafeView, useScrollIntoView } from '@/components/keyboard-safe-view';
@@ -10,6 +10,7 @@ import { haptic } from '@/design/haptics';
 import { hardShadow, Neo } from '@/design/tokens';
 import { face } from '@/design/type';
 import { column, SheetFooter, SheetHeader, type TopicPick } from '@/screens/student/assessment-session';
+import { PreparingPractice } from '@/screens/student/practice/preparing-practice';
 import {
   chapterKeyOf,
   chaptersOfPicked,
@@ -126,10 +127,14 @@ export function PracticeSetup({
     setPicked((prev) => topicsInChapters(prev, next));
   };
 
+  const minutes = count ? suggestedMinutes(count, subjects[0] ?? all[0]) : null;
   const start = async () => {
     if (blocked) return;
+    Keyboard.dismiss();
     setBusy(true);
     setError(null);
+    // Shown long enough to read its first line, so a fast server doesn't make it flash.
+    const shownAtLeast = new Promise((done) => setTimeout(done, 1200));
     try {
       const made = await studentApi.createAssessment({
         subject: subjects[0],
@@ -141,8 +146,10 @@ export function PracticeSetup({
         negativeMarking: true,
         pool,
       });
+      const started = await studentApi.startAssessment(made.assessment.id);
+      await shownAtLeast;
       // Straight into the questions: practice starts now.
-      onCreated(await studentApi.startAssessment(made.assessment.id));
+      onCreated(started);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't start your practice. Try again.");
       setBusy(false);
@@ -180,7 +187,7 @@ export function PracticeSetup({
           onPress={() => setSheet('topics')}
         />
         <Dropdown step={4} label="Question type" value={POOLS.find((p) => p.value === pool)!.label} placeholder="" onPress={() => setSheet('type')} />
-        <CountField step={5} topics={topics} text={shownCount} onText={setCountText} error={topics ? typed.error : null} minutes={count ? suggestedMinutes(count, subjects[0] ?? all[0]) : null} />
+        <CountField step={5} topics={topics} text={shownCount} onText={setCountText} error={topics ? typed.error : null} minutes={minutes} />
       </KeyboardAwareScrollView>
       <SheetFooter>
         <ErrorText message={error} />
@@ -209,6 +216,7 @@ export function PracticeSetup({
         }}
         onClose={() => setSheet(null)}
       />
+      {busy && minutes ? <PreparingPractice topics={topics} questions={count} minutes={minutes} /> : null}
     </KeyboardSafeView>
   );
 }
