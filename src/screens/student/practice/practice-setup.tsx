@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '@/components/app-text';
-import { Button, DetailSheet, ErrorText, Icon, LoadingView, Muted, useLoad, usePalette, ErrorView } from '@/components/kit';
+import { Button, DetailSheet, ErrorText, Icon, LoadingView, Muted, Segmented, useLoad, usePalette, ErrorView } from '@/components/kit';
 import { KeyboardSafeView } from '@/components/keyboard-safe-view';
 import { Reason } from '@/components/states';
 import { programOf, programSubjects, type SchoolSubject } from '@/constants/school';
@@ -295,9 +295,14 @@ function ChoiceSheet({ visible, title, options, value, onPick, onClose }: { visi
   );
 }
 
+/** Short names so three subject tabs fit on a narrow phone. */
+const tabName = (s: SchoolSubject) => (s === 'Mathematics' ? 'Maths' : s);
+
 /**
- * Topics from the subjects picked: subject, then chapters (tap to open), then
- * their topics; a search finds a chapter or topic by name. Up to 10 topics.
+ * Topics from the subjects picked: with several subjects, one tab each (the
+ * tab shows how many of its topics are picked); then chapters (tap to open)
+ * and their topics. The search looks in the open tab and points to another
+ * subject when only that one has matches. Up to 10 topics in all.
  */
 function TopicsSheet({
   visible,
@@ -323,7 +328,15 @@ function TopicsSheet({
   const palette = usePalette();
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState<Set<string>>(() => new Set());
+  const [tab, setTab] = useState<SchoolSubject | null>(null);
   const query = search.trim().toLowerCase();
+  // A subject taken out in step 1 can't stay open here.
+  const subject = tab && subjects.includes(tab) ? tab : subjects[0];
+  const several = subjects.length > 1;
+  const matches = (c: PracticeChapter) => !query || c.chapter.toLowerCase().includes(query) || c.topics.some((t) => t.topic.toLowerCase().includes(query));
+  const shownIn = (s: SchoolSubject) => (chaptersBy.get(s) ?? []).filter(matches);
+  const chapters = subject ? shownIn(subject) : [];
+  const elsewhere = query && !chapters.length ? subjects.filter((s) => s !== subject && shownIn(s).length) : [];
   const keys = new Set(value.map(keyOf));
   const full = value.length >= MAX_TOPICS;
   const toggle = (p: Picked) => {
@@ -363,59 +376,72 @@ function TopicsSheet({
       ) : error ? (
         <ErrorView message={error} onRetry={onRetry} />
       ) : (
-        subjects.map((subject) => {
-          const chapters = (chaptersBy.get(subject) ?? []).filter(
-            (c) => !query || c.chapter.toLowerCase().includes(query) || c.topics.some((t) => t.topic.toLowerCase().includes(query))
-          );
-          return (
-            <View key={subject} style={styles.subjectBlock}>
-              <Text style={[styles.overline, { color: palette.mutedForeground }]}>{subject.toUpperCase()}</Text>
-              {!chapters.length ? <Muted>{query ? 'Nothing matches.' : 'No chapters yet.'}</Muted> : null}
-              {chapters.map((c) => {
-                const ck = `${subject}|${c.standard}|${c.chapter}`;
-                const isOpen = !!query || open.has(ck);
-                const pickedHere = value.filter((p) => p.subject === subject && p.standard === c.standard && p.chapter === c.chapter).length;
-                const whole: Picked = { subject, standard: c.standard, chapter: c.chapter, topic: '' };
-                if (!c.topics.length) {
-                  // A chapter without named topics is one topic, taken whole.
-                  return <Row key={ck} label={c.chapter} hint={c.standard} on={keys.has(keyOf(whole))} disabled={full && !keys.has(keyOf(whole))} onPress={() => toggle(whole)} />;
-                }
-                const topicsShown = query && !c.chapter.toLowerCase().includes(query) ? c.topics.filter((t) => t.topic.toLowerCase().includes(query)) : c.topics;
-                return (
-                  <View key={ck}>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityState={{ expanded: isOpen }}
-                      accessibilityLabel={`${c.chapter}, ${c.standard}${pickedHere ? `, ${pickedHere} picked` : ''}`}
-                      onPress={() => setOpen((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(ck)) next.delete(ck);
-                        else next.add(ck);
-                        return next;
-                      })}
-                      style={({ pressed }) => [styles.chapterRow, { borderBottomColor: palette.border }, pressed && { backgroundColor: palette.muted }]}
-                    >
-                      <View style={styles.flex}>
-                        <Text style={[styles.chapterName, { color: palette.foreground }]}>{c.chapter}</Text>
-                        <Text style={[styles.rowHint, { color: palette.mutedForeground }]}>
-                          {c.standard} · {c.topics.length} topics{pickedHere ? ` · ${pickedHere} picked` : ''}
-                        </Text>
-                      </View>
-                      <Icon name={isOpen ? { ios: 'chevron.up', android: 'expand_less' } : { ios: 'chevron.down', android: 'expand_more' }} color={palette.foreground} size={16} />
-                    </Pressable>
-                    {isOpen
-                      ? topicsShown.map((t) => {
-                          const item: Picked = { subject, standard: c.standard, chapter: c.chapter, topic: t.topic };
-                          const on = keys.has(keyOf(item));
-                          return <Row key={keyOf(item)} label={t.topic} indent on={on} disabled={full && !on} onPress={() => toggle(item)} />;
-                        })
-                      : null}
-                  </View>
-                );
-              })}
+        <View style={styles.subjectBlock}>
+          {several ? (
+            <View style={styles.tabs}>
+              <Segmented
+                label="Subject"
+                value={subject}
+                onChange={(s) => {
+                  haptic.select();
+                  setTab(s);
+                }}
+                options={subjects.map((s) => {
+                  const n = value.filter((p) => p.subject === s).length;
+                  return { value: s, label: tabName(s), count: n || undefined };
+                })}
+              />
             </View>
-          );
-        })
+          ) : (
+            <Text style={[styles.overline, { color: palette.mutedForeground }]}>{subject.toUpperCase()}</Text>
+          )}
+          {!chapters.length ? <Muted>{query ? `Nothing in ${subject} matches.` : 'No chapters yet.'}</Muted> : null}
+          {elsewhere.map((s) => (
+            <Button key={s} label={`See matches in ${s}`} variant="secondary" onPress={() => setTab(s)} />
+          ))}
+          {chapters.map((c) => {
+            const ck = `${subject}|${c.standard}|${c.chapter}`;
+            const isOpen = !!query || open.has(ck);
+            const pickedHere = value.filter((p) => p.subject === subject && p.standard === c.standard && p.chapter === c.chapter).length;
+            const whole: Picked = { subject, standard: c.standard, chapter: c.chapter, topic: '' };
+            if (!c.topics.length) {
+              // A chapter without named topics is one topic, taken whole.
+              return <Row key={ck} label={c.chapter} hint={c.standard} on={keys.has(keyOf(whole))} disabled={full && !keys.has(keyOf(whole))} onPress={() => toggle(whole)} />;
+            }
+            const topicsShown = query && !c.chapter.toLowerCase().includes(query) ? c.topics.filter((t) => t.topic.toLowerCase().includes(query)) : c.topics;
+            return (
+              <View key={ck}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: isOpen }}
+                  accessibilityLabel={`${c.chapter}, ${c.standard}${pickedHere ? `, ${pickedHere} picked` : ''}`}
+                  onPress={() => setOpen((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(ck)) next.delete(ck);
+                    else next.add(ck);
+                    return next;
+                  })}
+                  style={({ pressed }) => [styles.chapterRow, { borderBottomColor: palette.border }, pressed && { backgroundColor: palette.muted }]}
+                >
+                  <View style={styles.flex}>
+                    <Text style={[styles.chapterName, { color: palette.foreground }]}>{c.chapter}</Text>
+                    <Text style={[styles.rowHint, { color: palette.mutedForeground }]}>
+                      {c.standard} · {c.topics.length} topics{pickedHere ? ` · ${pickedHere} picked` : ''}
+                    </Text>
+                  </View>
+                  <Icon name={isOpen ? { ios: 'chevron.up', android: 'expand_less' } : { ios: 'chevron.down', android: 'expand_more' }} color={palette.foreground} size={16} />
+                </Pressable>
+                {isOpen
+                  ? topicsShown.map((t) => {
+                      const item: Picked = { subject, standard: c.standard, chapter: c.chapter, topic: t.topic };
+                      const on = keys.has(keyOf(item));
+                      return <Row key={keyOf(item)} label={t.topic} indent on={on} disabled={full && !on} onPress={() => toggle(item)} />;
+                    })
+                  : null}
+              </View>
+            );
+          })}
+        </View>
       )}
     </DetailSheet>
   );
@@ -444,6 +470,7 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 15, minHeight: 44 },
   clear: { fontSize: 14, fontFamily: face.bold, textDecorationLine: 'underline' },
   subjectBlock: { gap: 4 },
+  tabs: { marginTop: 4, marginBottom: 8 },
   overline: { fontSize: 12, letterSpacing: 1.1, fontFamily: face.semibold, marginTop: 8 },
   chapterRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingVertical: 10, borderBottomWidth: Neo.border.width },
   chapterName: { fontSize: 15, lineHeight: 21, fontFamily: face.semibold },
