@@ -6,6 +6,7 @@ import type { SchoolStandard, SchoolSubject } from '@/constants/school';
 import type {
   AssessmentBasis,
   AssessmentMix,
+  TestLevel,
   AssessmentScope,
   AssessmentSetup,
   AssessmentSummary,
@@ -27,7 +28,24 @@ export const MIX_INFO: Record<AssessmentMix, { label: string; text: string }> = 
   challenge: { label: 'Challenge', text: 'Mostly medium and hard questions, to push yourself.' },
   // Made only by "Retake weak topics" on the Practice tab, never offered in the builder.
   retake: { label: 'Retake', text: 'Your weak topics again: about 30% easy, 30% medium and 40% hard.' },
+  // Test levels, picked in Start practice (the server uses the same shares).
+  easy: { label: 'Easy', text: '50% easy, 40% medium and 10% hard questions.' },
+  medium: { label: 'Medium', text: '40% easy, 40% medium and 20% hard questions.' },
+  challenging: { label: 'Challenging', text: '30% easy, 40% medium and 30% hard questions.' },
 };
+
+/** The test levels in Start practice, easiest first, with their shares of easy, medium and hard (%). */
+export const TEST_LEVELS: { value: TestLevel; label: string; split: { easy: number; medium: number; hard: number } }[] = [
+  { value: 'easy', label: 'Easy', split: { easy: 50, medium: 40, hard: 10 } },
+  { value: 'medium', label: 'Medium', split: { easy: 40, medium: 40, hard: 20 } },
+  { value: 'challenging', label: 'Challenging', split: { easy: 30, medium: 40, hard: 30 } },
+];
+
+/** "40% easy · 40% medium · 20% hard" */
+export const levelSplitText = (s: { easy: number; medium: number; hard: number }) => `${s.easy}% easy · ${s.medium}% medium · ${s.hard}% hard`;
+
+/** How a result names its mix: "Medium level" for a test level, "Smart mix" for the older mixes. */
+export const mixName = (mix: AssessmentMix) => (TEST_LEVELS.some((l) => l.value === mix) ? `${MIX_INFO[mix].label} level` : `${MIX_INFO[mix]?.label ?? 'Smart'} mix`);
 
 // ─── Picking chapters and topics ───────────────────────────────────────────
 

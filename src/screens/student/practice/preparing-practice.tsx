@@ -26,20 +26,20 @@ import { face } from '@/design/type';
 
 const STEP_MS = 1700;
 
-function linesFor(topics: number, questions: number, minutes: number) {
+function linesFor(topics: number, questions: number, minutes: number, mix: string) {
   return [
     'Picking the best questions for you',
     `Covering all ${topics} topic${topics === 1 ? '' : 's'} you chose`,
-    'Mixing easy, medium and hard',
+    `Mixing ${mix}`,
     `Setting your timer: ${minutes} min`,
     `Getting your ${questions} questions ready`,
     'Almost ready…',
   ];
 }
 
-export function PreparingPractice({ topics, questions, minutes }: { topics: number; questions: number; minutes: number }) {
+export function PreparingPractice({ topics, questions, minutes, mix }: { topics: number; questions: number; minutes: number; /** "40% easy · 40% medium · 20% hard" */ mix: string }) {
   const palette = usePalette();
-  const lines = linesFor(topics, questions, minutes);
+  const lines = linesFor(topics, questions, minutes, mix);
   const [index, setIndex] = useState(0);
 
   useEffect(() => {

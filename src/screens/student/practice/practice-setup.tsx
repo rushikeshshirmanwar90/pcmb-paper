@@ -18,20 +18,22 @@ import {
   MAX_QUESTIONS,
   PER_TOPIC_MAX,
   PER_TOPIC_MIN,
+  levelSplitText,
   questionWindow,
   readCount,
   scopeFromPicked,
   suggestedMinutes,
+  TEST_LEVELS,
   topicsInChapters,
   type PickedChapterRef,
   type PickedTopicRef,
 } from '@/screens/student/self-assessment';
-import { studentApi, type AssessmentDetail, type AssessmentPool, type PracticeChapter } from '@/services/student-api';
+import { studentApi, type AssessmentDetail, type AssessmentPool, type PracticeChapter, type TestLevel } from '@/services/student-api';
 
 // Start practice, as five dropdowns in the order students think it through:
 // Subjects (several) → Chapters (several, from those subjects) → Topics
 // (several, from those chapters) → Question type (PYQs, syllabus questions or
-// both) → How many questions (typed; 5–15 per topic, at most 150). Then one button makes
+// both) → Test level (easy, medium or challenging; no default) → How many questions (typed; 5–15 per topic, at most 150). Then one button makes
 // the test and opens its first question. Each dropdown opens a sheet with the
 // choices; the next one waits until the one before it has something picked,
 // and says why. Taking a subject or chapter off takes what was under it too.
@@ -42,7 +44,7 @@ const POOLS: { value: AssessmentPool; label: string; hint: string }[] = [
   { value: 'others', label: 'Syllabus questions only', hint: 'Questions from your syllabus, no past-year questions' },
 ];
 
-type Sheet = 'subjects' | 'chapters' | 'topics' | 'type' | null;
+type Sheet = 'subjects' | 'chapters' | 'topics' | 'type' | 'level' | null;
 
 /** Until the student types a number: 10 questions per topic. */
 const DEFAULT_PER_TOPIC = 10;
@@ -74,6 +76,8 @@ export function PracticeSetup({
   const [picked, setPicked] = useState<Picked[]>([]);
   const [presetLeft, setPresetLeft] = useState(preset);
   const [pool, setPool] = useState<AssessmentPool>('all');
+  // No default: the student chooses how hard.
+  const [level, setLevel] = useState<TestLevel | null>(null);
   // null until the student types (or taps − / +): then their number stays, even if topics change.
   const [countText, setCountText] = useState<string | null>(null);
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -114,7 +118,9 @@ export function PracticeSetup({
       ? 'Choose at least one chapter.'
       : !topics
         ? 'Choose at least one topic.'
-        : typed.error;
+        : !level
+          ? 'Choose a test level.'
+          : typed.error;
 
   const pickSubjects = (next: SchoolSubject[]) => {
     setSubjects(next);
@@ -141,7 +147,7 @@ export function PracticeSetup({
         subjects,
         scope: scopeFromPicked(picked),
         count,
-        mix: 'smart',
+        mix: level!,
         durationMinutes: suggestedMinutes(count, subjects[0]),
         negativeMarking: true,
         pool,
@@ -187,7 +193,14 @@ export function PracticeSetup({
           onPress={() => setSheet('topics')}
         />
         <Dropdown step={4} label="Question type" value={POOLS.find((p) => p.value === pool)!.label} placeholder="" onPress={() => setSheet('type')} />
-        <CountField step={5} topics={topics} text={shownCount} onText={setCountText} error={topics ? typed.error : null} minutes={minutes} />
+        <Dropdown
+          step={5}
+          label="Test level"
+          value={level ? `${TEST_LEVELS.find((l) => l.value === level)!.label}: ${levelSplitText(TEST_LEVELS.find((l) => l.value === level)!.split)}` : null}
+          placeholder="Choose easy, medium or challenging"
+          onPress={() => setSheet('level')}
+        />
+        <CountField step={6} topics={topics} text={shownCount} onText={setCountText} error={topics ? typed.error : null} minutes={minutes} />
       </KeyboardAwareScrollView>
       <SheetFooter>
         <ErrorText message={error} />
@@ -216,7 +229,18 @@ export function PracticeSetup({
         }}
         onClose={() => setSheet(null)}
       />
-      {busy && minutes ? <PreparingPractice topics={topics} questions={count} minutes={minutes} /> : null}
+      <ChoiceSheet
+        visible={sheet === 'level'}
+        title="Test level"
+        options={TEST_LEVELS.map((l) => ({ key: l.value, label: l.label, hint: levelSplitText(l.split) }))}
+        value={level ?? ''}
+        onPick={(v) => {
+          setLevel(v as TestLevel);
+          setSheet(null);
+        }}
+        onClose={() => setSheet(null)}
+      />
+      {busy && minutes && level ? <PreparingPractice topics={topics} questions={count} minutes={minutes} mix={levelSplitText(TEST_LEVELS.find((l) => l.value === level)!.split)} /> : null}
     </KeyboardSafeView>
   );
 }

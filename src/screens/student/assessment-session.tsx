@@ -37,7 +37,7 @@ import {
   type AnswerOutcome,
   durationLabel,
   LEVEL_INFO,
-  MIX_INFO,
+  mixName,
   questionList,
   resultTree,
   secondsLeft,
@@ -281,7 +281,7 @@ function Intro({
               {a.title}
             </Text>
             <Text style={[styles.meta, { color: palette.mutedForeground }]}>
-              {a.subject} · {MIX_INFO[a.mix].label} mix
+              {a.subject} · {mixName(a.mix)}
             </Text>
           </View>
         </View>
@@ -758,7 +758,7 @@ function Result({
             {a.title}
           </Text>
           <Text style={[styles.meta, { color: palette.mutedForeground }]}>
-            {a.subject} · {MIX_INFO[a.mix].label} mix · {splitLabel(a.plan)} · {poolLabel(a.pool)}
+            {a.subject} · {mixName(a.mix)} · {splitLabel(a.plan)} · {poolLabel(a.pool)}
           </Text>
         </View>
 

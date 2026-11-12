@@ -322,3 +322,22 @@ describe('readCount (a typed number of questions)', async () => {
     for (const t of ['12.5', '-12', '1e2', 'ten', '1 2']) assert.equal(readCount(t, 2).count, null, t);
   });
 });
+
+describe('test levels (Start practice)', async () => {
+  const { TEST_LEVELS, levelSplitText, mixName, MIX_INFO } = await import('../src/screens/student/self-assessment.ts');
+  test('easy 50/40/10, medium 40/40/20, challenging 30/40/30, each adding to 100', () => {
+    assert.deepEqual(TEST_LEVELS.map((l) => [l.value, l.split.easy, l.split.medium, l.split.hard]), [
+      ['easy', 50, 40, 10],
+      ['medium', 40, 40, 20],
+      ['challenging', 30, 40, 30],
+    ]);
+    for (const l of TEST_LEVELS) assert.equal(l.split.easy + l.split.medium + l.split.hard, 100, l.value);
+  });
+  test('labels', () => {
+    assert.equal(levelSplitText(TEST_LEVELS[1].split), '40% easy · 40% medium · 20% hard');
+    assert.equal(mixName('medium'), 'Medium level');
+    assert.equal(mixName('challenging'), 'Challenging level');
+    assert.equal(mixName('smart'), 'Smart mix');
+    assert.equal(MIX_INFO.easy.text, '50% easy, 40% medium and 10% hard questions.');
+  });
+});
