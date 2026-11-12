@@ -94,6 +94,7 @@ function harness(path, mocks = {}) {
     'react-native': { ...names(['ActivityIndicator', 'FlatList', 'Modal', 'Pressable', 'Text', 'View']), StyleSheet: { create: s => s } },
     'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
     'react-native-gesture-handler': { GestureHandlerRootView: 'GestureHandlerRootView' },
+    '@/hooks/use-cache-keys': { useCacheKeys: () => ({ bankOptions: (k) => `bank-options:${k}`, testBatches: 'test-batches' }) },
     '@/components/kit': { usePalette: () => ({}), useLoad: () => ({ data: null }), ...names(['Button', 'DetailSheet', 'ErrorView', 'Field', 'Icon', 'Muted', 'Notice']) },
     '@/components/explanation': {}, '@/components/diagrams': {}, '@/components/dropdown-select': { DropdownSelect: 'DropdownSelect' },
     '@/components/multi-select-dropdown': { MultiSelectDropdown: 'MultiSelectDropdown' },

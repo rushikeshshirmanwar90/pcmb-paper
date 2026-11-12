@@ -266,6 +266,100 @@ export function LoadingView({ label = 'Loading…' }: { label?: string }) {
   );
 }
 
+// Skeletons stand in for a section's content on its first load only (a reload
+// keeps the last data on screen). They take the size of what replaces them and
+// fade in after a moment, so a quick load doesn't flash them.
+
+const SKELETON_DELAY_MS = 150;
+
+/** Holds a skeleton's pieces; it fades them in after a moment and is announced as loading. */
+export function SkeletonGroup({ label, children, style }: PropsWithChildren<{ label: string; style?: StyleProp<ViewStyle> }>) {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setShown(true), SKELETON_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, []);
+  return (
+    <View accessible accessibilityLabel={label} accessibilityState={{ busy: true }} style={[{ opacity: shown ? 1 : 0 }, style]}>
+      {children}
+    </View>
+  );
+}
+
+/** One grey bar of a skeleton. */
+export function SkeletonLine({ width = '100%', height = 12 }: { width?: number | `${number}%`; height?: number }) {
+  const palette = usePalette();
+  return <View style={{ width, height, borderRadius: height / 2, backgroundColor: palette.muted }} />;
+}
+
+/** Stands in for a row of StatTiles. */
+export function SkeletonStats({ count = 3, label = 'Loading numbers' }: { count?: number; label?: string }) {
+  const palette = usePalette();
+  return (
+    <SkeletonGroup label={label} style={styles.statGrid}>
+      {Array.from({ length: count }, (_, i) => (
+        <View key={i} style={[styles.stat, { backgroundColor: palette.card, borderColor: palette.border }]}>
+          <View style={[styles.statIcon, { backgroundColor: palette.muted }]} />
+          <View style={styles.skeletonStatValue}>
+            <SkeletonLine width="50%" height={18} />
+          </View>
+          <SkeletonLine width="70%" height={10} />
+        </View>
+      ))}
+    </SkeletonGroup>
+  );
+}
+
+/** Stands in for a Card of ListRows. */
+export function SkeletonRows({ rows = 3, label = 'Loading' }: { rows?: number; label?: string }) {
+  const palette = usePalette();
+  return (
+    <SkeletonGroup label={label}>
+      <View style={[styles.card, styles.skeletonList, { backgroundColor: palette.card, borderColor: palette.border }]}>
+        {Array.from({ length: rows }, (_, i) => (
+          <View key={i} style={[styles.row, i < rows - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }]}>
+            <View style={[styles.rowIcon, { backgroundColor: palette.muted }]} />
+            <View style={styles.skeletonText}>
+              <SkeletonLine width="55%" height={13} />
+              <SkeletonLine width="80%" height={10} />
+            </View>
+          </View>
+        ))}
+      </View>
+    </SkeletonGroup>
+  );
+}
+
+/** Stands in for a list of cards: a title line and `lines` lines of detail each. */
+export function SkeletonCards({ count = 3, lines = 3, label = 'Loading' }: { count?: number; lines?: number; label?: string }) {
+  const palette = usePalette();
+  return (
+    <SkeletonGroup label={label} style={styles.skeletonCards}>
+      {Array.from({ length: count }, (_, i) => (
+        <View key={i} style={[styles.card, styles.skeletonCard, { backgroundColor: palette.card, borderColor: palette.border }]}>
+          <SkeletonLine width="60%" height={16} />
+          {Array.from({ length: lines }, (_, j) => (
+            <SkeletonLine key={j} width={j === 0 ? '85%' : j % 2 ? '50%' : '70%'} height={11} />
+          ))}
+        </View>
+      ))}
+    </SkeletonGroup>
+  );
+}
+
+/** A section that failed to load: the message and a retry, without taking the whole screen. */
+export function SectionError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const palette = usePalette();
+  return (
+    <View style={[styles.card, { backgroundColor: palette.card, borderColor: palette.border }]}>
+      <Text accessibilityLiveRegion="polite" style={[styles.errorText, { color: palette.dangerInk }]}>
+        {message}
+      </Text>
+      <Button label="Try again" variant="secondary" onPress={onRetry} />
+    </View>
+  );
+}
+
 export function ErrorView({ message, onRetry }: { message: string; onRetry?: () => void }) {
   const palette = usePalette();
   return (
@@ -759,12 +853,15 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[], { enabled = 
   }, []);
 
   const pending = enabled && result.key !== key;
+  // While a new key loads (e.g. another filter), show what's kept for it rather than the last key's answer.
+  const kept = pending && cacheKey ? cachedLoad<T>(cacheKey) : undefined;
+  const data = kept !== undefined ? kept : result.data;
   return {
-    data: result.data,
+    data,
     setData,
     error: pending ? null : result.error,
     /** First load only; later reloads keep showing the last data. */
-    loading: pending && result.data === null,
+    loading: pending && data === null,
     refreshing,
     reload: () => setRound((n) => n + 1),
     refresh: () => {
@@ -799,6 +896,11 @@ const styles = StyleSheet.create({
   progressTrack: { height: 6, borderRadius: 3, overflow: 'hidden' },
   progressFill: { height: 6, borderRadius: 3 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24, minHeight: 200 },
+  skeletonStatValue: { height: 28, justifyContent: 'center' },
+  skeletonList: { paddingVertical: 0, gap: 0 },
+  skeletonText: { flex: 1, gap: 6 },
+  skeletonCards: { gap: 10 },
+  skeletonCard: { gap: 8 },
   empty: { alignItems: 'center', gap: 8, paddingVertical: 32, paddingHorizontal: 16 },
   emptyIcon: { width: 56, height: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   emptyTitle: { fontSize: 17, fontWeight: '700' },

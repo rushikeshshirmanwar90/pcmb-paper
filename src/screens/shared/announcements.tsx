@@ -12,12 +12,14 @@ import {
   Field,
   FormSheet,
   Icon,
-  LoadingView,
   MultiChips,
+  SectionError,
   SectionTitle,
+  SkeletonCards,
   useLoad,
   usePalette,
 } from '@/components/kit';
+import { useCacheKeys } from '@/hooks/use-cache-keys';
 import { useSignedInUser } from '@/context/auth-context';
 import { bumpDataVersion, useTabDataVersion } from '@/context/data-version';
 import { announcementsApi, timeAgo, type Announcement } from '@/services/tuition-api';
@@ -76,7 +78,8 @@ export function AnnouncementsSection({
   const palette = usePalette();
   const user = useSignedInUser();
   const version = useTabDataVersion(tabKey);
-  const { data, error, loading, reload } = useLoad(() => announcementsApi.list(50), [version]);
+  const keys = useCacheKeys();
+  const { data, error, loading, reload } = useLoad(() => announcementsApi.list(50), [version, keys.announcements(50)], { cacheKey: keys.announcements(50) });
   const [posting, setPosting] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -138,7 +141,9 @@ export function AnnouncementsSection({
       ) : null}
       <ErrorText message={deleteError} />
       {loading ? (
-        <LoadingView label="Loading announcements…" />
+        <SkeletonCards count={2} lines={2} label="Loading announcements" />
+      ) : error && !data ? (
+        <SectionError message={error} onRetry={reload} />
       ) : error ? (
         <ErrorText message={error} />
       ) : list.length === 0 ? (
