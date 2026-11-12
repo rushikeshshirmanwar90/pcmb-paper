@@ -911,6 +911,7 @@ export function DetailSheet({
   onClose,
   children,
   footer,
+  pinned,
   onRefresh,
   refreshing = false,
   scrollRef,
@@ -919,6 +920,8 @@ export function DetailSheet({
   title: string;
   onClose: () => void;
   footer?: ReactNode;
+  /** Stays put under the title while the rest scrolls (search, tabs). */
+  pinned?: ReactNode;
   onRefresh?: () => void;
   refreshing?: boolean;
   scrollRef?: React.Ref<React.ComponentRef<typeof ScrollView>>;
@@ -939,6 +942,11 @@ export function DetailSheet({
           </Pressable>
         </View>
         )}
+        {pinned ? (
+          <View style={[styles.sheetPinnedBar, { borderBottomColor: palette.border, backgroundColor: palette.background }, neo && styles.neoSheetPinned]}>
+            <View style={styles.sheetPinned}>{pinned}</View>
+          </View>
+        ) : null}
         <ScrollView
           ref={scrollRef}
           contentContainerStyle={[styles.sheetBody, { paddingBottom: footer ? 16 : Math.max(insets.bottom, 16) + 8 }]}
@@ -1046,6 +1054,7 @@ const styles = StyleSheet.create({
   enter: { gap: 16 },
   neoSheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: Neo.screenPadding, paddingBottom: 10 },
   neoSheetFooter: { borderTopWidth: Neo.border.width },
+  neoSheetPinned: { borderBottomWidth: Neo.border.width },
   neoFieldLabel: { fontSize: 14, fontWeight: '600' },
   neoAccessory: { right: 4 + Neo.shadow.md, bottom: Neo.shadow.md },
   content: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', padding: 16, gap: 14 },
@@ -1111,6 +1120,8 @@ const styles = StyleSheet.create({
   sheetClose: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   sheetBody: { padding: 16, gap: 16, width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' },
   sheetFooter: { padding: 16, gap: 10, borderTopWidth: 1 },
+  sheetPinnedBar: { borderBottomWidth: 1 },
+  sheetPinned: { paddingHorizontal: 16, paddingVertical: 12, gap: 12, width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 16, paddingVertical: 4 },
   detailLabel: { fontSize: 14 },
   detailValue: { fontSize: 14, fontWeight: '600', flexShrink: 1, textAlign: 'right' },

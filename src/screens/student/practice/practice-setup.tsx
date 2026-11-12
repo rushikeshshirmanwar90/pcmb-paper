@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '@/components/app-text';
 import { Button, DetailSheet, ErrorText, Icon, LoadingView, Muted, Segmented, useLoad, usePalette, ErrorView } from '@/components/kit';
@@ -329,6 +329,7 @@ function TopicsSheet({
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState<Set<string>>(() => new Set());
   const [tab, setTab] = useState<SchoolSubject | null>(null);
+  const listRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const query = search.trim().toLowerCase();
   // A subject taken out in step 1 can't stay open here.
   const subject = tab && subjects.includes(tab) ? tab : subjects[0];
@@ -345,30 +346,57 @@ function TopicsSheet({
     else if (!full) onChange([...value, p]);
   };
 
+  const showTab = (s: SchoolSubject) => {
+    setTab(s);
+    listRef.current?.scrollTo({ y: 0, animated: false });
+  };
+
+  // Search and the subject tabs stay at the top while the chapters scroll.
   return (
     <DetailSheet
       visible={visible}
       title="Topics"
       onClose={onClose}
       footer={<Button label={value.length ? `Done · ${value.length} of ${MAX_TOPICS} picked` : 'Done'} onPress={onClose} />}
+      scrollRef={listRef}
+      pinned={
+        <>
+          <View style={[styles.search, { borderColor: palette.ink, backgroundColor: palette.card }]}>
+            <Icon name={{ ios: 'magnifyingglass', android: 'search' }} color={palette.mutedForeground} size={16} />
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search chapters and topics"
+              placeholderTextColor={palette.mutedForeground}
+              accessibilityLabel="Search chapters and topics"
+              autoCorrect={false}
+              style={[styles.searchInput, { color: palette.foreground }]}
+            />
+            {value.length ? (
+              <Pressable accessibilityRole="button" accessibilityLabel="Clear the topics picked" onPress={() => onChange([])} hitSlop={8}>
+                <Text style={[styles.clear, { color: palette.foreground }]}>Clear</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          {several ? (
+            <Segmented
+              label="Subject"
+              value={subject}
+              onChange={(s) => {
+                haptic.select();
+                showTab(s);
+              }}
+              options={subjects.map((s) => {
+                const n = value.filter((p) => p.subject === s).length;
+                return { value: s, label: tabName(s), count: n || undefined };
+              })}
+            />
+          ) : (
+            <Text style={[styles.overline, { color: palette.mutedForeground }]}>{subject.toUpperCase()}</Text>
+          )}
+        </>
+      }
     >
-      <View style={[styles.search, { borderColor: palette.ink, backgroundColor: palette.card }]}>
-        <Icon name={{ ios: 'magnifyingglass', android: 'search' }} color={palette.mutedForeground} size={16} />
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search chapters and topics"
-          placeholderTextColor={palette.mutedForeground}
-          accessibilityLabel="Search chapters and topics"
-          autoCorrect={false}
-          style={[styles.searchInput, { color: palette.foreground }]}
-        />
-        {value.length ? (
-          <Pressable accessibilityRole="button" accessibilityLabel="Clear the topics picked" onPress={() => onChange([])} hitSlop={8}>
-            <Text style={[styles.clear, { color: palette.foreground }]}>Clear</Text>
-          </Pressable>
-        ) : null}
-      </View>
       <Muted>{full ? `That's ${MAX_TOPICS} topics, the most for one practice. Take one off to pick another.` : `Pick up to ${MAX_TOPICS} topics.`}</Muted>
 
       {loading && !chaptersBy.size ? (
@@ -377,27 +405,9 @@ function TopicsSheet({
         <ErrorView message={error} onRetry={onRetry} />
       ) : (
         <View style={styles.subjectBlock}>
-          {several ? (
-            <View style={styles.tabs}>
-              <Segmented
-                label="Subject"
-                value={subject}
-                onChange={(s) => {
-                  haptic.select();
-                  setTab(s);
-                }}
-                options={subjects.map((s) => {
-                  const n = value.filter((p) => p.subject === s).length;
-                  return { value: s, label: tabName(s), count: n || undefined };
-                })}
-              />
-            </View>
-          ) : (
-            <Text style={[styles.overline, { color: palette.mutedForeground }]}>{subject.toUpperCase()}</Text>
-          )}
           {!chapters.length ? <Muted>{query ? `Nothing in ${subject} matches.` : 'No chapters yet.'}</Muted> : null}
           {elsewhere.map((s) => (
-            <Button key={s} label={`See matches in ${s}`} variant="secondary" onPress={() => setTab(s)} />
+            <Button key={s} label={`See matches in ${s}`} variant="secondary" onPress={() => showTab(s)} />
           ))}
           {chapters.map((c) => {
             const ck = `${subject}|${c.standard}|${c.chapter}`;
@@ -470,8 +480,7 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 15, minHeight: 44 },
   clear: { fontSize: 14, fontFamily: face.bold, textDecorationLine: 'underline' },
   subjectBlock: { gap: 4 },
-  tabs: { marginTop: 4, marginBottom: 8 },
-  overline: { fontSize: 12, letterSpacing: 1.1, fontFamily: face.semibold, marginTop: 8 },
+  overline: { fontSize: 12, letterSpacing: 1.1, fontFamily: face.semibold },
   chapterRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingVertical: 10, borderBottomWidth: Neo.border.width },
   chapterName: { fontSize: 15, lineHeight: 21, fontFamily: face.semibold },
 });
