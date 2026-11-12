@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Pressable, type ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/app-text';
 import { PageFrame } from '@/components/stack-screen';
+import { haptic } from '@/design/haptics';
+import { Rise, StepSlide, useStepDirection } from '@/design/motion';
 import { useReducedMotion } from 'react-native-reanimated';
 import {
   Badge,
@@ -86,6 +88,8 @@ export function TopicPracticeSheet({
   const loadingRef = useRef(false);
 
   const [pos, setPos] = useState(0);
+  // Next brings the question in from the right, Previous from the left.
+  const direction = useStepDirection(pos);
   const [drafts, setDrafts] = useState<Record<string, string | null>>({});
   const [results, setResults] = useState<Record<string, Result>>({});
   const [saving, setSaving] = useState(false);
@@ -151,6 +155,9 @@ export function TopicPracticeSheet({
         ...prev,
         [q._id]: { selected: r.selected, correct: r.correct, correctAnswer: r.correctAnswer, explanation: r.explanation, explanationDiagramUrls: r.explanationDiagramUrls ?? [] },
       }));
+      // One haptic, on the causal moment: the verdict arriving with its card.
+      if (r.correct) haptic.success();
+      else haptic.error();
     } catch (e) {
       // Nothing is marked as answered unless the server saved it.
       setError(`Your answer wasn't saved. ${e instanceof Error ? e.message : 'Try again.'}`);
@@ -309,6 +316,7 @@ export function TopicPracticeSheet({
             </Pressable>
           </View>
           <ProgressBar value={(where.current / where.of) * 100} />
+          <StepSlide step={q._id} direction={direction} style={styles.step}>
           <View style={styles.badges}>
             {q.source ? <Badge label={q.source} tone="violet" /> : null}
             {node.topic === null && q.topic ? <Badge label={q.topic} tone="neutral" /> : null}
@@ -321,11 +329,19 @@ export function TopicPracticeSheet({
               // The solution gets its own section below, once answered.
               question={{ ...q, correctAnswer: done?.correctAnswer ?? '', explanation: '' }}
               selected={selected}
-              onSelect={done || saving ? undefined : (value) => setDrafts((d) => ({ ...d, [q._id]: value }))}
+              onSelect={
+                done || saving
+                  ? undefined
+                  : (value) => {
+                      haptic.select();
+                      setDrafts((d) => ({ ...d, [q._id]: value }));
+                    }
+              }
               reveal={!!done}
               answerCorrect={done?.correct}
             />
           </Card>
+          </StepSlide>
 
           {done ? (
             <View
@@ -339,12 +355,14 @@ export function TopicPracticeSheet({
                 scrollRef.current?.scrollTo({ y: Math.max(0, y), animated: !reduceMotion });
               }}
             >
-              <Notice
-                tone={done.correct ? 'success' : 'danger'}
-                title={done.correct ? 'Correct!' : 'Incorrect'}
-                text={done.correct ? undefined : done.correctAnswer ? `The correct answer is ${done.correctAnswer}.` : undefined}
-                live
-              />
+              <Rise>
+                <Notice
+                  tone={done.correct ? 'success' : 'danger'}
+                  title={done.correct ? 'Correct!' : 'Incorrect'}
+                  text={done.correct ? undefined : done.correctAnswer ? `The correct answer is ${done.correctAnswer}.` : undefined}
+                  live
+                />
+              </Rise>
               <View style={styles.solution}>
                 <SectionTitle title="Explanation" />
                 {done.explanation ? (
@@ -554,10 +572,11 @@ function Summary({
 }
 
 const styles = StyleSheet.create({
+  step: { gap: 12 },
   flex: { flex: 1, minWidth: 0 },
   flex2: { flex: 2 },
   pressed: { opacity: 0.7 },
-  practice: { gap: 14 },
+  practice: { gap: 16 },
   path: { fontSize: 13, fontFamily: face.semibold },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   navButton: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, minWidth: 64 },

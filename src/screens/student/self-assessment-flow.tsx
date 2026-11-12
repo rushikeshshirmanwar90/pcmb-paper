@@ -52,6 +52,7 @@ import {
   type Selection,
 } from '@/screens/student/self-assessment';
 import { Reason } from '@/components/states';
+import { StepSlide, useStepDirection } from '@/design/motion';
 import { resultTone } from '@/screens/student/test-format';
 import { dayLabel } from '@/services/school-api';
 import {
@@ -105,6 +106,8 @@ export function SelfAssessmentFlow({
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [view, setView] = useState<FlowView>(start);
+  // Forward through the flow (list → new → test) comes in from the right; going back, from the left.
+  const direction = useStepDirection(view.kind === 'home' ? 0 : view.kind === 'build' ? 1 : 2);
   const [listRound, setListRound] = useState(0);
   // What Android's back button does inside a session (the session sets it).
   const backRef = useRef<(() => void) | null>(null);
@@ -145,6 +148,7 @@ export function SelfAssessmentFlow({
   // screen, so the app's own insets are the right ones (and the same holds for a full page).
   const body = (
       <View style={[styles.root, { backgroundColor: palette.background, paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
+        <StepSlide step={view.kind === 'session' ? `session:${view.id}` : view.kind} direction={direction} style={styles.root}>
         {view.kind === 'home' ? (
           <Home round={listRound} onClose={close} onNew={() => setView({ kind: 'build', subject, preset: null })} onOpen={(id) => setView({ kind: 'session', id })} />
         ) : view.kind === 'build' ? (
@@ -175,6 +179,7 @@ export function SelfAssessmentFlow({
             onRetake={(s, topics) => setView({ kind: 'build', subject: s, preset: topics })}
           />
         )}
+        </StepSlide>
       </View>
   );
   if (page) return body;

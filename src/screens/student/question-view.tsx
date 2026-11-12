@@ -112,7 +112,8 @@ export function QuestionView({
                 accessibilityHint={isSelected ? 'Tap again to clear your answer' : undefined}
                 // Tapping the chosen option again clears it.
                 onPress={() => onSelect(isSelected ? null : k)}
-                style={({ pressed }) => [...style, pressed && styles.pressed]}
+                // Feedback on touch-down: the option sinks into its shadow in the student look (classic dims).
+                style={({ pressed }) => [...style, pressed && (look.neo ? styles.sink : styles.pressed)]}
               >
                 {body}
               </Pressable>
@@ -212,6 +213,7 @@ const styles = StyleSheet.create({
   keyText: { fontSize: 14, fontWeight: '800' },
   tag: { fontSize: 12, fontWeight: '700', letterSpacing: 0.2 },
   pressed: { opacity: 0.8 },
+  sink: { transform: [{ translateX: 2 }, { translateY: 2 }] },
   numerical: { gap: 8 },
   numericalResult: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   label: { fontSize: 13, fontWeight: '600' },

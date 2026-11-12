@@ -3,6 +3,8 @@ import { AccessibilityInfo, ActivityIndicator, FlatList, KeyboardAvoidingView, P
 import { Text } from '@/components/app-text';
 import { Illustration } from '@/design/illustrations';
 import { NeoIconButton, NeoText } from '@/design/neo-kit';
+import { haptic } from '@/design/haptics';
+import { StepSlide, useStepDirection } from '@/design/motion';
 import { StatusBar } from 'expo-status-bar';
 import { confirmAction } from '@/components/account-section';
 import {
@@ -392,6 +394,8 @@ function Runner({
   // Marked for review: a study aid kept on the phone only.
   const [marked, setMarked] = useState<Set<number>>(() => new Set());
   const [current, setCurrent] = useState(0);
+  // Next brings the question in from the right, Previous from the left (display only).
+  const direction = useStepDirection(current);
   const [remaining, setRemaining] = useState(() => secondsLeft(a.deadline));
   const [showGrid, setShowGrid] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -597,6 +601,7 @@ function Runner({
       ) : null}
 
       <ScrollView ref={scrollRef} contentContainerStyle={[styles.body, column]} keyboardShouldPersistTaps="handled">
+        <StepSlide step={q.index} direction={direction} style={styles.qStep}>
         <View style={styles.qMeta}>
           <Text style={[styles.qMetaText, { color: palette.foreground }]} numberOfLines={1}>
             Q{current + 1} · {q.chapter || q.subject}
@@ -606,7 +611,15 @@ function Runner({
             {a.negativeMarks ? ` / −${a.negativeMarks}` : ''}
           </Text>
         </View>
-        <QuestionView question={q} selected={answers.get(q.index) ?? null} onSelect={select} />
+        <QuestionView
+          question={q}
+          selected={answers.get(q.index) ?? null}
+          onSelect={(value) => {
+            haptic.select();
+            select(value);
+          }}
+        />
+        </StepSlide>
         <View style={styles.qTools}>
           <Pressable
             accessibilityRole="checkbox"
@@ -1130,6 +1143,7 @@ function BreakdownRow({ title, tally, last }: { title: string; tally: StrengthTa
 }
 
 const styles = StyleSheet.create({
+  qStep: { gap: 16 },
   resultArt: { alignItems: 'center' },
   flex: { flex: 1, minWidth: 0 },
   row: { flexDirection: 'row', gap: 10 },
