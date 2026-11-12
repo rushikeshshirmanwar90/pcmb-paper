@@ -201,7 +201,7 @@ function Home({ round, onClose, onNew, onOpen }: { round: number; onClose: () =>
 
   return (
     <View style={styles.flex}>
-      <SheetHeader title="Self-assessment" onClose={onClose} />
+      <SheetHeader title="Your self-assessments" onClose={onClose} />
       <ScrollView contentContainerStyle={[styles.body, column]}>
         <Card style={styles.hero}>
           <View style={styles.heroTop}>
@@ -215,7 +215,7 @@ function Home({ round, onClose, onNew, onOpen }: { round: number; onClose: () =>
               </Text>
             </View>
           </View>
-          <Button label="Create a self-assessment" icon={{ ios: 'plus', android: 'add' }} onPress={onNew} />
+          <Button label="Start a self-assessment" icon={{ ios: 'play.fill', android: 'play_arrow' }} onPress={onNew} />
         </Card>
 
         {loading && !data ? (
