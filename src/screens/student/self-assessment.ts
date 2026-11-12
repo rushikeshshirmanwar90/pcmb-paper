@@ -269,6 +269,39 @@ export function answerRows<Q extends { index: number; standard: string; chapter:
 /** The rows a filter shows ("All", "Wrong" or "Skipped"), in order. */
 export const filterRows = <R extends { outcome: AnswerOutcome }>(rows: R[], filter: AnswerFilter) => (filter === 'all' ? rows : rows.filter((r) => r.outcome === filter));
 
+// ─── Start practice: subjects → topics → type → how many ──────────────────
+
+/** At most this many topics in one practice test (15 per topic keeps it within the server's 150). */
+export const MAX_TOPICS = 10;
+/** Questions per topic picked: the window students choose in. */
+export const PER_TOPIC_MIN = 5;
+export const PER_TOPIC_MAX = 15;
+
+/** One topic picked: its subject, class, chapter and name ("" = a chapter without named topics, taken whole). */
+export interface PickedTopicRef {
+  subject: SchoolSubject;
+  standard: SchoolStandard;
+  chapter: string;
+  topic: string;
+}
+
+/** The questions a practice of `topics` topics can have: 5 to 15 for each topic. */
+export const questionWindow = (topics: number) => ({ min: PER_TOPIC_MIN * topics, max: PER_TOPIC_MAX * topics });
+
+/** The picked topics as the server's scope: one entry per subject, class and chapter (a whole chapter has no topics). */
+export function scopeFromPicked(picked: PickedTopicRef[]): AssessmentScope[] {
+  const scope: AssessmentScope[] = [];
+  for (const p of picked) {
+    let entry = scope.find((s) => s.subject === p.subject && s.standard === p.standard && s.chapter === p.chapter);
+    if (!entry) {
+      entry = { subject: p.subject, standard: p.standard, chapter: p.chapter, topics: [] };
+      scope.push(entry);
+    }
+    if (p.topic && !entry.topics.includes(p.topic)) entry.topics.push(p.topic);
+  }
+  return scope;
+}
+
 /** Which questions a test used, in students' words. */
 export const poolLabel = (pool: 'pyqs' | 'all' | 'others' | undefined) => (pool === 'others' ? 'Without PYQs' : pool === 'all' ? 'PYQs + other questions' : 'PYQs only');
 

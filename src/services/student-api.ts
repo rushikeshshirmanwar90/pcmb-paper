@@ -206,6 +206,8 @@ export type StrengthLevel = 'strong' | 'average' | 'weak';
 
 /** A chapter picked, with the topics picked (none: the whole chapter). */
 export interface AssessmentScope {
+  /** The chapter's subject (needed when a test has several subjects). */
+  subject?: SchoolSubject;
   standard: SchoolStandard;
   chapter: string;
   topics: string[];
@@ -215,7 +217,10 @@ export interface AssessmentScope {
 export type AssessmentPool = 'pyqs' | 'all' | 'others';
 
 export interface AssessmentSetup {
+  /** The first subject (older servers read only this). */
   subject: SchoolSubject;
+  /** Every subject in the test (servers from the question-pool branch on). */
+  subjects?: SchoolSubject[];
   /** all: PYQs + the bank's other questions (Include PYQs ticked) · others: without PYQs · pyqs: PYQs only (what older apps got). */
   pool?: AssessmentPool;
   scope: AssessmentScope[];
@@ -255,6 +260,8 @@ export interface AssessmentSummary {
   title: string;
   subject: SchoolSubject;
   mix: AssessmentMix;
+  /** Every subject in the test; missing from older servers (read it as [subject]). */
+  subjects?: SchoolSubject[];
   /** Missing from older servers: past-year questions only. */
   pool?: AssessmentPool;
   state: 'ready' | 'in-progress' | 'submitted';

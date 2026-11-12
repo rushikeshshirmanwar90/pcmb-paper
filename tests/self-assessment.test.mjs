@@ -252,3 +252,31 @@ describe('poolLabel (which questions a practice test used)', async () => {
     assert.equal(poolLabel(undefined), 'PYQs only');
   });
 });
+
+describe('Start practice: picked topics and the question window', async () => {
+  const { scopeFromPicked, questionWindow, MAX_TOPICS, PER_TOPIC_MIN, PER_TOPIC_MAX } = await import('../src/screens/student/self-assessment.ts');
+  test('5 to 15 questions per topic picked', () => {
+    assert.deepEqual(questionWindow(1), { min: 5, max: 15 });
+    assert.deepEqual(questionWindow(3), { min: 15, max: 45 });
+    assert.equal(questionWindow(MAX_TOPICS).max, 150, 'the most topics at the most per topic is the server limit');
+    assert.equal(PER_TOPIC_MIN, 5);
+    assert.equal(PER_TOPIC_MAX, 15);
+  });
+  test('topics from several subjects become one scope entry per subject and chapter', () => {
+    const scope = scopeFromPicked([
+      { subject: 'Physics', standard: '11th', chapter: 'Kinematics', topic: 'Projectile Motion' },
+      { subject: 'Physics', standard: '11th', chapter: 'Kinematics', topic: 'Relative Velocity' },
+      { subject: 'Chemistry', standard: '11th', chapter: 'Mole Concept', topic: 'Mole Fraction' },
+      { subject: 'Physics', standard: '11th', chapter: 'Kinematics', topic: 'Projectile Motion' },
+    ]);
+    assert.deepEqual(scope, [
+      { subject: 'Physics', standard: '11th', chapter: 'Kinematics', topics: ['Projectile Motion', 'Relative Velocity'] },
+      { subject: 'Chemistry', standard: '11th', chapter: 'Mole Concept', topics: ['Mole Fraction'] },
+    ]);
+  });
+  test('a chapter without named topics goes whole (no topics listed)', () => {
+    assert.deepEqual(scopeFromPicked([{ subject: 'Biology', standard: '12th', chapter: 'Evolution', topic: '' }]), [
+      { subject: 'Biology', standard: '12th', chapter: 'Evolution', topics: [] },
+    ]);
+  });
+});
