@@ -13,7 +13,7 @@ import {
   type TextProps,
   type ViewStyle,
 } from 'react-native';
-import Animated, { Easing, FadeIn, useAnimatedProps, useAnimatedStyle, useDerivedValue, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedProps, useAnimatedStyle, useDerivedValue, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 import { SymbolView } from 'expo-symbols';
 import type { IconName } from '@/components/kit';
@@ -854,12 +854,9 @@ export function NeoTabBar<K extends string>({ tabs, value, onChange }: { tabs: r
             <InkContext.Provider value={on ? p.onAccent : p.ink}>
               <NeoIcon name={t.icon} size={20} />
               {on ? (
-                // The only motion: the new tab's label fades in, quickly (Reduce Motion: it just appears).
-                <Animated.View entering={TAB_LABEL_IN} style={styles.shrink}>
-                  <NeoText variant="label" numberOfLines={1} maxFontSizeMultiplier={1.3}>
-                    {t.label}
-                  </NeoText>
-                </Animated.View>
+                <NeoText variant="label" numberOfLines={1} maxFontSizeMultiplier={1.3} style={styles.shrink}>
+                  {t.label}
+                </NeoText>
               ) : null}
             </InkContext.Provider>
           </Pressable>
@@ -870,8 +867,9 @@ export function NeoTabBar<K extends string>({ tabs, value, onChange }: { tabs: r
   );
 }
 
-// Tabs snap to their new places at once (feedback on the tap itself); nothing slides or springs.
-const TAB_LABEL_IN = FadeIn.duration(120);
+// No animation in the tab bar: the pill, icon and label change together in the
+// same frame as the tap. Any fade or slide here reads as lag, because layout
+// animations only start after the next layout pass.
 
 const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
