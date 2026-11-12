@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 import { Button, Muted, Notice } from '@/components/kit';
 import { confirmAction } from '@/components/confirm-action';
@@ -11,10 +11,10 @@ import { SubjectSelector } from '@/screens/teacher/question-selection/subject-se
 import { selectedQuestions, selectionProblem, type SubjectSelection } from '@/screens/teacher/question-selection/model';
 import type { Question } from '@/types/pcmb';
 
-// Make a paper, steps 1 and 2 of 3. Step 1 asks what to make (each kind says
-// what it is) and for which class; step 2 chooses the questions with the
-// shared subject browser. Step 3, the paper's details, is exam-settings.tsx
-// (or the slides' own settings).
+// Make a paper, steps 1 to 3 of 4, each with one job: the class, then the
+// questions (the shared subject browser), then what to make of them (an exam
+// paper or classroom slides, each saying what it is). Step 4, the details, is
+// exam-settings.tsx or the slides' own settings.
 
 /** What each kind of paper is, in a teacher's words. */
 export const KIND_INFO: Record<PdfKind, { title: string; text: string }> = {
@@ -25,9 +25,8 @@ export const KIND_INFO: Record<PdfKind, { title: string; text: string }> = {
 /** Whether the class is fully chosen (course, class and, for Competitive, the exam). */
 export const scopeReady = (scope: BankScope) => !!scope.course && !!scope.standard && (scope.course !== 'Competitive' || !!scope.exam);
 
-/** Step 1: what to make, and for which class. */
-export function PaperTypeStep({ kind, onKind, scope, onScope, sessions, onSessions, onNext, bottomInset }: {
-  kind: PdfKind; onKind: (kind: PdfKind) => void;
+/** Step 1: which class the paper is for. */
+export function PaperClassStep({ scope, onScope, sessions, onSessions, onNext, bottomInset }: {
   scope: BankScope; onScope: (scope: BankScope) => void;
   sessions: SubjectSelection[]; onSessions: (sessions: SubjectSelection[]) => void;
   onNext: () => void; bottomInset: number;
@@ -43,12 +42,6 @@ export function PaperTypeStep({ kind, onKind, scope, onScope, sessions, onSessio
     <Button label="Next: choose questions" disabled={!ready} onPress={onNext} />
     {missing ? <Muted>{missing}</Muted> : null}
   </>}>
-    <Group title="What do you want to make?">
-      <View accessibilityRole="radiogroup" style={{ gap: 10 }}>
-        <ChoiceCard icon={{ ios: 'doc.text', android: 'description' }} title={KIND_INFO.exam.title} text={KIND_INFO.exam.text} selected={kind === 'exam'} onPress={() => onKind('exam')} />
-        <ChoiceCard icon={{ ios: 'rectangle.on.rectangle', android: 'slideshow' }} title={KIND_INFO.smart.title} text={KIND_INFO.smart.text} selected={kind === 'smart'} onPress={() => onKind('smart')} />
-      </View>
-    </Group>
     <Group title="Which class is it for?" hint="The questions come from this class's question bank.">
       <DropdownSelect label="Course" options={[...COURSES]} selected={scope.course} onSelect={course => change(withCourse(scope, course as Course))} />
       {scope.course ? <DropdownSelect label="Class" options={[...CLASSES[scope.course]]} selected={scope.standard} onSelect={standard => change(withClass(scope, standard))} /> : null}
@@ -57,9 +50,27 @@ export function PaperTypeStep({ kind, onKind, scope, onScope, sessions, onSessio
   </StepLayout>;
 }
 
+/** Step 3: what to make of the questions. The summary of what was picked scrolls with the page. */
+export function PaperFormatStep({ kind, onKind, summary, onNext, bottomInset }: {
+  kind: PdfKind; onKind: (kind: PdfKind) => void;
+  /** What was picked (subjects and counts), with its way back to change it. */
+  summary: ReactNode;
+  onNext: () => void; bottomInset: number;
+}) {
+  return <StepLayout inset={bottomInset} footer={<Button label={kind === 'smart' ? 'Next: slide settings' : 'Next: paper details'} onPress={onNext} />}>
+    {summary}
+    <Group title="What do you want to make?" hint="Both use the questions you chose.">
+      <View accessibilityRole="radiogroup" style={{ gap: 10 }}>
+        <ChoiceCard icon={{ ios: 'doc.text', android: 'description' }} title={KIND_INFO.exam.title} text={KIND_INFO.exam.text} selected={kind === 'exam'} onPress={() => onKind('exam')} />
+        <ChoiceCard icon={{ ios: 'rectangle.on.rectangle', android: 'slideshow' }} title={KIND_INFO.smart.title} text={KIND_INFO.smart.text} selected={kind === 'smart'} onPress={() => onKind('smart')} />
+      </View>
+    </Group>
+  </StepLayout>;
+}
+
 /** Step 2: the subjects and their questions, checked against the bank before going on. */
-export function PaperQuestionsStep({ kind, scope, sessions, onSessions, onContinue, bottomInset }: {
-  kind: PdfKind; scope: BankScope;
+export function PaperQuestionsStep({ scope, sessions, onSessions, onContinue, bottomInset }: {
+  scope: BankScope;
   sessions: SubjectSelection[]; onSessions: (sessions: SubjectSelection[]) => void;
   onContinue: (questions: Question[]) => void; bottomInset: number;
 }) {
@@ -85,7 +96,7 @@ export function PaperQuestionsStep({ kind, scope, sessions, onSessions, onContin
   };
   return <StepLayout inset={bottomInset} footer={<>
     {error ? <Notice tone="danger" text={error} live /> : null}
-    <Button label={kind === 'smart' ? 'Next: slide settings' : total ? `Next: paper details · ${total} question${total === 1 ? '' : 's'}` : 'Next: paper details'} loading={working} disabled={working} onPress={() => void next()} />
+    <Button label={total ? `Next · ${total} question${total === 1 ? '' : 's'}` : 'Next'} loading={working} disabled={working} onPress={() => void next()} />
   </>}>
     <Group title="Choose the questions" hint="Pick the subjects, then open each one to choose its questions.">
       <SubjectSelector sessions={sessions} onChange={next => { onSessions(next); setError(null); }} subjects={subjectsOf(scope)} base={scope} label="Select Subjects" searchable />

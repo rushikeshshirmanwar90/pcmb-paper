@@ -48,7 +48,7 @@ const labelOf = <T extends string>(choices: { value: T; label: string }[], value
 const labelsOf = <T extends string>(choices: { value: T; label: string }[]) =>
   Object.fromEntries(choices.map((choice) => [choice.value, choice.label])) as Record<T, string>;
 
-const STAGE_TEXT: Record<PdfStage, string> = { making: 'Making the Smart PDF…', downloading: 'Downloading the PDF…' };
+const STAGE_TEXT: Record<PdfStage, string> = { making: 'Making your slides…', downloading: 'Downloading your slides…' };
 
 /** A 16:9 board with the sample question, laid out by the same rules the PDF is printed with. */
 function SamplePreview({ settings, title, institute }: { settings: SmartSlideSettings; title: string; institute: string }) {
@@ -213,7 +213,7 @@ export function SmartPdfScreen({
     <KeyboardAwareScrollView contentContainerStyle={[styles.content, { paddingBottom: 32 + bottomInset }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <View style={styles.intro}>
         <Text accessibilityRole="header" style={[styles.title, { color: palette.foreground }]} numberOfLines={2}>
-          Smart PDF
+          Classroom slides
         </Text>
         <Text style={[styles.meta, { color: palette.mutedForeground }]}>
           {questions.length} question{questions.length === 1 ? '' : 's'} · one complete question per 16:9 slide · no answers or solutions
@@ -324,7 +324,7 @@ export function SmartPdfScreen({
       ) : (
         <View style={styles.actions}>
           <Button
-            label={`Generate Smart PDF · ${questions.length} question${questions.length === 1 ? '' : 's'}`}
+            label={`Make slides · ${questions.length} question${questions.length === 1 ? '' : 's'}`}
             icon={{ ios: 'doc.richtext', android: 'picture_as_pdf' }}
             onPress={generate}
             disabled={questions.length === 0}

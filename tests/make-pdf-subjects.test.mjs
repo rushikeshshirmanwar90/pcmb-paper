@@ -184,7 +184,7 @@ describe('removing a subject', () => {
 describe('final review', () => {
   const questions = [...Array.from({ length: 20 }, (_, i) => q('Physics', i)), ...Array.from({ length: 15 }, (_, i) => q('Chemistry', i)), ...Array.from({ length: 15 }, (_, i) => q('Mathematics', i))];
 
-  test('lists each subject with its count and the total, read-only, with a compact Edit', () => {
+  test('lists each subject with its count and the total, read-only, with a compact Change', () => {
     const h = harness('src/screens/teacher/make-pdf/subject-review.tsx');
     let edited = 0;
     const tree = h.render(h.exports.SubjectReview, { questions, onEdit: () => { edited++; } });
@@ -192,7 +192,7 @@ describe('final review', () => {
     for (const line of ['Physics', '20 Questions', 'Chemistry', 'Mathematics', '15 Questions', 'Total', '50 Questions']) assert.ok(all.includes(line), line);
     assert.equal(nodes(tree).filter(n => n.type === 'Pressable').length, 1, 'Edit is the only action');
     const edit = find(tree, 'Pressable');
-    assert.equal(edit.props.accessibilityLabel, 'Edit subjects and questions');
+    assert.equal(edit.props.accessibilityLabel, 'Change the subjects and questions');
     edit.props.onPress();
     assert.equal(edited, 1);
   });

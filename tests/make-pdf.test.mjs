@@ -329,18 +329,24 @@ describe('the screens', () => {
     assert.match(dropdown, /required \? options\.filter/);
   });
 
-  test('three named steps: what to make (each kind explained) and the class, then the questions, then the details', () => {
+  test('four named steps: the class, the questions, then what to make (each kind explained), then its details', () => {
     const page = read('../src/screens/teacher/make-pdf/one-page.tsx');
     // Step 1 explains both kinds in a teacher's words instead of a bare switch.
     assert.match(page, /exam: \{ title: 'Exam paper', text: '[^']+answer key/);
     assert.match(page, /smart: \{ title: 'Classroom slides', text: '[^']+slide/);
     assert.equal((page.match(/<ChoiceCard/g) ?? []).length, 2);
     assert.match(flow, /useState<PdfKind>/);
-    assert.equal((flow.match(/<PaperTypeStep/g) ?? []).length, 1);
-    assert.equal((flow.match(/<PaperQuestionsStep/g) ?? []).length, 1);
+    // The order: class, questions, then the paper-or-slides choice (after the questions are chosen).
+    const at = (tag) => flow.indexOf(tag);
+    assert.ok(at('<PaperClassStep') > 0 && at('<PaperClassStep') < at('<PaperQuestionsStep') && at('<PaperQuestionsStep') < at('<PaperFormatStep'));
+    assert.match(flow, /setSelected\(questions\);\s*setStep\('format'\)/);
+    // The summary of the picked questions is part of the format page (it scrolls), never pinned over the settings.
+    assert.match(flow, /summary=\{<SubjectReview questions=\{selected\} onEdit=\{back\} \/>\}/);
+    assert.doesNotMatch(flow, /step === 'settings' \? <SubjectReview/);
+    assert.doesNotMatch(read('../src/screens/teacher/make-pdf/subject-review.tsx'), /marginHorizontal/);
     // One header says where the teacher is, and the first step leads back to Papers.
     assert.match(flow, /`Step \$\{info\.index \+ 1\} of \$\{STEPS\}/);
-    assert.match(flow, /const STEPS = 3;/);
+    assert.match(flow, /const STEPS = 4;/);
     assert.match(flow, /onExit\?\.\(\)/);
     const tab = read('../src/app/questions.tsx');
     assert.match(tab, /onExit=\{\(\) => setQuestionsMode\('pdfs'\)\}/);
@@ -365,7 +371,7 @@ describe('the screens', () => {
     for (const examOnly of ['DateField', 'Paper set', 'Total marks', 'Watermark', 'PDF_CHOICES', 'Answer Key', 'answerKey', 'Duration', 'Columns']) {
       assert.ok(!smart.includes(examOnly), `Smart PDF settings don't mention ${examOnly}`);
     }
-    for (const smartOnly of ['Presentation title', 'Question area', 'Options layout', 'Writing space', 'Reset to Default', 'Edit Layout', 'Generate Smart PDF']) {
+    for (const smartOnly of ['Presentation title', 'Question area', 'Options layout', 'Writing space', 'Reset to Default', 'Edit Layout', 'Make slides']) {
       assert.ok(smart.includes(smartOnly), `Smart PDF settings have ${smartOnly}`);
     }
     for (const field of ['Paper title', 'Paper set', 'DateField', 'Watermark', 'Institute logo', 'Page layout', 'Columns', 'Font', 'Text size']) {

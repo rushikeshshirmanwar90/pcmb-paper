@@ -15,22 +15,23 @@ import { bankSummary, EMPTY_BANK_SCOPE, type BankScope } from '@/screens/teacher
 import { DoneStep } from '@/screens/teacher/make-pdf/done-step';
 import { DEFAULT_DURATION_MINUTES, dayKey, ExamSettingsStep, startOfToday, type ExamForm } from '@/screens/teacher/make-pdf/exam-settings';
 import { chaptersOf, marksPerQuestionFor, standardsOf, titleFromNames, type PdfKind } from '@/screens/teacher/make-pdf/model';
-import { PaperQuestionsStep, PaperTypeStep } from '@/screens/teacher/make-pdf/one-page';
+import { PaperClassStep, PaperFormatStep, PaperQuestionsStep } from '@/screens/teacher/make-pdf/one-page';
 import { deriveSubjects, subjectHeader } from '@/screens/teacher/make-pdf/pdf-subjects';
 import { SubjectReview } from '@/screens/teacher/make-pdf/subject-review';
 import { StepHeader } from '@/screens/teacher/make-pdf/ui';
 import type { Question } from '@/types/pcmb';
 import { selectedQuestions, type SubjectSelection } from '@/screens/teacher/question-selection/model';
 
-/** Three steps, each with one job, then the finished paper. */
-type Step = 'type' | 'questions' | 'settings' | 'done';
+/** Four short steps, each with one job, then the finished paper. */
+type Step = 'class' | 'questions' | 'format' | 'settings' | 'done';
 
-const STEPS = 3;
+const STEPS = 4;
 const STEP_INFO: Record<Step, { index: number; name: string }> = {
-  type: { index: 0, name: 'What and for whom' },
+  class: { index: 0, name: 'Class' },
   questions: { index: 1, name: 'Questions' },
-  settings: { index: 2, name: 'Paper details' },
-  done: { index: 2, name: '' },
+  format: { index: 2, name: 'Paper or slides' },
+  settings: { index: 3, name: 'Paper details' },
+  done: { index: 3, name: '' },
 };
 
 
@@ -46,9 +47,9 @@ const newExamForm = (): ExamForm => ({
 });
 
 /**
- * Make a paper, for teachers, in three steps: what to make and for which class,
- * then the questions (by hand or at random), then the paper's details (or the
- * slides' settings), and the finished paper. One header says where the teacher
+ * Make a paper, for teachers, in four short steps: the class, the questions (by
+ * hand or at random), what to make of them (an exam paper or classroom slides),
+ * then that one's details, and the finished paper. One header says where the teacher
  * is. The rules for what a choice does to the ones after it live in bank-scope.ts.
  */
 export function MakePdfFlow({
@@ -68,7 +69,7 @@ export function MakePdfFlow({
   const userId = user?.id ?? '';
   const institute = user?.tuition?.name ?? '';
 
-  const [step, setStep] = useState<Step>('type');
+  const [step, setStep] = useState<Step>('class');
   const [kind, setKind] = useState<PdfKind>('exam');
   const [scope, setScope] = useState<BankScope>(EMPTY_BANK_SCOPE);
   const [selected, setSelected] = useState<Question[]>([]);
@@ -146,7 +147,7 @@ export function MakePdfFlow({
   };
 
   const reset = () => {
-    setStep('type');
+    setStep('class');
     setScope(EMPTY_BANK_SCOPE);
     setSelected([]);
     setSessions([]);
@@ -167,8 +168,9 @@ export function MakePdfFlow({
   const back = () => {
     if (busy) return;
     setPdfError(null);
-    if (step === 'settings') setStep('questions');
-    else if (step === 'questions') setStep('type');
+    if (step === 'settings') setStep('format');
+    else if (step === 'format') setStep('questions');
+    else if (step === 'questions') setStep('class');
     else if (step === 'done') reset();
     else onExit?.();
   };
@@ -179,7 +181,7 @@ export function MakePdfFlow({
     backRef.current = back;
   });
   useEffect(() => {
-    if (!active || step === 'type') return;
+    if (!active || step === 'class') return;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       backRef.current();
       return true;
@@ -196,15 +198,13 @@ export function MakePdfFlow({
         subtitle={step === 'done' ? bankSummary(scope) : `Step ${info.index + 1} of ${STEPS} · ${step === 'settings' && kind === 'smart' ? 'Slide settings' : info.name}`}
         step={info.index}
         steps={STEPS}
-        onBack={step === 'done' || (step === 'type' && !onExit) ? undefined : back}
-        backLabel={step === 'type' ? 'Back to Papers' : 'Back'}
+        onBack={step === 'done' || (step === 'class' && !onExit) ? undefined : back}
+        backLabel={step === 'class' ? 'Back to Papers' : 'Back'}
         onReset={step !== 'done' && !busy && (scope.course !== '' || selected.length > 0) ? startOver : undefined}
       />
 
-      {step === 'type' ? (
-        <PaperTypeStep
-          kind={kind}
-          onKind={setKind}
+      {step === 'class' ? (
+        <PaperClassStep
           scope={scope}
           onScope={setScope}
           sessions={sessions}
@@ -216,19 +216,27 @@ export function MakePdfFlow({
 
       {step === 'questions' ? (
         <PaperQuestionsStep
-          kind={kind}
           scope={scope}
           sessions={sessions}
           onSessions={next => { setSessions(next); setSelected(selectedQuestions(next)); }}
           onContinue={(questions) => {
             setSelected(questions);
-            setStep('settings');
+            setStep('format');
           }}
           bottomInset={bottomInset}
         />
       ) : null}
 
-      {step === 'settings' ? <SubjectReview questions={selected} onEdit={back} /> : null}
+      {/* The summary of what was picked is part of this page and scrolls with it (it used to stay pinned over the settings). */}
+      {step === 'format' ? (
+        <PaperFormatStep
+          kind={kind}
+          onKind={setKind}
+          summary={<SubjectReview questions={selected} onEdit={back} />}
+          onNext={() => setStep('settings')}
+          bottomInset={bottomInset}
+        />
+      ) : null}
 
       {step === 'settings' && kind === 'exam' ? (
         <ExamSettingsStep
