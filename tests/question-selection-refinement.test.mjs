@@ -117,11 +117,11 @@ test('browser overflow removes, undoes, replaces and reorders; Add at random pre
   const render = () => h.render(h.exports.Browser, props());
   let tree = render();
   // Nothing is pre-set: the teacher types how many, then adds them.
-  assert.equal(find(tree, 'Field', p => p.label === 'Add at random').props.value, '');
-  assert.equal(find(tree, 'Button', p => p.label === 'Add').props.disabled, true);
-  find(tree, 'Field', p => p.label === 'Add at random').props.onChangeText('1');
+  assert.equal(find(tree, 'Field', p => p.label === 'Number of questions').props.value, '');
+  assert.equal(find(tree, 'Button', p => p.label === 'Add at random').props.disabled, true);
+  find(tree, 'Field', p => p.label === 'Number of questions').props.onChangeText('1');
   tree = render();
-  const fill = find(tree, 'Button', p => p.label === 'Add 1');
+  const fill = find(tree, 'Button', p => p.label === 'Add 1 at random');
   fill.props.onPress(); fill.props.onPress();
   assert.equal(requests, 1);
   resolvePick([q('2'), q('3'), q('4')]);
@@ -147,7 +147,7 @@ test('browser overflow removes, undoes, replaces and reorders; Add at random pre
   assert.equal(nodes(tree).filter(n => n.type === 'Button' && n.props.label === 'Reorder').length, 0);
   assert.equal(nodes(tree).filter(n => n.type === 'Button' && n.props.label.startsWith('Done')).length, 1);
   assert.equal(find(tree, 'QuestionActionMenu'), undefined);
-  assert.equal(find(tree, 'Field', p => p.label === 'Add at random'), undefined);
+  assert.equal(find(tree, 'Field', p => p.label === 'Number of questions'), undefined);
   find(tree, 'SelectedReorderList').props.onMove(0, 1); tree = render();
   assert.deepEqual(Array.from(session.questions, q => q._id), ['2', '1', '3']);
   find(tree, 'Button', p => p.label === 'Done').props.onPress(); tree = render(); openMenu();
@@ -210,14 +210,15 @@ test('random picks ask how many; shortages report what was actually added', asyn
   }, '\nexports.Browser = SubjectBrowser;');
   let session = selection.selectSubjects([], ['Physics'], base, 3)[0];
   const render = () => h.render(h.exports.Browser, { session, subjects: ['Physics'], totalSelected: session.questions.length, onChange: next => { session = next; }, onSubject: () => {}, onClose: () => {} });
-  find(render(), 'Field', p => p.label === 'Add at random').props.onChangeText('3');
-  find(render(), 'Button', p => p.label === 'Add 3').props.onPress();
+  find(render(), 'Field', p => p.label === 'Number of questions').props.onChangeText('3');
+  find(render(), 'Button', p => p.label === 'Add 3 at random').props.onPress();
   await new Promise(resolve => setImmediate(resolve));
   const tree = render();
   assert.equal(session.questions.length, 1);
   assert.match(find(tree, 'Notice').props.text, /Added 1 at random: only 1 more match these filters/);
-  assert.equal(find(tree, 'Field', p => p.label === 'Add at random').props.value, '', 'the number clears after adding');
+  assert.equal(find(tree, 'Field', p => p.label === 'Number of questions').props.value, '', 'the number clears after adding');
   assert.ok(find(tree, 'Button', p => p.label === 'Back to subjects'));
+  assert.equal(find(tree, 'Field', p => p.label === 'Search Questions'), undefined, 'no search box');
 });
 
 

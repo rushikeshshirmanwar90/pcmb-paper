@@ -354,7 +354,7 @@ describe('the screens', () => {
 
   test('the shared subject browser offers additive random picks (asked for, never pre-set), manual picking and removal', () => {
     const page = read('../src/screens/teacher/question-selection/subject-selector.tsx');
-    for (const text of ['Add at random', 'SelectionCard', 'View Selected', 'QuestionActionMenu', 'onEndReached']) assert.ok(page.includes(text), text);
+    for (const text of ['Number of questions', 'SelectionCard', 'View Selected', 'QuestionActionMenu', 'onEndReached']) assert.ok(page.includes(text), text);
     assert.ok(read('../src/screens/teacher/question-selection/action-menu.tsx').includes('Remove Question'));
     assert.ok(page.includes('SelectedQuestionRow'));
     assert.doesNotMatch(page, /Custom random count|Add \$\{custom\} Random|label="Preview"|Fill Remaining|Distribute Equally|target/);

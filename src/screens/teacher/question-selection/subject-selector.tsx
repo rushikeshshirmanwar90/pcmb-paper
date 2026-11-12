@@ -100,16 +100,9 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
   }, [menu]);
   const [reorder, setReorder] = useState(false);
   const [removed, setRemoved] = useState<{ question: Question; index: number } | null>(null);
-  const [search, setSearch] = useState(scope.search ?? '');
-  // How many to add at random: empty until the teacher types a number.
+  // Number of questions to add at random: empty until the teacher types one.
   const [randomText, setRandomText] = useState('');
   const randomCount = Math.min(Number(randomText) || 0, Math.max(0, MAX_SELECTED - totalSelected));
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (search !== (live.current.session.scope.search ?? '')) onChange({ ...live.current.session, scope: { ...live.current.session.scope, search } });
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [search, onChange]);
   useEffect(() => {
     let cancelled = false;
     generation.current++;
@@ -251,10 +244,16 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
                 const next = availableSources.filter(s => values.includes(s.label)).map(s => s.value);
                 if (next.length) changeScope({ ...scope, source: next[0], sources: next });
               }} />
+            {/* How many to add at random from these filters; the button beside it adds exactly that many. */}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Field label="Number of questions" value={randomText} onChangeText={v => setRandomText(v.replace(/[^0-9]/g, '').slice(0, 3))} placeholder="e.g. 10" keyboardType="number-pad" maxLength={3} returnKeyType="done" />
+              </View>
+              <Button label={randomCount ? `Add ${randomCount} at random` : 'Add at random'} variant="tonal" icon={{ ios: 'dice', android: 'casino' }} onPress={() => void random(randomCount)} disabled={working || !!replacing || !randomCount} loading={working} style={compactButton} />
+            </View>
             {sources.length === 1 && sources[0] === 'pyq' ? <MultiSelectDropdown label="PYQ Years" options={data?.years.map(y => y.name) ?? []} selected={scope.years}
               placeholder="All years" allWhenNone applyOnDone showSelectedChips={false} onSelect={years => changeScope({ ...scope, years })} /> : null}
             {options.error ? <ErrorView message={options.error} onRetry={options.reload} /> : null}
-            <Field label="Search Questions" value={search} onChangeText={setSearch} maxLength={300} returnKeyType="search" />
             <Muted>{pages?.key === key ? `${pages.total} Questions Available` : 'Finding questions…'}</Muted>
             {pages && pages.page > 10 ? <Button label="Back to First Page" variant="secondary" style={compactButton} onPress={() => { setPages(null); setRetry(n => n + 1); }} /> : null}
           </> : null}
@@ -269,13 +268,6 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
           ? <SelectedQuestionRow question={item} index={at} onDetails={setPreview} onMenu={(question, anchor) => setMenu({ question, anchor })} />
           : <SelectionCard question={item} picked={selected(item)} disabled={cannotAdd(item)} onToggle={toggle} onDetails={setPreview} />} />}
       {!reorder ? <View style={{ paddingHorizontal: 12, paddingVertical: 8, gap: 6, borderTopWidth: 1, borderTopColor: palette.border }}>
-        {/* Random picks: the teacher says how many when they want some (nothing is pre-set). */}
-        {!review ? <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
-          <View style={{ flex: 1 }}>
-            <Field label="Add at random" value={randomText} onChangeText={v => setRandomText(v.replace(/[^0-9]/g, '').slice(0, 3))} placeholder="How many?" keyboardType="number-pad" maxLength={3} returnKeyType="done" />
-          </View>
-          <Button label={randomCount ? `Add ${randomCount}` : 'Add'} variant="tonal" icon={{ ios: 'dice', android: 'casino' }} onPress={() => void random(randomCount)} disabled={working || !!replacing || !randomCount} loading={working} style={compactButton} />
-        </View> : null}
         <Button label={index < subjects.length - 1 ? `Next: ${subjects[index + 1]}` : 'Back to subjects'} variant={index < subjects.length - 1 ? 'secondary' : 'primary'} style={compactButton} disabled={working} onPress={() => index < subjects.length - 1 ? onSubject(subjects[index + 1]) : onClose()} />
       </View> : null}
       <DetailSheet visible={!!preview} title="Question Details" onClose={() => setPreview(null)} footer={preview ? <Button
