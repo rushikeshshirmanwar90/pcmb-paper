@@ -6,6 +6,7 @@ import { SelectedReorderList } from './reorder-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, DetailSheet, ErrorView, Field, Icon, Muted, Notice, SkeletonCards, useLoad, usePalette } from '@/components/kit';
 import { useCacheKeys } from '@/hooks/use-cache-keys';
+import { haptic } from '@/design/haptics';
 import { Explanation } from '@/components/explanation';
 import { Diagrams } from '@/components/diagrams';
 import { confirmAction } from '@/components/confirm-action';
@@ -75,12 +76,19 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
   const liveKey = useRef(key);
   useEffect(() => { liveKey.current = key; }, [key]);
   const body = useMemo(() => bankBody(scope), [scope]);
+  // The lists of chapters, topics and years come from the subject and sources only, not from the
+  // chapters or topics picked: picking a chapter must not reload them (the Topics field would vanish
+  // while they load) or shrink the Chapters list to what's picked.
+  const listsBody = useMemo(() => bankBody({ ...scope, chapters: [], topics: [], years: [], search: '' }), [scope]);
+  const listsKey = JSON.stringify(listsBody);
   // Kept per scope: going back to filters already seen shows their lists at once, without a new request.
-  const optionsKey = useCacheKeys().bankOptions(key);
-  const options = useLoad(async () => ({ key, data: await fetchBankOptions(body) }), [key, optionsKey], { cacheKey: optionsKey });
+  const optionsKey = useCacheKeys().bankOptions(listsKey);
+  const options = useLoad(async () => ({ key: listsKey, data: await fetchBankOptions(listsBody) }), [listsKey, optionsKey], { cacheKey: optionsKey });
   const [pages, setPages] = useState<{ key: string; items: Question[]; total: number; page: number; more: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  // What the last "Add at random" did, shown right under its button.
+  const [added, setAdded] = useState<{ tone: 'success' | 'warning'; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const paging = useRef(false);
@@ -127,6 +135,7 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
   };
   const changeScope = (next: BankScope) => {
     onChange({ ...session, scope: next });
+    setAdded(null);
     setMessage('Filters apply to browsing and random additions. Your selected questions are kept.');
   };
   const toggle = (question: Question) => {
@@ -142,7 +151,7 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
   };
   const random = async (requested: number) => {
     if (randomBusy.current || requested < 1) return;
-    randomBusy.current = true; setWorking(true); setError(null);
+    randomBusy.current = true; setWorking(true); setError(null); setAdded(null);
     const count = Math.min(requested, MAX_SELECTED - totalSelected);
     try {
       if (count < 1) throw new Error(`The selection already has ${MAX_SELECTED} questions.`);
@@ -153,15 +162,26 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
       const result = addQuestions(current.questions, found, current.questions.length + Math.min(count, Math.max(0, MAX_SELECTED - live.current.totalSelected)));
       onChange({ ...current, questions: result.list });
       setRandomText('');
-      setMessage(result.added < requested
-        ? `Added ${result.added} at random: only ${result.added} more match these filters. Widen the chapters or sources to find more.`
-        : `Added ${result.added} at random. Tap a question to take it out.`);
+      setMessage(null);
+      const now = `${current.subject} now has ${result.list.length} question${result.list.length === 1 ? '' : 's'} selected.`;
+      if (result.added) haptic.success();
+      else haptic.warning();
+      setAdded(!result.added
+        ? { tone: 'warning', text: 'No more questions match these filters. Choose more chapters or topics, or another source.' }
+        : result.added < requested
+          ? { tone: 'warning', text: `Added ${result.added} of ${requested}: only ${result.added} more match these filters. ${now}` }
+          : { tone: 'success', text: `Added ${result.added} question${result.added === 1 ? '' : 's'} at random. ${now}` });
     } catch (e) { if (alive.current) setError(e instanceof Error ? e.message : 'Could not choose questions.'); }
     finally { randomBusy.current = false; if (alive.current) setWorking(false); }
   };
-  const data = options.data?.key === key ? options.data.data : null;
+  const fresh = options.data?.key === listsKey ? options.data.data : null;
+  // While other lists load (another source), the last ones stay, so no field disappears.
+  const [kept, setKept] = useState<typeof fresh>(null);
+  if (fresh && kept !== fresh) setKept(fresh);
+  const data = fresh ?? kept;
   const topics = (data?.topics ?? []).filter(t => !scope.chapters.length || scope.chapters.some(c => c.toLowerCase() === t.chapter.toLowerCase()));
-  const sources = scope.sources?.length ? scope.sources : [scope.source];
+  // Nothing is chosen until the teacher picks: then every question counts (regular is the whole bank).
+  const sources = scope.sources ?? (scope.source === 'pyq' ? ['pyq'] : []);
   const availableSources = sourceOptions(scope);
   const index = subjects.indexOf(session.subject);
   const items = review ? session.questions : pages?.key === key ? pages.items : [];
@@ -235,22 +255,25 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
           {!review ? <>
             <MultiSelectDropdown label="Chapters / Topics" options={data?.chapters.map(c => c.name) ?? []} counts={Object.fromEntries((data?.chapters ?? []).map(c => [c.name, c.count]))} selected={scope.chapters} placeholder="All chapters" allWhenNone applyOnDone searchable showSelectedChips={false}
               onSelect={chapters => changeScope(withChapters(scope, chapters, data?.topics ?? []))} />
-            {topics.length ? <MultiSelectDropdown label="Topics" options={[...new Set(topics.map(t => t.name))]} selected={scope.topics} placeholder="All topics" allWhenNone applyOnDone searchable showSelectedChips={false}
-              sections={(data?.chapters ?? []).map(c => ({ title: c.name, options: topics.filter(t => t.chapter === c.name).map(t => t.name) })).filter(s => s.options.length)}
-              onSelect={topics => changeScope({ ...scope, topics })} /> : null}
+            {/* Always shown: its list follows the chapters picked. */}
+            <MultiSelectDropdown label="Topics" options={[...new Set(topics.map(t => t.name))]} selected={scope.topics} placeholder="All topics" emptyText="These chapters have no topics" allWhenNone applyOnDone searchable showSelectedChips={false}
+              sections={(data?.chapters ?? []).map(c => ({ title: c.name, options: topics.filter(t => t.chapter.toLowerCase() === c.name.toLowerCase()).map(t => t.name) })).filter(s => s.options.length)}
+              onSelect={topics => changeScope({ ...scope, topics })} />
             <MultiSelectDropdown label="Question Sources" options={availableSources.map(s => s.label)}
-              selected={availableSources.filter(s => sources.includes(s.value)).map(s => s.label)} placeholder="Select sources" applyOnDone showSelectedChips={false}
+              selected={availableSources.filter(s => sources.includes(s.value)).map(s => s.label)} placeholder="All questions" allWhenNone applyOnDone showSelectedChips={false}
               onSelect={values => {
                 const next = availableSources.filter(s => values.includes(s.label)).map(s => s.value);
-                if (next.length) changeScope({ ...scope, source: next[0], sources: next });
+                // None picked: the whole bank (regular includes PYQs); PYQs alone narrows it.
+                changeScope({ ...scope, source: next.length === 1 ? next[0] : 'regular', sources: next });
               }} />
             {/* How many to add at random from these filters; the button beside it adds exactly that many. */}
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
               <View style={{ flex: 1 }}>
-                <Field label="Number of questions" value={randomText} onChangeText={v => setRandomText(v.replace(/[^0-9]/g, '').slice(0, 3))} placeholder="e.g. 10" keyboardType="number-pad" maxLength={3} returnKeyType="done" />
+                <Field label="Number of questions" value={randomText} onChangeText={v => { setRandomText(v.replace(/[^0-9]/g, '').slice(0, 3)); setAdded(null); }} placeholder="e.g. 10" keyboardType="number-pad" maxLength={3} returnKeyType="done" />
               </View>
               <Button label={randomCount ? `Add ${randomCount} at random` : 'Add at random'} variant="tonal" icon={{ ios: 'dice', android: 'casino' }} onPress={() => void random(randomCount)} disabled={working || !!replacing || !randomCount} loading={working} style={compactButton} />
             </View>
+            {working ? <Muted>Picking questions at random…</Muted> : added ? <Notice tone={added.tone} text={added.text} live onDismiss={() => setAdded(null)} /> : null}
             {sources.length === 1 && sources[0] === 'pyq' ? <MultiSelectDropdown label="PYQ Years" options={data?.years.map(y => y.name) ?? []} selected={scope.years}
               placeholder="All years" allWhenNone applyOnDone showSelectedChips={false} onSelect={years => changeScope({ ...scope, years })} /> : null}
             {options.error ? <ErrorView message={options.error} onRetry={options.reload} /> : null}

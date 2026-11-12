@@ -71,6 +71,7 @@ function harness(path, mocks = {}, expose = '') {
     './question-card': { SelectionCard: 'SelectionCard', SelectedQuestionRow: 'SelectedQuestionRow' },
     './model': selection, './answer': { answerOf }, ...mocks,
     '@/screens/teacher/question-selection/answer': { answerOf },
+    '@/design/haptics': { haptic: { success() {}, warning() {}, select() {}, tap() {} } },
   };
   const code = ts.transpileModule(read(path) + expose, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS } }).outputText;
   runInNewContext(code, { exports, require: id => id in dependencies ? dependencies[id] : req(id), setTimeout, clearTimeout });
@@ -215,7 +216,9 @@ test('random picks ask how many; shortages report what was actually added', asyn
   await new Promise(resolve => setImmediate(resolve));
   const tree = render();
   assert.equal(session.questions.length, 1);
-  assert.match(find(tree, 'Notice').props.text, /Added 1 at random: only 1 more match these filters/);
+  const ack = find(tree, 'Notice', p => /^Added/.test(p.text));
+  assert.equal(ack.props.tone, 'warning');
+  assert.equal(ack.props.text, 'Added 1 of 3: only 1 more match these filters. Physics now has 1 question selected.');
   assert.equal(find(tree, 'Field', p => p.label === 'Number of questions').props.value, '', 'the number clears after adding');
   assert.ok(find(tree, 'Button', p => p.label === 'Done'), 'Done closes the list');
   assert.equal(find(tree, 'Button', p => p.label.startsWith('Next')), undefined, 'no Next: subject button');
@@ -330,4 +333,58 @@ test('Exam and Smart PDF requests preserve reordered question and answer-key pai
     const body = JSON.parse(h.exports.requestBody({ questions, content: 'answers', smart }, 4));
     assert.deepEqual(body.questions.map(q => [q.questionText, q.correctAnswer]), [['Second', 'C'], ['Third', 'B'], ['First', 'A']]);
   }
+});
+
+test('filters: Topics stays when a chapter is picked, sources start unpicked, and Add at random says what it did', async () => {
+  const LISTS = { total: 9, chapters: [{ name: 'Motion', count: 5 }, { name: 'Waves', count: 4 }], topics: [{ name: 'Velocity', chapter: 'Motion', count: 5 }, { name: 'Sound', chapter: 'Waves', count: 4 }], years: [] };
+  // useLoad as the screen uses it for the lists: { key, data } for the key it is asked with.
+  const listKeys = [];
+  const kit = { usePalette: () => ({}), useLoad: (_load, deps) => { listKeys.push(deps[0]); return { data: { key: deps[0], data: LISTS } }; }, ...Object.fromEntries(['Button', 'DetailSheet', 'ErrorView', 'Field', 'Icon', 'Muted', 'Notice'].map(name => [name, name])) };
+  const h = harness('src/screens/teacher/question-selection/subject-selector.tsx', {
+    '@/components/kit': kit,
+    '@/services/pdf-questions': {
+      fetchBankOptions: async () => LISTS,
+      fetchBankPage: async () => ({ questions: [], total: 9, hasMore: false }),
+      fetchBankRandom: async (_body, count) => Array.from({ length: count }, (_, i) => q(`r${i}`)),
+    },
+  }, '\nexports.Browser = SubjectBrowser;');
+  let session = selection.selectSubjects([], ['Physics'], base)[0];
+  const render = () => h.render(h.exports.Browser, { session, subjects: ['Physics'], totalSelected: session.questions.length, onChange: next => { session = next; }, onSubject: () => {}, onClose: () => {} });
+  let tree = render();
+
+  // Sources: nothing picked by default, which means the whole bank.
+  const sources = find(tree, 'MultiSelectDropdown', p => p.label === 'Question Sources');
+  assert.deepEqual(Array.from(sources.props.selected), []);
+  assert.equal(sources.props.placeholder, 'All questions');
+  assert.equal(bankBody(session.scope).source, 'regular');
+  assert.deepEqual(Array.from(find(tree, 'MultiSelectDropdown', p => p.label === 'Topics').props.options), ['Velocity', 'Sound']);
+
+  // Picking a chapter keeps the Topics field, narrowed to that chapter; the lists are asked for with the same key.
+  const before = listKeys.at(-1);
+  find(tree, 'MultiSelectDropdown', p => p.label === 'Chapters / Topics').props.onSelect(['Motion']);
+  tree = render();
+  const topics = find(tree, 'MultiSelectDropdown', p => p.label === 'Topics');
+  assert.ok(topics, 'the Topics field is still there');
+  assert.deepEqual(Array.from(topics.props.options), ['Velocity']);
+  assert.equal(listKeys.at(-1), before, 'the lists come from the subject and sources, not the chapters picked');
+  assert.deepEqual(JSON.parse(before).chapters, []);
+
+  // Sources can be picked and cleared again (back to all questions).
+  find(tree, 'MultiSelectDropdown', p => p.label === 'Question Sources').props.onSelect(['PYQs']);
+  assert.deepEqual(Array.from(session.scope.sources), ['pyq']);
+  tree = render();
+  find(tree, 'MultiSelectDropdown', p => p.label === 'Question Sources').props.onSelect([]);
+  assert.deepEqual(Array.from(session.scope.sources), []);
+  assert.equal(bankBody(session.scope).source, 'regular');
+
+  // Add at random: a clear success message right under the button.
+  tree = render();
+  find(tree, 'Field', p => p.label === 'Number of questions').props.onChangeText('4');
+  tree = render();
+  find(tree, 'Button', p => p.label === 'Add 4 at random').props.onPress();
+  await new Promise(resolve => setImmediate(resolve));
+  tree = render();
+  const ack = find(tree, 'Notice', p => p.tone === 'success');
+  assert.equal(ack.props.text, 'Added 4 questions at random. Physics now has 4 questions selected.');
+  assert.equal(session.questions.length, 4);
 });
