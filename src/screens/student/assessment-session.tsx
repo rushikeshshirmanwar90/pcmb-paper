@@ -650,11 +650,17 @@ function Runner({
           </View>
         ) : null}
         <View style={styles.row}>
-          <Button label="Previous" variant="secondary" icon={{ ios: 'chevron.left', android: 'chevron_left' }} onPress={() => setCurrent((i) => Math.max(0, i - 1))} disabled={current === 0} style={styles.flex} />
+          <Button label="Previous" variant="secondary" icon={{ ios: 'chevron.left', android: 'chevron_left' }} onPress={() => {
+              haptic.tap();
+              setCurrent((i) => Math.max(0, i - 1));
+            }} disabled={current === 0} style={styles.flex} />
           {last ? (
             <Button label="Submit" icon={{ ios: 'paperplane.fill', android: 'send' }} onPress={askSubmit} loading={submitting} style={styles.flex} />
           ) : (
-            <Button label="Next" onPress={() => setCurrent((i) => Math.min(questions.length - 1, i + 1))} style={styles.flex} />
+            <Button label="Next" onPress={() => {
+                haptic.tap();
+                setCurrent((i) => Math.min(questions.length - 1, i + 1));
+              }} style={styles.flex} />
           )}
         </View>
         {!last ? <QuietButton label="Submit now" onPress={askSubmit} disabled={submitting} /> : null}

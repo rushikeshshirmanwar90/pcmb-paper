@@ -40,6 +40,8 @@ export function useVibrationSetting(): [boolean, (on: boolean) => void] {
   return [on, setVibration];
 }
 
+// select: the lightest tick (choosing an option). tap: a little stronger
+// (moving between questions). bump: firmer still.
 const ios: Record<Kind, () => Promise<void>> = {
   select: () => Haptics.selectionAsync(),
   tap: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
@@ -49,14 +51,17 @@ const ios: Record<Kind, () => Promise<void>> = {
   warning: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning),
 };
 
-// Android's haptic engine: crisp, unlike the buzzy vibration-motor fallback.
-const android: Record<Kind, Haptics.AndroidHaptics> = {
-  select: Haptics.AndroidHaptics.Segment_Tick,
-  tap: Haptics.AndroidHaptics.Context_Click,
-  bump: Haptics.AndroidHaptics.Confirm,
-  success: Haptics.AndroidHaptics.Confirm,
-  error: Haptics.AndroidHaptics.Reject,
-  warning: Haptics.AndroidHaptics.Long_Press,
+// Android uses the vibration motor, not view haptics: view haptics do nothing
+// when the phone's own "Touch feedback" setting is off, and their selection
+// tick is too faint to feel on many phones. Strength is set by amplitude:
+// select 50 ms at 30/255, tap 43 ms at 50, bump 60 ms at 70.
+const android: Record<Kind, () => Promise<void>> = {
+  select: () => Haptics.selectionAsync(),
+  tap: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium),
+  bump: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy),
+  success: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
+  error: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error),
+  warning: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning),
 };
 
 function fire(kind: Kind) {
@@ -66,8 +71,7 @@ function fire(kind: Kind) {
   if (now - last.at < 150 && PRIORITY[kind] <= last.priority) return;
   last = { at: now, priority: PRIORITY[kind] };
   try {
-    const run = Platform.OS === 'android' ? Haptics.performAndroidHapticsAsync(android[kind]).catch(() => ios[kind]()) : ios[kind]();
-    run.catch(() => {});
+    (Platform.OS === 'android' ? android : ios)[kind]().catch(() => {});
   } catch {
     // No haptics module in this build.
   }
