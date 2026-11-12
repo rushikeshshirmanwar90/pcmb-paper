@@ -38,6 +38,7 @@ type Width = 'full' | 'narrow';
 const FONT_NAMES: Record<FontOption, string> = { chivo: 'Chivo', archivo: 'Archivo', spaceGrotesk: 'Space Grotesk', familjen: 'Familjen Grotesk', hanken: 'Hanken Grotesk' };
 
 export function StylePreviewScreen() {
+  // The app has one theme now: light.
   const [mode, setMode] = useState<Mode>('light');
   const [width, setWidth] = useState<Width>('full');
   const [font, setFont] = useState<FontOption>('chivo');
@@ -97,7 +98,6 @@ function Preview({
       </View>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.controls}>
-          <Segmented label="Theme" value={mode} onChange={setMode} options={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]} />
           <Segmented label="Width" value={width} onChange={setWidth} options={[{ value: 'full', label: 'This phone' }, { value: 'narrow', label: '320px phone' }]} />
           <Chips label="Font (the app uses Chivo; see design/app-font.ts)" choices={Object.keys(FONT_NAMES) as FontOption[]} selected={font} onChange={setFont} labels={FONT_NAMES} />
           <Chips

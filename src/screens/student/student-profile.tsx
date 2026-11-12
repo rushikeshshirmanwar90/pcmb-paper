@@ -2,9 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Linking, StyleSheet, Switch, View } from 'react-native';
 import { Text } from '@/components/app-text';
 import { AccountSettings, ProfileHeader } from '@/components/account-section';
-import { Badge, Button, Card, Icon, ListRow, Muted, Notice, SectionTitle, Screen, Segmented, useLoad, usePalette, type IconName } from '@/components/kit';
+import { Badge, Button, Card, Icon, ListRow, Muted, Notice, SectionTitle, Screen, useLoad, usePalette, type IconName } from '@/components/kit';
 import { PROGRAM_LABELS, programOf } from '@/constants/school';
-import { useAppearance, type AppearancePreference } from '@/context/appearance-context';
 import { useSignedInUser } from '@/context/auth-context';
 import { useTabDataVersion } from '@/context/data-version';
 import { classRemindersOn, classRemindersSupported, setClassReminders } from '@/services/notifications';
@@ -73,8 +72,6 @@ export function StudentProfileScreen() {
 
       <SectionTitle title="Settings" />
       <Card style={styles.settings}>
-        <AppearanceSetting />
-        <View style={[styles.divider, { backgroundColor: palette.border }]} />
         <VibrationSetting />
         <View style={[styles.divider, { backgroundColor: palette.border }]} />
         <RemindersSetting />
@@ -110,29 +107,6 @@ export function StudentProfileScreen() {
       <SectionTitle title="Account" />
       <AccountSettings />
     </Screen>
-  );
-}
-
-const APPEARANCE: { value: AppearancePreference; label: string }[] = [
-  { value: 'system', label: 'System' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-];
-
-function AppearanceSetting() {
-  const palette = usePalette();
-  const { preference, setPreference } = useAppearance();
-  return (
-    <View style={styles.setting}>
-      <View style={styles.settingTop}>
-        <InfoIcon icon={{ ios: 'circle.lefthalf.filled', android: 'contrast' }} />
-        <View style={styles.flex}>
-          <Text style={[styles.settingTitle, { color: palette.foreground }]}>Appearance</Text>
-          <Text style={[styles.settingHint, { color: palette.mutedForeground }]}>System follows your phone&apos;s light or dark setting.</Text>
-        </View>
-      </View>
-      <Segmented label="Appearance" options={APPEARANCE} value={preference} onChange={setPreference} />
-    </View>
   );
 }
 

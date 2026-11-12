@@ -10,7 +10,6 @@ import {
   ErrorView,
   Field,
   FormSheet,
-  Icon,
   ListRow,
   LoadingView,
   Muted,
@@ -22,7 +21,6 @@ import {
   usePalette,
 } from '@/components/kit';
 import { SUBJECTS_BY_TRACK, TRACKS, type SchoolSubject, type Track } from '@/constants/school';
-import { useAppearance, type AppearancePreference } from '@/context/appearance-context';
 import { useAuth, useSignedInUser } from '@/context/auth-context';
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
 import { FlashNotice, InfoRow, useFlash } from '@/screens/tuition/admin-ui';
@@ -88,43 +86,12 @@ export function TuitionProfileScreen() {
         />
       </Card>
 
-      <SectionTitle title="Settings on this phone" />
-      <Card>
-        <AppearanceSetting />
-      </Card>
-
       <SectionTitle title="Account" />
       <AccountSettings />
 
       {data ? <TuitionDetailsForm visible={editing} onClose={() => setEditing(false)} details={data} onSaved={() => show('Institute details saved.')} /> : null}
       {weightage ? <WeightageEditor onClose={() => setWeightage(false)} /> : null}
     </Screen>
-  );
-}
-
-const APPEARANCE: { value: AppearancePreference; label: string }[] = [
-  { value: 'system', label: 'System' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-];
-
-/** Light, dark, or follow the phone. Kept on this phone only. */
-function AppearanceSetting() {
-  const palette = usePalette();
-  const { preference, setPreference } = useAppearance();
-  return (
-    <View style={styles.setting}>
-      <View style={styles.settingTop}>
-        <View style={[styles.iconTile, { backgroundColor: palette.primarySoft }]}>
-          <Icon name={{ ios: 'circle.lefthalf.filled', android: 'contrast' }} color={palette.primary} size={17} />
-        </View>
-        <View style={styles.flex}>
-          <Text style={[styles.settingTitle, { color: palette.foreground }]}>Appearance</Text>
-          <Text style={[styles.settingHint, { color: palette.mutedForeground }]}>System follows your phone&apos;s light or dark setting.</Text>
-        </View>
-      </View>
-      <Segmented label="Appearance" options={APPEARANCE} value={preference} onChange={setPreference} />
-    </View>
   );
 }
 
