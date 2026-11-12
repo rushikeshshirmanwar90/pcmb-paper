@@ -13,7 +13,8 @@ import { column, SheetFooter, SheetHeader, type TopicPick } from '@/screens/stud
 import {
   chapterKeyOf,
   chaptersOfPicked,
-  MAX_TOPICS,
+  MAX_CHAPTERS,
+  MAX_QUESTIONS,
   PER_TOPIC_MAX,
   PER_TOPIC_MIN,
   questionWindow,
@@ -29,7 +30,7 @@ import { studentApi, type AssessmentDetail, type AssessmentPool, type PracticeCh
 // Start practice, as five dropdowns in the order students think it through:
 // Subjects (several) → Chapters (several, from those subjects) → Topics
 // (several, from those chapters) → Question type (PYQs, syllabus questions or
-// both) → How many questions (typed, or − / +; 5–15 per topic picked). Then one button makes
+// both) → How many questions (typed; 5–15 per topic, at most 150). Then one button makes
 // the test and opens its first question. Each dropdown opens a sheet with the
 // choices; the next one waits until the one before it has something picked,
 // and says why. Taking a subject or chapter off takes what was under it too.
@@ -95,7 +96,7 @@ export function PracticeSetup({
       if (!c) continue;
       const topic = p.topic ? c.topics.find((t) => same(t.topic, p.topic))?.topic ?? '' : '';
       const item = { subject: subjects[0], standard: c.standard, chapter: c.chapter, topic };
-      if (!next.some((x) => keyOf(x) === keyOf(item)) && next.length < MAX_TOPICS) next.push(item);
+      if (!next.some((x) => keyOf(x) === keyOf(item))) next.push(item);
     }
     setPresetLeft(null);
     setChapters(chaptersOfPicked(next));
@@ -228,9 +229,9 @@ function StepLabel({ step, label, done }: { step: number; label: string; done: b
 }
 
 /**
- * How many questions: typed, or one up or down with − and +. Says the range
- * for the topics picked and about how long it takes; a number outside the
- * range is shown as it is, with what to enter instead (never changed silently).
+ * How many questions, typed. Says the range for the topics picked and about
+ * how long it takes; a number outside the range is shown as it is, with what
+ * to enter instead (never changed silently).
  */
 function CountField({ step, topics, text, onText, error, minutes }: { step: number; topics: number; text: string; onText: (t: string) => void; error: string | null; minutes: number | null }) {
   const palette = usePalette();
@@ -239,40 +240,30 @@ function CountField({ step, topics, text, onText, error, minutes }: { step: numb
   const [focused, setFocused] = useState(false);
   const { min, max } = questionWindow(topics);
   const disabled = !topics;
-  const n = /^\d+$/.test(text.trim()) ? Number(text) : null;
-  const nudge = (by: number) => {
-    haptic.select();
-    onText(String(Math.min(max, Math.max(min, (n ?? min) + by))));
-  };
   const edge = error ? palette.dangerInk : palette.ink;
   return (
     <View ref={group} style={styles.field}>
       <StepLabel step={step} label="Number of questions" done={!disabled && !error} />
-      <View style={[styles.countRow, { opacity: disabled ? 0.5 : 1 }]}>
-        <StepButton icon={{ ios: 'minus', android: 'remove' }} label="One question fewer" disabled={disabled || (n !== null && n <= min)} onPress={() => nudge(-1)} />
-        <View style={[styles.countBox, { borderColor: edge, backgroundColor: focused ? palette.primarySoft : palette.card }, hardShadow(Neo.shadow.md, edge)]}>
-          <TextInput
-            value={text}
-            onChangeText={(t) => onText(t.replace(/[^0-9]/g, ''))}
-            keyboardType="number-pad"
-            returnKeyType="done"
-            maxLength={3}
-            editable={!disabled}
-            selectTextOnFocus
-            placeholder="–"
-            placeholderTextColor={palette.mutedForeground}
-            accessibilityLabel="Number of questions"
-            accessibilityHint={disabled ? 'Choose topics first' : `From ${min} to ${max}`}
-            onFocus={() => {
-              setFocused(true);
-              scrollIntoView?.(group.current);
-            }}
-            onBlur={() => setFocused(false)}
-            style={[styles.countInput, { color: palette.foreground }]}
-          />
-          <Text style={[styles.countUnit, { color: palette.mutedForeground }]}>questions</Text>
-        </View>
-        <StepButton icon={{ ios: 'plus', android: 'add' }} label="One question more" disabled={disabled || (n !== null && n >= max)} onPress={() => nudge(1)} />
+      <View style={[styles.countBox, { borderColor: edge, backgroundColor: focused ? palette.primarySoft : palette.card, opacity: disabled ? 0.5 : 1 }, hardShadow(Neo.shadow.md, edge)]}>
+        <TextInput
+          value={text}
+          onChangeText={(t) => onText(t.replace(/[^0-9]/g, ''))}
+          keyboardType="number-pad"
+          returnKeyType="done"
+          maxLength={3}
+          editable={!disabled}
+          selectTextOnFocus
+          placeholder={disabled ? 'Choose topics first' : `${min} to ${max}`}
+          placeholderTextColor={palette.mutedForeground}
+          accessibilityLabel="Number of questions"
+          accessibilityHint={disabled ? 'Choose topics first' : `From ${min} to ${max}`}
+          onFocus={() => {
+            setFocused(true);
+            scrollIntoView?.(group.current);
+          }}
+          onBlur={() => setFocused(false)}
+          style={[styles.countInput, { color: palette.foreground }]}
+        />
       </View>
       {disabled ? (
         <Text style={[styles.reason, { color: palette.mutedForeground }]}>Choose topics first: you get {PER_TOPIC_MIN} to {PER_TOPIC_MAX} questions for each.</Text>
@@ -281,34 +272,13 @@ function CountField({ step, topics, text, onText, error, minutes }: { step: numb
       ) : (
         <Text style={[styles.reason, { color: palette.mutedForeground }]}>
           {min} to {max} for {topics} topic{topics === 1 ? '' : 's'}
+          {max === MAX_QUESTIONS && PER_TOPIC_MAX * topics > MAX_QUESTIONS ? ` (${MAX_QUESTIONS} is the most in one practice)` : ''}
           {minutes ? ` · about ${minutes} min` : ''}
         </Text>
       )}
     </View>
   );
 }
-
-function StepButton({ icon, label, disabled, onPress }: { icon: React.ComponentProps<typeof Icon>['name']; label: string; disabled: boolean; onPress: () => void }) {
-  const palette = usePalette();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.stepButton,
-        { borderColor: palette.ink, backgroundColor: palette.card, opacity: disabled ? 0.45 : 1 },
-        hardShadow(Neo.shadow.md, palette.ink),
-        pressed && styles.sink,
-      ]}
-    >
-      <Icon name={icon} color={palette.foreground} size={20} />
-    </Pressable>
-  );
-}
-
 
 /** A numbered field that opens its choices: label, what's picked (or a hint), a chevron. Says why when it can't open yet. */
 function Dropdown({ step, label, value, placeholder, disabledReason = null, onPress }: { step: number; label: string; value: string | null; placeholder: string; disabledReason?: string | null; onPress: () => void }) {
@@ -498,7 +468,7 @@ function NoMatches({ query, subject, elsewhere, onTab, empty }: { query: string;
   );
 }
 
-/** Step 2: chapters of the subjects picked. Up to 10 (each needs at least one topic). */
+/** Step 2: chapters of the subjects picked (up to the server's 30). */
 function ChaptersSheet({
   visible,
   subjects,
@@ -516,7 +486,7 @@ function ChaptersSheet({
   const list = subject ? shownIn(subject) : [];
   const elsewhere = query && !list.length ? subjects.filter((s) => s !== subject && shownIn(s).length) : [];
   const keys = new Set(value.map(chapterKeyOf));
-  const full = value.length >= MAX_TOPICS;
+  const full = value.length >= MAX_CHAPTERS;
   const toggle = (c: PickedChapterRef) => {
     const k = chapterKeyOf(c);
     if (keys.has(k)) onChange(value.filter((x) => chapterKeyOf(x) !== k));
@@ -544,7 +514,7 @@ function ChaptersSheet({
         />
       }
     >
-      <Muted>{full ? `That's ${MAX_TOPICS} chapters, the most for one practice. Take one off to pick another.` : 'Pick one or more. You choose their topics next.'}</Muted>
+      <Muted>{full ? `That's ${MAX_CHAPTERS} chapters, the most for one practice. Take one off to pick another.` : 'Pick one or more. You choose their topics next.'}</Muted>
       {loading && !chaptersBy.size ? (
         <LoadingView label="Loading chapters…" />
       ) : error ? (
@@ -565,7 +535,7 @@ function ChaptersSheet({
   );
 }
 
-/** Step 3: topics of the chapters picked, under each chapter's name. Up to 10 in all. */
+/** Step 3: topics of the chapters picked, under each chapter's name. As many as the student wants. */
 function TopicsSheet({
   visible,
   chapters,
@@ -591,16 +561,11 @@ function TopicsSheet({
   const groups = subject ? groupsIn(subject) : [];
   const elsewhere = query && !groups.length ? subjects.filter((s) => s !== subject && groupsIn(s).length) : [];
   const keys = new Set(value.map(keyOf));
-  const full = value.length >= MAX_TOPICS;
   const toggle = (p: Picked) => {
     const k = keyOf(p);
-    if (keys.has(k)) onChange(value.filter((x) => keyOf(x) !== k));
-    else if (!full) onChange([...value, p]);
+    onChange(keys.has(k) ? value.filter((x) => keyOf(x) !== k) : [...value, p]);
   };
-  const row = (p: Picked, label: string) => {
-    const on = keys.has(keyOf(p));
-    return <Row key={keyOf(p)} label={label} on={on} disabled={full && !on} onPress={() => toggle(p)} />;
-  };
+  const row = (p: Picked, label: string) => <Row key={keyOf(p)} label={label} on={keys.has(keyOf(p))} onPress={() => toggle(p)} />;
 
   return (
     <DetailSheet
@@ -608,7 +573,7 @@ function TopicsSheet({
       title="Topics"
       onClose={onClose}
       scrollRef={listRef}
-      footer={<Button label={value.length ? `Done · ${value.length} of ${MAX_TOPICS} picked` : 'Done'} onPress={onClose} />}
+      footer={<Button label={value.length ? `Done · ${value.length} picked` : 'Done'} onPress={onClose} />}
       pinned={
         subject ? (
           <PinnedSearchTabs
@@ -625,7 +590,7 @@ function TopicsSheet({
         ) : null
       }
     >
-      <Muted>{full ? `That's ${MAX_TOPICS} topics, the most for one practice. Take one off to pick another.` : `Pick up to ${MAX_TOPICS} topics from your chapters.`}</Muted>
+      <Muted>Pick as many topics from your chapters as you like.</Muted>
       {loading && !chaptersBy.size ? (
         <LoadingView label="Loading topics…" />
       ) : error ? (
@@ -670,11 +635,8 @@ const styles = StyleSheet.create({
   sink: { transform: [{ translateX: 2 }, { translateY: 2 }] },
   value: { flex: 1, fontSize: 15, lineHeight: 21, fontFamily: face.medium },
   reason: { fontSize: 13, lineHeight: 18 },
-  countRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  countBox: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 56, paddingHorizontal: 12, borderWidth: Neo.border.width, borderRadius: Neo.radius.md, marginRight: Neo.shadow.md, marginBottom: Neo.shadow.md },
-  countInput: { minWidth: 56, fontSize: 24, fontFamily: face.heavy, textAlign: 'center', paddingVertical: 6 },
-  countUnit: { fontSize: 15, fontFamily: face.medium },
-  stepButton: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center', borderWidth: Neo.border.width, borderRadius: Neo.radius.md, marginRight: Neo.shadow.md, marginBottom: Neo.shadow.md },
+  countBox: { minHeight: 56, paddingHorizontal: 16, justifyContent: 'center', borderWidth: Neo.border.width, borderRadius: Neo.radius.md, marginRight: Neo.shadow.md, marginBottom: Neo.shadow.md },
+  countInput: { fontSize: 16, fontFamily: face.medium, minHeight: 48 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingVertical: 10, borderBottomWidth: Neo.border.width },
   rowLabel: { fontSize: 15, lineHeight: 21, fontFamily: face.medium },
   rowHint: { fontSize: 13, lineHeight: 18, marginTop: 1 },

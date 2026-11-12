@@ -269,10 +269,11 @@ export function answerRows<Q extends { index: number; standard: string; chapter:
 /** The rows a filter shows ("All", "Wrong" or "Skipped"), in order. */
 export const filterRows = <R extends { outcome: AnswerOutcome }>(rows: R[], filter: AnswerFilter) => (filter === 'all' ? rows : rows.filter((r) => r.outcome === filter));
 
-// ─── Start practice: subjects → topics → type → how many ──────────────────
+// ─── Start practice: subjects → chapters → topics → type → how many ───────
 
-/** At most this many topics in one practice test (15 per topic keeps it within the server's 150). */
-export const MAX_TOPICS = 10;
+/** The server's limits for one practice test: chapters and questions (topics have none). */
+export const MAX_CHAPTERS = 30;
+export const MAX_QUESTIONS = 150;
 /** Questions per topic picked: the window students choose in. */
 export const PER_TOPIC_MIN = 5;
 export const PER_TOPIC_MAX = 15;
@@ -305,8 +306,8 @@ export function topicsInChapters(picked: PickedTopicRef[], chapters: PickedChapt
   return picked.filter((p) => keep.has(chapterKeyOf(p)));
 }
 
-/** The questions a practice of `topics` topics can have: 5 to 15 for each topic. */
-export const questionWindow = (topics: number) => ({ min: PER_TOPIC_MIN * topics, max: PER_TOPIC_MAX * topics });
+/** The questions a practice of `topics` topics can have: 5 to 15 for each topic, never more than the server's 150. */
+export const questionWindow = (topics: number) => ({ min: Math.min(PER_TOPIC_MIN * topics, MAX_QUESTIONS), max: Math.min(PER_TOPIC_MAX * topics, MAX_QUESTIONS) });
 
 /** The number of questions a student typed, checked against the window for their topics. */
 export function readCount(text: string, topics: number): { count: number | null; error: string | null } {

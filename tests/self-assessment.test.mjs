@@ -254,11 +254,14 @@ describe('poolLabel (which questions a practice test used)', async () => {
 });
 
 describe('Start practice: picked topics and the question window', async () => {
-  const { scopeFromPicked, questionWindow, MAX_TOPICS, PER_TOPIC_MIN, PER_TOPIC_MAX } = await import('../src/screens/student/self-assessment.ts');
-  test('5 to 15 questions per topic picked', () => {
+  const { scopeFromPicked, questionWindow, MAX_QUESTIONS, PER_TOPIC_MIN, PER_TOPIC_MAX } = await import('../src/screens/student/self-assessment.ts');
+  test('5 to 15 questions per topic picked, never past the server limit of 150', () => {
     assert.deepEqual(questionWindow(1), { min: 5, max: 15 });
     assert.deepEqual(questionWindow(3), { min: 15, max: 45 });
-    assert.equal(questionWindow(MAX_TOPICS).max, 150, 'the most topics at the most per topic is the server limit');
+    assert.deepEqual(questionWindow(10), { min: 50, max: 150 });
+    assert.deepEqual(questionWindow(12), { min: 60, max: 150 }, 'any number of topics: the top stops at 150');
+    assert.deepEqual(questionWindow(40), { min: 150, max: 150 });
+    assert.equal(MAX_QUESTIONS, 150);
     assert.equal(PER_TOPIC_MIN, 5);
     assert.equal(PER_TOPIC_MAX, 15);
   });
