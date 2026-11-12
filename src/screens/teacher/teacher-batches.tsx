@@ -13,15 +13,19 @@ import {
 } from "@/components/kit";
 import { SkeletonCard, StaleNotice } from "@/components/states";
 import { useDataVersion } from "@/context/data-version";
+import { useCacheKeys } from "@/hooks/use-cache-keys";
 import { schoolApi } from "@/services/school-api";
 
 /** The batches a teacher teaches, each with its coverage; a batch opens its own page (Syllabus · Students · Tests). */
 export function TeacherBatchesScreen() {
   const version = useDataVersion();
   const router = useRouter();
+  const keys = useCacheKeys();
+  // The cards need only the overview's batch summaries (counts, coverage), shared with Home, Tests and Profile.
   const { data, error, loading, refreshing, refresh, reload } = useLoad(
     () => schoolApi.teacherOverview(),
-    [version],
+    [version, keys.teacherOverview],
+    { cacheKey: keys.teacherOverview },
   );
 
   return (

@@ -2,7 +2,7 @@ import { useRouter, type Href } from 'expo-router';
 import { DropdownSelect } from '@/components/dropdown-select';
 import { BatchMultiSelect } from '@/screens/teacher/batch-multi-select';
 import { AudiencePicker } from '@/screens/teacher/test-access';
-import React, { useRef, useState } from 'react';
+import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { confirmAction } from '@/components/account-section';
@@ -35,6 +35,7 @@ import { SubjectChips } from '@/components/subject-chips';
 import { SkeletonCard, StaleNotice } from '@/components/states';
 import { PROGRAM_LABELS, SCHOOL_STANDARDS, programOf, questionBankOf, type SchoolStandard, type SchoolSubject } from '@/constants/school';
 import { bumpDataVersion, useDataVersion } from '@/context/data-version';
+import { useCacheKeys } from '@/hooks/use-cache-keys';
 import { DateField } from '@/screens/teacher/date-field';
 import { pickerQuestions, stepBack } from '@/screens/teacher/test-questions';
 import { TestEditSelection } from '@/screens/teacher/question-selection/test-edit-selection';
@@ -71,15 +72,20 @@ export function TeacherTestsScreen() {
   const version = useDataVersion();
   const [batchFilter, setBatchFilter] = useState(ALL);
   const [filter, setFilter] = useState<TestFilter>('all');
-  const overview = useLoad(() => schoolApi.teacherOverview(), [version]);
-  const { data, error, loading, refreshing, refresh, reload } = useLoad(() => schoolApi.tests(batchFilter === ALL ? undefined : batchFilter), [batchFilter, version]);
+  const keys = useCacheKeys();
+  // Shared with Home, Batches and Profile (one request); only the batch filter needs it.
+  const overview = useLoad(() => schoolApi.teacherOverview(), [version, keys.teacherOverview], { cacheKey: keys.teacherOverview });
+  // Each batch filter's list is kept, so switching back shows it at once while it refreshes.
+  // The status filters below only sort what's loaded: switching them sends no request.
+  const testsKey = keys.tests(batchFilter === ALL ? undefined : batchFilter);
+  const { data, error, loading, refreshing, refresh, reload } = useLoad(() => schoolApi.tests(batchFilter === ALL ? undefined : batchFilter), [batchFilter, version, testsKey], { cacheKey: testsKey });
   const [wizard, setWizard] = useState<{ kind: 'new' } | { kind: 'edit'; test: TestSummary; questions: TestQuestionCopy[] } | null>(null);
   const router = useRouter();
-  const openTest = (id: string) => router.push({ pathname: '/test/[testId]', params: { testId: id } } as Href);
+  const openTest = useCallback((id: string) => router.push({ pathname: '/test/[testId]', params: { testId: id } } as Href), [router]);
   const batches = overview.data?.batches ?? [];
 
-  const counts = (status: TestFilter) => (data ? filterTests(data, status).length : 0);
-  const shown = data ? sortTests(filterTests(data, filter)) : [];
+  const counts = useMemo(() => (data ? Object.fromEntries(TEST_FILTERS.map((s) => [s, filterTests(data, s).length])) as Record<TestFilter, number> : null), [data]);
+  const shown = useMemo(() => (data ? sortTests(filterTests(data, filter)) : []), [data, filter]);
 
   return (
     <Screen title="Tests" subtitle="Create tests, monitor students and manage access" onRefresh={refresh} refreshing={refreshing}>
@@ -98,7 +104,7 @@ export function TeacherTestsScreen() {
         <View accessibilityRole="tablist" accessibilityLabel="Filter tests by status" style={styles.statusRow}>
           {TEST_FILTERS.map(value => {
             const selected = value === filter;
-            const count = data ? counts(value) : undefined;
+            const count = counts ? counts[value] : undefined;
             return (
               <Pressable
                 key={value}
@@ -138,7 +144,7 @@ export function TeacherTestsScreen() {
       ) : (
         <View style={styles.cards}>
           {shown.map((t) => (
-            <TestCard key={t.id} test={t} onPress={() => openTest(t.id)} />
+            <TestCard key={t.id} test={t} onOpen={openTest} />
           ))}
         </View>
       )}
@@ -173,8 +179,10 @@ function scheduleLine(t: TestSummary) {
   return `Closed ${dateTimeLabel(t.closesAt)} · ${t.submitted}/${t.batchStudents} submitted`;
 }
 
-function TestCard({ test: t, onPress }: { test: TestSummary; onPress: () => void }) {
+// Memoized: a refresh that leaves a test unchanged doesn't redraw its card.
+const TestCard = memo(function TestCard({ test: t, onOpen }: { test: TestSummary; onOpen: (id: string) => void }) {
   const palette = usePalette();
+  const onPress = () => onOpen(t.id);
   const badge = STATUS_WORDS[t.status];
   return (
     <Pressable
@@ -201,7 +209,7 @@ function TestCard({ test: t, onPress }: { test: TestSummary; onPress: () => void
       </Text>
     </Pressable>
   );
-}
+});
 
 // --- Setting or editing a test: four steps, then a confirmation ---
 
@@ -252,7 +260,8 @@ export function TestWizard({
   const bank = batch ? questionBankOf(programOf(batch)) : null;
   const editSubjects = edit?.test.subject.split(',').map(s => s.trim()) ?? [];
   const combinedEdit = !!edit && editSubjects.length > 1;
-  const editBatches = useLoad(() => schoolApi.testBatches(), [], { enabled: combinedEdit });
+  const { testBatches: testBatchesKey } = useCacheKeys();
+  const editBatches = useLoad(() => schoolApi.testBatches(), [testBatchesKey], { enabled: combinedEdit, cacheKey: testBatchesKey });
   const editBank = editBatches.data?.find(b => b.id === edit?.test.batch.id)?.questionBank;
 
   // Step 2: questions

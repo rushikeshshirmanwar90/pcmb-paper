@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { DropdownSelect } from '@/components/dropdown-select';
 import { MultiSelectDropdown } from '@/components/multi-select-dropdown';
-import { Button, ErrorView, Icon, LoadingView, Muted, Notice, useLoad, usePalette } from '@/components/kit';
+import { Button, ErrorView, Icon, Muted, Notice, SkeletonCards, useLoad, usePalette } from '@/components/kit';
+import { useCacheKeys } from '@/hooks/use-cache-keys';
 import { ApiError } from '@/services/api-client';
 import { fetchBankOptions, fetchBankPage, fetchBankRandom } from '@/services/pdf-questions';
 import { bankBody, bankKey, keepSelected, withChapters, type BankScope, type QuestionSource } from '@/screens/teacher/make-pdf/bank-scope';
@@ -34,7 +35,9 @@ export function QuestionPicker({ scope, onScope, selected, onSelected, count, on
   const palette = usePalette();
   const key = bankKey(scope);
   const body = useMemo(() => bankBody(scope), [scope]);
-  const options = useLoad(async () => ({ key, data: await fetchBankOptions(body) }), [key]);
+  // Kept per scope: going back to filters already seen shows their lists at once, without a new request.
+  const optionsKey = useCacheKeys().bankOptions(key);
+  const options = useLoad(async () => ({ key, data: await fetchBankOptions(body) }), [key, optionsKey], { cacheKey: optionsKey });
   const fresh = options.data && options.data.key === key ? options.data.data : null;
   // While narrower filters load, the lists stay put, so an open dropdown isn't torn down.
   const [kept, setKept] = useState<NonNullable<typeof fresh> | null>(null);
@@ -119,6 +122,7 @@ export function QuestionPicker({ scope, onScope, selected, onSelected, count, on
     }
   };
 
+  const selectedIds = useMemo(() => new Set(selected.map((q) => q._id)), [selected]);
   const chapterSummary = [...new Set(selected.map((q) => q.chapter).filter(Boolean))];
 
   return (
@@ -130,7 +134,7 @@ export function QuestionPicker({ scope, onScope, selected, onSelected, count, on
         selected={SOURCES[scope.source]}
         onSelect={(v) => change({ ...scope, source: v === SOURCES.pyq ? 'pyq' : 'regular', chapters: [], topics: [], years: [] })}
       />
-      {options.loading && !data ? <LoadingView label="Loading chapters…" /> : null}
+      {options.loading && !data ? <SkeletonCards count={2} lines={1} label="Loading chapters" /> : null}
       {options.error && !data ? <ErrorView message={options.error} onRetry={options.reload} /> : null}
       {data ? (
         <>
@@ -224,10 +228,10 @@ export function QuestionPicker({ scope, onScope, selected, onSelected, count, on
       {browsing && data && data.total > 0 ? (
         <View style={{ gap: 12 }}>
           <Text accessibilityLiveRegion="polite" style={{ color: palette.mutedForeground, fontSize: 13 }}>{showing.loading ? 'Finding questions…' : `${showing.total.toLocaleString()} question${showing.total === 1 ? '' : 's'} found`}</Text>
-          {showing.loading ? <ActivityIndicator color={palette.primary} /> : null}
+          {showing.loading ? <SkeletonCards count={3} lines={4} label="Loading questions" /> : null}
           {showing.error && showing.items.length === 0 ? <ErrorView message={showing.error} onRetry={() => setRetry((n) => n + 1)} /> : null}
           {showing.items.map((item) => {
-            const picked = selected.some((q) => q._id === item._id);
+            const picked = selectedIds.has(item._id);
             return <PickCard key={item._id} question={item} picked={picked} replacing={false} disabled={!picked && selected.length >= MAX_QUESTIONS} onPress={toggle} />;
           })}
           {showing.more ? <ActivityIndicator color={palette.primary} /> : null}

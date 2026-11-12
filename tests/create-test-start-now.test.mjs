@@ -27,6 +27,7 @@ function flow(startMode = 'now') {
     'react-native': { StyleSheet: { create: s => s }, Text: 'Text', View: 'View' },
     'expo-router': { useRouter: () => ({ back() {} }) },
     '@/components/kit': kit,
+    '@/hooks/use-cache-keys': { useCacheKeys: () => ({ bankOptions: (k) => `bank-options:${k}`, testBatches: 'test-batches' }) },
     '@/components/dropdown-select': { DropdownSelect: 'DropdownSelect' },
     '@/components/multi-select-dropdown': { MultiSelectDropdown: 'MultiSelectDropdown' },
     '@/context/data-version': { bumpDataVersion() {} },

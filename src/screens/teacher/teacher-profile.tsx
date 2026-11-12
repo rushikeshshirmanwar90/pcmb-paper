@@ -6,6 +6,7 @@ import { Badge, Card, DetailRow, ListRow, Muted, Screen, SectionTitle, useLoad }
 import { StaleNotice } from '@/components/states';
 import { useSignedInUser } from '@/context/auth-context';
 import { useDataVersion } from '@/context/data-version';
+import { useCacheKeys } from '@/hooks/use-cache-keys';
 import { schoolApi } from '@/services/school-api';
 import { formatMinutes, tuitionApi } from '@/services/tuition-api';
 
@@ -14,7 +15,9 @@ export function TeacherProfileScreen() {
   const user = useSignedInUser();
   const version = useDataVersion();
   const router = useRouter();
-  const overview = useLoad(() => schoolApi.teacherOverview(), [version]);
+  const keys = useCacheKeys();
+  // Shared with Home, Batches and Tests: one request between them.
+  const overview = useLoad(() => schoolApi.teacherOverview(), [version, keys.teacherOverview], { cacheKey: keys.teacherOverview });
   const tuition = useLoad(() => tuitionApi.profile(), [version]);
   const totals = overview.data?.totals;
 

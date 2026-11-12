@@ -7,6 +7,7 @@ import { SubjectChips } from '@/components/subject-chips';
 import { useSignedInUser } from '@/context/auth-context';
 import { useDataVersion } from '@/context/data-version';
 import { useTabNavigation } from '@/context/tab-context';
+import { useCacheKeys } from '@/hooks/use-cache-keys';
 import { syncClassReminders } from '@/services/notifications';
 import { AnnouncementsSection } from '@/screens/shared/announcements';
 import { SyllabusProgressView } from '@/screens/shared/syllabus-progress';
@@ -49,9 +50,11 @@ export function TeacherHomeScreen() {
   const version = useDataVersion();
   const now = useNow();
   const toast = useToast();
-  const overview = useLoad(() => schoolApi.teacherOverview(), [version]);
-  // The test list feeds Needs attention; Home still works without it.
-  const tests = useLoad(() => schoolApi.tests(), [version], { cacheKey: 'teacher-tests' });
+  const keys = useCacheKeys();
+  // Batches, Tests and Profile read the same overview under the same key: one request between them.
+  const overview = useLoad(() => schoolApi.teacherOverview(), [version, keys.teacherOverview], { cacheKey: keys.teacherOverview });
+  // The test list feeds Needs attention (shared with the Tests tab's "all" list); Home still works without it.
+  const tests = useLoad(() => schoolApi.tests(), [version, keys.tests()], { cacheKey: keys.tests() });
   const data = overview.data;
 
   // Reminders 15 minutes before each weekly class.
