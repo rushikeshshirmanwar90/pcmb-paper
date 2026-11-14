@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { BackHandler } from 'react-native';
 import { confirmAction } from '@/components/confirm-action';
+import { Notice } from '@/components/kit';
 import { KeyboardSafeView } from '@/components/keyboard-safe-view';
 import { SmartPdfScreen } from '@/components/smart-pdf-screen';
 import { useAuth } from '@/context/auth-context';
@@ -16,7 +17,7 @@ import { DoneStep } from '@/screens/teacher/make-pdf/done-step';
 import { dayKey, ExamSettingsStep, startOfToday, type ExamForm } from '@/screens/teacher/make-pdf/exam-settings';
 import { chaptersOf, marksPerQuestionFor, standardsOf, titleFromNames, type PdfKind } from '@/screens/teacher/make-pdf/model';
 import { PaperClassStep, PaperFormatStep, PaperQuestionsStep } from '@/screens/teacher/make-pdf/one-page';
-import { deriveSubjects, subjectHeader } from '@/screens/teacher/make-pdf/pdf-subjects';
+import { deriveSubjects, subjectHeader, unresolvedSubjectMessage } from '@/screens/teacher/make-pdf/pdf-subjects';
 import { SubjectReview } from '@/screens/teacher/make-pdf/subject-review';
 import { StepHeader } from '@/screens/teacher/make-pdf/ui';
 import type { Question } from '@/types/pcmb';
@@ -103,12 +104,17 @@ export function MakePdfFlow({
   const busy = stage !== null;
   // The picked questions are already in the teacher's subject order, which is the order the PDF prints them in.
   const subject = subjectHeader(deriveSubjects(selected));
+  const subjectBlock = unresolvedSubjectMessage(selected);
   const chapters = scope.topics.length ? scope.topics : scope.chapters.length ? scope.chapters : chaptersOf(selected);
   const titleDefault = titleFromNames(chapters) || [scope.course === 'Competitive' ? scope.exam : scope.course, scope.standard, subject].filter(Boolean).join(' ');
   const standardDefault = standardsOf(selected);
 
   const makeExamPdf = async (style: PaperStyle) => {
     if (selected.length === 0) return;
+    if (subjectBlock) {
+      setPdfError(subjectBlock);
+      return;
+    }
     setPdfError(null);
     setStage({ stage: 'making', count: selected.length });
     const watermark = cleanWatermark(form.watermark);
@@ -245,6 +251,7 @@ export function MakePdfFlow({
           institute={institute}
           subject={subject}
           questionTotal={selected.length}
+          blocked={subjectBlock}
           stage={stage}
           error={pdfError}
           onGenerate={(style) => void makeExamPdf(style)}
@@ -252,7 +259,9 @@ export function MakePdfFlow({
         />
       ) : null}
 
-      {step === 'settings' && kind === 'smart' ? (
+      {step === 'settings' && kind === 'smart' && subjectBlock ? <Notice tone="danger" title="Subjects needed" text={subjectBlock} live /> : null}
+
+      {step === 'settings' && kind === 'smart' && !subjectBlock ? (
         <SmartPdfScreen
           title={titleDefault}
           questions={selected}

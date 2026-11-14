@@ -555,15 +555,21 @@ export async function searchPdfQuestions(filters: PdfQuestionSearch): Promise<Qu
 
 const DIFFICULTY_NAMES: Record<string, DifficultyLevel> = { Easy: "Easy", Medium: "Mid", Mid: "Mid", Hard: "Hard" };
 
-/** One question from the API, in the app's shape. */
-export function toQuestion(raw: any, idx: number): Question {
+/**
+ * One question from the API, in the app's shape. A question the bank gave no
+ * subject stays blank (unknown) unless the caller passes `fallbackSubject`
+ * from a selection it verified, such as the subject it just asked the API for.
+ */
+export function toQuestion(raw: any, idx: number, fallbackSubject?: string): Question {
+  const subject = (typeof raw.subject === "string" ? raw.subject.trim() : "") || fallbackSubject || "";
   return {
     _id: raw._id || `q-api-${idx}`,
     paperId: raw.paperId || "",
     questionNumber: raw.questionNumber ?? idx + 1,
     examCategory: raw.examCategory || "JEE/NEET",
     standard: raw.standard || "12th",
-    subject: raw.subject || "Physics",
+    // May be '' (unknown) or a name outside `Subject`; Make PDF checks it through pdf-subjects rather than trusting the type.
+    subject: subject as Subject,
     chapter: raw.chapter || "",
     topic: raw.topic || "",
     difficulty: DIFFICULTY_NAMES[raw.difficulty] || "Mid",
@@ -618,7 +624,7 @@ export async function fetchQuestionPool(request: QuestionPoolRequest, onRetry?: 
 
       const data = await getJsonWithRetry(`${API_BASE_URL}/questions?${query.toString()}`, { onRetry });
       const rawList = Array.isArray(data) ? data : data?.questions;
-      return Array.isArray(rawList) ? rawList.map(toQuestion) : [];
+      return Array.isArray(rawList) ? rawList.map((raw, idx) => toQuestion(raw, idx, request.subject)) : [];
     })
   );
 }
@@ -640,7 +646,8 @@ export async function fetchQuestions(filters: FilterState): Promise<Question[]> 
       // A successful response is the truth, even when empty — only fall back
       // to the mock set when the backend can't be reached at all.
       if (Array.isArray(rawList)) {
-        const questions = rawList.map(toQuestion);
+        const scoped = filters.subject !== "All" ? filters.subject : undefined;
+        const questions = rawList.map((raw, idx) => toQuestion(raw, idx, scoped));
         // Questions from different papers share numbers; keep each paper's
         // questions together and in order.
         questions.sort((a, b) =>

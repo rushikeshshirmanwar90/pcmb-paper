@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 import { usePalette } from '@/components/kit';
 import type { Question } from '@/types/pcmb';
-import { subjectCounts } from './pdf-subjects';
+import { subjectCounts, unresolvedSubjectCount, unresolvedSubjectMessage } from './pdf-subjects';
 
 const noun = (count: number) => `${count} ${count === 1 ? 'Question' : 'Questions'}`;
 
@@ -9,6 +9,8 @@ const noun = (count: number) => `${count} ${count === 1 ? 'Question' : 'Question
 export function SubjectReview({ questions, onEdit }: { questions: Question[]; onEdit: () => void }) {
   const palette = usePalette();
   const rows = subjectCounts(questions);
+  const unresolved = unresolvedSubjectCount(questions);
+  const warning = unresolvedSubjectMessage(questions);
   return (
     <View style={{ padding: 16, gap: 6, borderWidth: 1, borderRadius: 14, borderColor: palette.border, backgroundColor: palette.card }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -21,6 +23,11 @@ export function SubjectReview({ questions, onEdit }: { questions: Question[]; on
         <Text style={{ color: palette.foreground, flexShrink: 1 }}>{row.subject}</Text>
         <Text style={{ color: palette.mutedForeground }}>{noun(row.count)}</Text>
       </View>)}
+      {unresolved > 0 ? <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
+        <Text style={{ color: palette.danger, flexShrink: 1, fontWeight: '600' }}>No subject</Text>
+        <Text style={{ color: palette.danger }}>{noun(unresolved)}</Text>
+      </View> : null}
+      {warning ? <Text accessibilityRole="alert" style={{ color: palette.danger, fontSize: 13 }}>{warning}</Text> : null}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingTop: 6, borderTopWidth: 1, borderTopColor: palette.border }}>
         <Text style={{ color: palette.foreground, fontWeight: '700' }}>Total</Text>
         <Text style={{ color: palette.foreground, fontWeight: '700' }}>{noun(questions.length)}</Text>

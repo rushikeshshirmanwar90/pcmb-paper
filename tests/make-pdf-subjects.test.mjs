@@ -8,7 +8,7 @@ import { createRequire } from 'node:module';
 import { runInNewContext } from 'node:vm';
 import { describe, test } from 'node:test';
 import ts from 'typescript';
-import { deriveSubjects, subjectCounts, subjectHeader } from '../src/screens/teacher/make-pdf/pdf-subjects.ts';
+import { deriveSubjects, subjectCounts, subjectHeader, unresolvedSubjectCount, unresolvedSubjectMessage } from '../src/screens/teacher/make-pdf/pdf-subjects.ts';
 import * as selection from '../src/screens/teacher/question-selection/model.ts';
 import { EMPTY_BANK_SCOPE } from '../src/screens/teacher/make-pdf/bank-scope.ts';
 
@@ -102,7 +102,7 @@ function harness(path, mocks = {}) {
     '@/components/keyboard-safe-view': { KeyboardSafeView: 'KeyboardSafeView' },
     '@/services/pdf-questions': {}, '@/screens/teacher/make-pdf/bank-scope': {}, '@/screens/teacher/make-pdf/model': {},
     '@/screens/teacher/make-pdf/question-preview': {}, '@/screens/teacher/make-pdf/ui': { CountField: 'CountField' },
-    './action-menu': {}, './reorder-list': {}, './question-card': {}, './model': selection, './pdf-subjects': { subjectCounts }, ...mocks,
+    './action-menu': {}, './reorder-list': {}, './question-card': {}, './model': selection, './pdf-subjects': { subjectCounts, unresolvedSubjectCount, unresolvedSubjectMessage }, ...mocks,
   };
   const req = createRequire(import.meta.url);
   const exports = {};
