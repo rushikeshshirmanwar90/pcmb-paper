@@ -102,7 +102,7 @@ function harness(path, mocks = {}) {
     '@/components/keyboard-safe-view': { KeyboardSafeView: 'KeyboardSafeView' },
     '@/services/pdf-questions': {}, '@/screens/teacher/make-pdf/bank-scope': {}, '@/screens/teacher/make-pdf/model': {},
     '@/screens/teacher/make-pdf/question-preview': {}, '@/screens/teacher/make-pdf/ui': { CountField: 'CountField' },
-    './action-menu': {}, './reorder-list': {}, './question-card': {}, './model': selection, './pdf-subjects': { subjectCounts, unresolvedSubjectCount, unresolvedSubjectMessage }, ...mocks,
+    './action-menu': {}, './question-editor': {}, './edit-tip': {}, './reorder-list': {}, './question-card': {}, './model': selection, './pdf-subjects': { subjectCounts, unresolvedSubjectCount, unresolvedSubjectMessage }, ...mocks,
   };
   const req = createRequire(import.meta.url);
   const exports = {};

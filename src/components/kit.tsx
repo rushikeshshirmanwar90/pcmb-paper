@@ -19,7 +19,7 @@ import { Text, TextInput } from '@/components/app-text';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView, type AndroidSymbol, type SFSymbol } from 'expo-symbols';
 import { StatusBar } from 'expo-status-bar';
-import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
+import Animated, { FadeInDown, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated';
 import { AppHeader } from '@/components/app-header';
 import { WorkspaceSwitcher } from '@/components/workspace-switcher';
 import { confirmAction } from '@/components/confirm-action';
@@ -710,24 +710,32 @@ function ClassicButton({
       : variant === 'danger'
       ? [palette.dangerSoft, palette.dangerInk, palette.dangerBorder]
       : [palette.card, palette.foreground, palette.border];
+  // Responds on press-down, not on release: a critically damped spring (no bounce)
+  // that starts from wherever the button is, so a quick tap or a cancelled press never jumps.
+  const reduceMotion = useReducedMotion();
+  const scale = useSharedValue(1);
+  const press = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const spring = (to: number) => {
+    scale.set(reduceMotion ? 1 : withSpring(to, { duration: 280, dampingRatio: 1 }));
+  };
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled: off, busy: loading }}
       disabled={off}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.button,
-        { backgroundColor: bg, borderColor: border, opacity: disabled ? 0.45 : pressed ? 0.8 : 1 },
-        style,
-      ]}
+      onPressIn={() => spring(0.97)}
+      onPressOut={() => spring(1)}
+      style={[styles.button, { backgroundColor: bg, borderColor: border, opacity: disabled ? 0.45 : 1 }, style, press]}
     >
       {loading ? <ActivityIndicator color={fg} /> : icon ? <Icon name={icon} color={fg} size={17} /> : null}
       <Text style={[styles.buttonText, { color: fg }]}>{label}</Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 /** Pick one of a few choices. */
 export function Chips<T extends string>({

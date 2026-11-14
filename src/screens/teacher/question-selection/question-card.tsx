@@ -25,9 +25,35 @@ export function LevelTag({ question }: { question: Pick<Question, 'difficulty'> 
   </View>;
 }
 
-export const SelectionCard = memo(function SelectionCard({ question, picked, disabled, onToggle, onDetails }: {
+/** Marks a question the teacher changed for this paper or test. */
+export function EditedTag({ question }: { question: Pick<Question, 'edited'> }) {
+  const p = usePalette();
+  if (!question.edited) return null;
+  return <View accessible accessibilityLabel="Edited for this paper" style={[styles.tag, { backgroundColor: p.violetSoft }]}>
+    <Text style={[styles.tagText, { color: p.violet }]}>Edited</Text>
+  </View>;
+}
+
+/**
+ * A visible, labelled Edit button, so changing a question never depends on
+ * knowing that its text can be tapped: icon plus word, a 44pt target, and the
+ * question's number for screen readers.
+ */
+export function EditButton({ label, onPress, disabled = false }: { label: string; onPress: () => void; disabled?: boolean }) {
+  const p = usePalette();
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityHint="Change the question, its options or its correct answer, for this paper or test only"
+    accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} hitSlop={4}
+    style={({ pressed }) => [styles.edit, { backgroundColor: p.primarySoft, borderColor: p.primaryBorder, opacity: disabled ? 0.45 : pressed ? 0.75 : 1 }]}>
+    <Icon name={{ ios: 'pencil', android: 'edit' }} color={p.primaryInk} size={15} />
+    <Text style={[styles.editText, { color: p.primaryInk }]}>Edit</Text>
+  </Pressable>;
+}
+
+export const SelectionCard = memo(function SelectionCard({ question, picked, disabled, onToggle, onDetails, onEdit, editDisabled }: {
   question: Question; picked: boolean; disabled: boolean;
   onToggle: (question: Question) => void; onDetails: (question: Question) => void;
+  /** Shows the Edit button; left out while replacing a question. */
+  onEdit?: (question: Question) => void; editDisabled?: boolean;
 }) {
   const p = usePalette();
   return <View style={[styles.card, { backgroundColor: p.card, borderColor: picked ? p.primary : p.border }]}>
@@ -40,18 +66,27 @@ export const SelectionCard = memo(function SelectionCard({ question, picked, dis
         </View>
       </Pressable>
       <Text numberOfLines={2} style={[styles.meta, styles.flex, { color: p.mutedForeground }]}>{questionMeta(question)}</Text>
+      <EditedTag question={question} />
       <LevelTag question={question} />
     </View>
-    <Pressable accessibilityRole="button" accessibilityLabel={`Question Details: question ${question.questionNumber}`}
-      onPress={() => onDetails(question)} style={styles.content}>
+    {/* The question itself is just read here: tapping it opens nothing. Details and Edit have their own buttons. */}
+    <View style={styles.content}>
       <QuestionPreview question={question} showAnswers />
-    </Pressable>
+    </View>
+    {onEdit ? <View style={[styles.actions, { borderTopColor: p.border }]}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`View details of question ${question.questionNumber}`} onPress={() => onDetails(question)} hitSlop={4}
+        style={({ pressed }) => [styles.link, pressed && { opacity: 0.6 }]}>
+        <Text style={[styles.linkText, { color: p.mutedForeground }]}>Details & solution</Text>
+      </Pressable>
+      <EditButton label={`Edit question ${question.questionNumber}`} disabled={editDisabled} onPress={() => onEdit(question)} />
+    </View> : null}
   </View>;
 });
 
 /** Identical compact review row for every subject; actions stay behind the menu. */
-export const SelectedQuestionRow = memo(function SelectedQuestionRow({ question, index, onDetails, onMenu, drag, active, onMove, count }: {
+export const SelectedQuestionRow = memo(function SelectedQuestionRow({ question, index, onDetails, onMenu, onEdit, editDisabled, drag, active, onMove, count }: {
   question: Question; index: number; onDetails: (question: Question) => void;
+  onEdit?: (question: Question) => void; editDisabled?: boolean;
   onMenu?: (question: Question, anchor: MenuAnchor) => void;
   drag?: () => void; active?: boolean; onMove?: (offset: number) => void; count?: number;
 }) {
@@ -60,15 +95,16 @@ export const SelectedQuestionRow = memo(function SelectedQuestionRow({ question,
   const answer = answerOf(question);
   return <View style={[styles.row, { borderBottomColor: p.border, backgroundColor: active ? p.primarySoft : p.background }]}>
     <Text style={{ color: p.mutedForeground, paddingTop: 12 }}>{index + 1}.</Text>
-    <Pressable accessibilityRole="button" accessibilityLabel={`Question ${index + 1}, View Details`}
-      disabled={!!drag} onPress={() => onDetails(question)} style={styles.summary}>
+    <View style={styles.summary}>
       <View style={{ maxHeight: 60, overflow: 'hidden' }}><MathText text={question.questionText} fontSize={14} color={p.foreground} /></View>
       <MathText text={answer.summary} fontSize={13} color={answer.summary === 'Answer unavailable' ? p.mutedForeground : p.successInk} />
       <View style={styles.metaRow}>
+        <EditedTag question={question} />
         <LevelTag question={question} />
         <Text numberOfLines={1} style={[styles.meta, styles.flex, { color: p.mutedForeground }]}>{questionMeta(question)}</Text>
       </View>
-    </Pressable>
+      {onEdit && !drag ? <View style={styles.rowEdit}><EditButton label={`Edit question ${index + 1}`} disabled={editDisabled} onPress={() => onEdit(question)} /></View> : null}
+    </View>
     {drag ? <Pressable accessibilityRole="adjustable" accessibilityLabel={`Reorder question ${index + 1}`}
       accessibilityHint="Hold and drag to reorder, or use Move Up and Move Down accessibility actions."
       accessibilityValue={{ min: 1, max: count, now: index + 1 }}
@@ -97,4 +133,10 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   tag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
   tagText: { fontSize: 11, fontWeight: '700' },
+  actions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderTopWidth: StyleSheet.hairlineWidth, marginTop: 4, paddingTop: 8, paddingHorizontal: 4 },
+  link: { minHeight: 44, justifyContent: 'center' },
+  linkText: { fontSize: 13, fontWeight: '600' },
+  edit: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 16, borderRadius: 999, borderWidth: 1 },
+  editText: { fontSize: 14, fontWeight: '700' },
+  rowEdit: { flexDirection: 'row', marginTop: 4 },
 });

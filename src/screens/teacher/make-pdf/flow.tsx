@@ -6,7 +6,6 @@ import { KeyboardSafeView } from '@/components/keyboard-safe-view';
 import { SmartPdfScreen } from '@/components/smart-pdf-screen';
 import { useAuth } from '@/context/auth-context';
 import { useKeepServerConnection } from '@/hooks/use-keep-server-connection';
-import { loadPaperStyle, savePaperStyle } from '@/services/paper-style-prefs';
 import { type SavedPdf } from '@/services/pdf-library';
 import { loadPdfWatermark, savePdfWatermark } from '@/services/pdf-watermark-prefs';
 import { createPdfsFor, PdfRequestError, type PdfStage } from '@/services/question-pdf';
@@ -82,14 +81,15 @@ export function MakePdfFlow({
   // The form leads to requests; keep the connection fresh while it is filled in.
   useKeepServerConnection(active && step !== 'done');
 
-  // The teacher's remembered watermark and paper style, unless they've already changed them here.
+  // The watermark the teacher typed last (kept in AsyncStorage) fills the field, unless they've already typed here.
+  // The paper's look always uses the defaults.
   const touchedForm = useRef(false);
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    void Promise.all([loadPaperStyle(userId), loadPdfWatermark(userId)]).then(([style, watermark]) => {
-      if (cancelled || touchedForm.current) return;
-      setForm((current) => ({ ...current, style: style.saved ? style.style : current.style, watermark: watermark ?? current.watermark }));
+    void loadPdfWatermark(userId).then((watermark) => {
+      if (cancelled || touchedForm.current || watermark === null) return;
+      setForm((current) => ({ ...current, watermark }));
     });
     return () => {
       cancelled = true;
@@ -98,7 +98,9 @@ export function MakePdfFlow({
   const changeForm = (next: ExamForm) => {
     touchedForm.current = true;
     setForm(next);
-    if (userId && next.style !== form.style) void savePaperStyle(userId, next.style);
+  };
+  const saveWatermark = (watermark: string) => {
+    if (userId) void savePdfWatermark(userId, watermark);
   };
 
   const busy = stage !== null;
@@ -118,11 +120,8 @@ export function MakePdfFlow({
     setPdfError(null);
     setStage({ stage: 'making', count: selected.length });
     const watermark = cleanWatermark(form.watermark);
-    // What this paper used is what the next one starts with.
-    if (userId) {
-      void savePdfWatermark(userId, watermark);
-      void savePaperStyle(userId, form.style);
-    }
+    // The watermark this paper used is what the next one starts with.
+    saveWatermark(watermark);
     try {
       const pdfs = await createPdfsFor(
         {
@@ -157,7 +156,7 @@ export function MakePdfFlow({
     setSessions([]);
     setPdfError(null);
     setMade(null);
-    setForm((current) => ({ ...newExamForm(), style: current.style, watermark: current.watermark }));
+    setForm((current) => ({ ...newExamForm(), watermark: current.watermark }));
   };
 
   const startOver = () => {
@@ -254,7 +253,8 @@ export function MakePdfFlow({
           blocked={subjectBlock}
           stage={stage}
           error={pdfError}
-          onGenerate={(style) => void makeExamPdf(style)}
+          onGenerate={() => void makeExamPdf(DEFAULT_PAPER_STYLE)}
+          onWatermarkSave={saveWatermark}
           bottomInset={bottomInset}
         />
       ) : null}

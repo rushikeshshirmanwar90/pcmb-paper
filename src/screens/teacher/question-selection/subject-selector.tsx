@@ -6,6 +6,8 @@ import { SelectedReorderList } from './reorder-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, DetailSheet, ErrorView, Field, Icon, Muted, Notice, SkeletonCards, useLoad, usePalette } from '@/components/kit';
 import { useCacheKeys } from '@/hooks/use-cache-keys';
+import { QuestionEditor } from './question-editor';
+import { EditTip } from './edit-tip';
 import { haptic } from '@/design/haptics';
 import { Explanation } from '@/components/explanation';
 import { Diagrams } from '@/components/diagrams';
@@ -28,9 +30,11 @@ const PAGE_SIZE = 20;
  * button opens its question bank. A subject's count is simply what's picked
  * there; nothing is pre-filled. Shared by Create Test, Edit test and Make PDF.
  */
-export function SubjectSelector({ sessions, onChange, subjects, base, label = 'Subjects', searchable }: {
+export function SubjectSelector({ sessions, onChange, subjects, base, label = 'Subjects', searchable, allowReplace = true }: {
   sessions: SubjectSelection[]; onChange: (sessions: SubjectSelection[]) => void;
   subjects: string[]; base: BankScope; label?: string; searchable?: boolean;
+  /** Offer "Replace Question" (a test feature); Make a paper turns it off. */
+  allowReplace?: boolean;
 }) {
   const [active, setActive] = useState<string | null>(null);
   const current = useRef(sessions);
@@ -56,14 +60,14 @@ export function SubjectSelector({ sessions, onChange, subjects, base, label = 'S
     })}
     {sessions.length ? <Muted>{total ? `Total: ${total} question${total === 1 ? '' : 's'}` : 'Open a subject to choose its questions: tick them one by one, or add some at random.'}</Muted> : null}
     {index >= 0 ? <SubjectBrowser key={active} session={sessions[index]} subjects={sessions.map(s => s.subject)}
-      totalSelected={total}
+      totalSelected={total} allowReplace={allowReplace}
       onChange={session => onChange(current.current.map(s => s.subject === session.subject ? session : s))}
       onSubject={setActive} onClose={() => setActive(null)} /> : null}
   </View>;
 }
 
-function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject, onClose }: {
-  session: SubjectSelection; subjects: string[]; totalSelected: number;
+function SubjectBrowser({ session, subjects, totalSelected, allowReplace, onChange, onSubject, onClose }: {
+  session: SubjectSelection; subjects: string[]; totalSelected: number; allowReplace: boolean;
   onChange: (session: SubjectSelection) => void; onSubject: (subject: string) => void; onClose: () => void;
 }) {
   const palette = usePalette();
@@ -87,9 +91,10 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
   const [pages, setPages] = useState<{ key: string; items: Question[]; total: number; page: number; more: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  // What the last "Add at random" did, shown right under its button.
+  // When the last "Add at random" fell short, what happened, shown right under its button. A full add shows nothing:
+  // the selected count above updates and the box is ready for the next number.
   // While it shows, the number box and its button are hidden; "Edit number of questions" brings them back.
-  const [added, setAdded] = useState<{ tone: 'success' | 'warning'; title: string; text: string } | null>(null);
+  const [added, setAdded] = useState<{ tone: 'warning'; title: string; text: string } | null>(null);
   // How many the running "Add at random" asked for, for its loading line.
   const [adding, setAdding] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -103,6 +108,8 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
   const [replacing, setReplacing] = useState<string | null>(null);
   const [preview, setPreview] = useState<Question | null>(null);
   const [menu, setMenu] = useState<{ question: Question; anchor: MenuAnchor } | null>(null);
+  // The question being edited for this paper or test (its own copy; the bank is never changed).
+  const [editing, setEditing] = useState<Question | null>(null);
   const pendingAction = useRef<(() => void) | null>(null);
   useEffect(() => {
     if (!menu && pendingAction.current) {
@@ -174,11 +181,9 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
       if (result.added) haptic.success();
       else haptic.warning();
       const n = `${result.added} question${result.added === 1 ? '' : 's'}`;
-      setAdded(!result.added
-        ? { tone: 'warning', title: 'No questions added', text: 'No more questions match these filters. Choose more chapters or topics, or another source.' }
-        : result.added < requested
-          ? { tone: 'warning', title: `${n} added`, text: `Only ${result.added} of ${requested} matched these filters. ${now}` }
-          : { tone: 'success', title: `${n} added successfully`, text: now });
+      if (!result.added) setAdded({ tone: 'warning', title: 'No questions added', text: 'No more questions match these filters. Choose more chapters or topics, or another source.' });
+      else if (result.added < requested) setAdded({ tone: 'warning', title: `${n} added`, text: `Only ${result.added} of ${requested} matched these filters. ${now}` });
+      else { setAdded(null); setRandomText(''); }
     } catch (e) { if (alive.current) setError(e instanceof Error ? e.message : 'Could not choose questions.'); }
     finally { randomBusy.current = false; if (alive.current) { setWorking(false); setAdding(0); } }
   };
@@ -192,8 +197,12 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
   const sources = scope.sources ?? (scope.source === 'pyq' ? ['pyq'] : []);
   const availableSources = sourceOptions(scope);
   const index = subjects.indexOf(session.subject);
-  const items = review ? session.questions : shown && pages?.key === key ? pages.items : [];
+  // A picked question shows the way it was picked, edits included.
+  const pickedById = new Map(session.questions.map(q => [q._id, q]));
+  const items = review ? session.questions : shown && pages?.key === key ? pages.items.map(q => pickedById.get(q._id) ?? q) : [];
   const selected = (q: Question) => session.questions.some(item => item._id === q._id);
+  // Editing a picked question is always possible; an unpicked one is picked by the edit, so it needs room.
+  const editBlocked = (q: Question) => working || (!selected(q) && totalSelected >= MAX_SELECTED);
   const cannotAdd = (q: Question) => working || (replacing ? selected(q) : !selected(q) && totalSelected >= MAX_SELECTED);
   const remove = (question: Question) => {
     const current = live.current.session;
@@ -219,12 +228,29 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
     live.current = { ...live.current, session: { ...current, questions } };
     onChange({ ...current, questions });
   };
+  // Saves an edit as this selection's own copy: in place if the question is picked, otherwise picked with the edit.
+  const saveEdit = (edited: Question) => {
+    const current = live.current.session;
+    const at = current.questions.findIndex(q => q._id === edited._id);
+    setEditing(null); setPreview(null); setReplacing(null);
+    if (at < 0 && live.current.totalSelected >= MAX_SELECTED) { setMessage(`The selection already has ${MAX_SELECTED} questions, so this one was not added.`); return; }
+    const questions = at >= 0 ? current.questions.map((q, i) => i === at ? edited : q) : [...current.questions, edited];
+    live.current = { session: { ...current, questions }, totalSelected: live.current.totalSelected + questions.length - current.questions.length };
+    onChange({ ...current, questions });
+    setMessage(edited.edited ? 'Question edited for this paper only. The question bank is unchanged.' : null);
+  };
+  // The details sheet closes first and the editor opens once it has gone: two sheets don't present at the same moment on iOS.
+  const editFromDetails = (question: Question) => {
+    setPreview(null);
+    setTimeout(() => { if (alive.current) setEditing(question); }, 400);
+  };
   const runMenuAction = (action: QuestionAction) => {
     if (!menu) return;
     const question = menu.question;
     // Execute after the popup's removal has committed, including on Android.
     pendingAction.current = () => {
       if (action === 'details') setPreview(question);
+      else if (action === 'edit') setEditing(question);
       else if (action === 'replace') { setReplacing(question._id); setReview(false); }
       else remove(question);
     };
@@ -259,6 +285,7 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
         initialNumToRender={4} maxToRenderPerBatch={4} windowSize={5} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
         contentContainerStyle={{ padding: 12, gap: review ? 0 : 10 }} onEndReached={() => { if (!review) void loadMore(); }} onEndReachedThreshold={0.4}
         ListHeaderComponent={<View style={{ gap: 10, paddingBottom: 10 }}>
+          {!replacing && (review || shown) ? <EditTip /> : null}
           {replacing ? <><Notice text="Select a checkbox to replace the question. Existing selections stay until then." /><Button label="Cancel Replacement" variant="secondary" style={compactButton} onPress={() => { setReplacing(null); setReview(true); }} /></> : null}
           {!review ? <>
             <MultiSelectDropdown label="Chapters / Topics" options={data?.chapters.map(c => c.name) ?? []} counts={Object.fromEntries((data?.chapters ?? []).map(c => [c.name, c.count]))} selected={scope.chapters} placeholder="All chapters" allWhenNone applyOnDone searchable showSelectedChips={false}
@@ -285,7 +312,7 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
               <Muted>Choose the chapters, topics, sources and level you want, then tap Show questions.</Muted>
             </> : <>
               <Muted>{pages?.key === key && !loading ? `${pages.total} question${pages.total === 1 ? '' : 's'} match your choices` : 'Finding questions…'}</Muted>
-            {/* Add at random, in three states: the number and its button; adding (loading); done (what happened, and a way to add more). */}
+            {/* Add at random: the number and its button; adding (loading); and only when it fell short, what happened and a way back. */}
             {working && adding ? (
               <View accessible accessibilityLiveRegion="polite" accessibilityLabel={`Adding ${adding} questions`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.card }}>
                 <ActivityIndicator color={palette.primary} />
@@ -317,15 +344,18 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
         ListEmptyComponent={!review && !shown ? undefined : loading ? (review ? undefined : <SkeletonCards count={3} lines={4} label="Loading questions" />) : !loading ? <Muted>{review ? 'No questions selected yet. Browse the questions and tick the ones you want, or add some at random.' : error ? '' : 'No questions match these filters.'}</Muted> : undefined}
         ListFooterComponent={loadingMore ? <ActivityIndicator color={palette.primary} /> : undefined}
         renderItem={({ item, index: at }) => review
-          ? <SelectedQuestionRow question={item} index={at} onDetails={setPreview} onMenu={(question, anchor) => setMenu({ question, anchor })} />
-          : <SelectionCard question={item} picked={selected(item)} disabled={cannotAdd(item)} onToggle={toggle} onDetails={setPreview} />} />}
+          ? <SelectedQuestionRow question={item} index={at} onDetails={setPreview} onMenu={(question, anchor) => setMenu({ question, anchor })} onEdit={setEditing} editDisabled={editBlocked(item)} />
+          : <SelectionCard question={item} picked={selected(item)} disabled={cannotAdd(item)} onToggle={toggle} onDetails={setPreview} onEdit={replacing ? undefined : setEditing} editDisabled={editBlocked(item)} />} />}
       {!reorder ? <View style={{ paddingHorizontal: 12, paddingVertical: 8, gap: 6, borderTopWidth: 1, borderTopColor: palette.border }}>
         {/* Done closes the question list; the picks are already kept. Another subject opens from its own button. */}
         <Button label="Done" style={compactButton} disabled={working} onPress={onClose} />
       </View> : null}
-      <DetailSheet visible={!!preview} title="Question Details" onClose={() => setPreview(null)} footer={preview ? <Button
-        label={replacing ? 'Use as Replacement' : selected(preview) ? 'Remove Selection' : 'Add Selection'} disabled={cannotAdd(preview)}
-        onPress={() => { if (selected(preview) && !replacing) remove(preview); else toggle(preview); setPreview(null); }} /> : undefined}>
+      <DetailSheet visible={!!preview} title="Question Details" onClose={() => setPreview(null)} footer={preview ? <View style={{ gap: 8 }}>
+        <Button
+          label={replacing ? 'Use as Replacement' : selected(preview) ? 'Remove Selection' : 'Add Selection'} disabled={cannotAdd(preview)}
+          onPress={() => { if (selected(preview) && !replacing) remove(preview); else toggle(preview); setPreview(null); }} />
+        {!replacing ? <Button label="Edit question" variant="secondary" icon={{ ios: 'pencil', android: 'edit' }} disabled={editBlocked(preview)} onPress={() => editFromDetails(preview)} /> : null}
+      </View> : undefined}>
         {preview ? <View style={{ gap: 16 }}>
           <QuestionPreview question={preview} showAnswers />
           <Muted>{questionMeta(preview) || 'Source, chapter and topic unavailable.'}</Muted>
@@ -335,7 +365,8 @@ function SubjectBrowser({ session, subjects, totalSelected, onChange, onSubject,
             : <Muted>Explanation / solution unavailable.</Muted>}
         </View> : null}
       </DetailSheet>
-      {menu ? <QuestionActionMenu anchor={menu.anchor} disabled={working} onClose={() => setMenu(null)} onAction={runMenuAction} /> : null}
+      {editing ? <QuestionEditor key={editing._id} question={editing} picked={selected(editing)} onSave={saveEdit} onClose={() => setEditing(null)} /> : null}
+      {menu ? <QuestionActionMenu anchor={menu.anchor} disabled={working} actions={allowReplace ? ['details', 'edit', 'replace', 'remove'] : ['details', 'edit', 'remove']} onClose={() => setMenu(null)} onAction={runMenuAction} /> : null}
     </SafeAreaView>
     </KeyboardSafeView>
     </GestureHandlerRootView>

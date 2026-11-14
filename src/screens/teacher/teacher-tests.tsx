@@ -31,6 +31,7 @@ import {
   useLoad,
   usePalette,
 } from '@/components/kit';
+import { SpringPressable } from '@/components/spring-pressable';
 import { SubjectChips } from '@/components/subject-chips';
 import { SkeletonCard, StaleNotice } from '@/components/states';
 import { PROGRAM_LABELS, SCHOOL_STANDARDS, programOf, questionBankOf, type SchoolStandard, type SchoolSubject } from '@/constants/school';
@@ -104,23 +105,23 @@ export function TeacherTestsScreen() {
             const selected = value === filter;
             const count = counts ? counts[value] : undefined;
             return (
-              <Pressable
+              <SpringPressable
                 key={value}
+                pressedScale={0.96}
                 accessibilityRole="tab"
                 accessibilityState={{ selected }}
                 accessibilityLabel={count === undefined ? FILTER_LABELS[value] : `${FILTER_LABELS[value]}, ${count}`}
                 onPress={() => setFilter(value)}
-                style={({ pressed }) => [
+                style={[
                   styles.statusChip,
                   { backgroundColor: selected ? palette.primarySoft : palette.card, borderColor: selected ? palette.primary : palette.border },
-                  pressed && styles.pressed,
                 ]}
               >
                 <Text style={[styles.statusLabel, { color: selected ? palette.primaryInk : palette.foreground, fontWeight: selected ? '700' : '500' }]}>
                   {FILTER_LABELS[value]}
                 </Text>
                 {count !== undefined ? <Text style={[styles.statusCount, { color: selected ? palette.primaryInk : palette.mutedForeground }]}>{count}</Text> : null}
-              </Pressable>
+              </SpringPressable>
             );
           })}
         </View>
@@ -166,11 +167,11 @@ const TestCard = memo(function TestCard({ test: t, onOpen }: { test: TestSummary
   const onPress = () => onOpen(t.id);
   const badge = STATUS_WORDS[t.status];
   return (
-    <Pressable
+    <SpringPressable
       accessibilityRole="button"
       accessibilityLabel={`${t.title}, ${badge.label}. ${(t.batches ?? [t.batch]).map(b => b.name).join(', ')}. ${scheduleLine(t)}`}
       onPress={onPress}
-      style={({ pressed }) => [styles.testCard, { backgroundColor: palette.card, borderColor: palette.border }, pressed && styles.pressed]}
+      style={[styles.testCard, { backgroundColor: palette.card, borderColor: palette.border }]}
     >
       <View style={styles.cardTop}>
         <Text style={[styles.cardTitle, { color: palette.foreground }]} numberOfLines={3}>
@@ -182,13 +183,13 @@ const TestCard = memo(function TestCard({ test: t, onOpen }: { test: TestSummary
         {(t.batches ?? [t.batch]).map(b => b.name).join(', ')}
       </Text>
       <SubjectChips subjects={t.subject} />
-      <Text style={[styles.cardLine, { color: palette.mutedForeground }]} numberOfLines={1}>
+      <Text style={[styles.cardLine, styles.cardMeta, { color: palette.mutedForeground }]} numberOfLines={1}>
         {t.questionCount} questions · {t.maxScore} marks · {t.durationMinutes} min
       </Text>
       <Text style={[styles.cardLine, { color: palette.mutedForeground }]} numberOfLines={2}>
         {scheduleLine(t)}
       </Text>
-    </Pressable>
+    </SpringPressable>
   );
 });
 
@@ -650,10 +651,11 @@ const styles = StyleSheet.create({
   listCard: { paddingVertical: 0 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   pressed: { opacity: 0.8 },
-  testCard: { borderWidth: 1, borderRadius: 14, padding: 14, gap: 4 },
+  testCard: { borderWidth: 1, borderRadius: 18, padding: 16, gap: 6 },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  cardTitle: { flex: 1, fontSize: 16, fontWeight: '700' },
-  cardLine: { fontSize: 13 },
+  cardTitle: { flex: 1, fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
+  cardMeta: { fontVariant: ['tabular-nums'] },
+  cardLine: { fontSize: 14, lineHeight: 19 },
   wizardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
   wizardTitle: { fontSize: 18, fontWeight: '700' },
   headerBtn: { padding: 4 },

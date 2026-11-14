@@ -37,6 +37,8 @@ export interface Question {
   diagramUrls?: string[];
   optionDiagramUrls?: Partial<Record<"A" | "B" | "C" | "D", string[]>>;
   explanationDiagramUrls?: string[];
+  /** The teacher changed this copy's text, options or answer for their own paper or test; the shared bank is untouched. */
+  edited?: boolean;
 }
 
 export interface Paper {

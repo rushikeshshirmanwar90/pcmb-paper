@@ -36,7 +36,7 @@ const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDat
 const keyOf = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 export const dayLabel = (d: Date) => d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 
-export function DateField({ label, value, onChange, minimumDate }: { label: string; value: Date; onChange: (day: Date) => void; minimumDate: Date }) {
+export function DateField({ label, value, onChange, minimumDate }: { label: string; value: Date; onChange: (day: Date) => void; minimumDate?: Date }) {
   const palette = usePalette();
   const [open, setOpen] = useState(false);
   const dark = useColorScheme() === 'dark';
@@ -53,7 +53,7 @@ export function DateField({ label, value, onChange, minimumDate }: { label: stri
     );
   }
 
-  const today = startOfDay(minimumDate);
+  const today = startOfDay(minimumDate ?? value);
   const days = Array.from({ length: DAYS_OFFERED }, (_, i) => new Date(today.getFullYear(), today.getMonth(), today.getDate() + i));
   // A day further out than the list reaches stays selectable (an edited test).
   const choices = days.some((d) => keyOf(d) === keyOf(value)) ? days : [startOfDay(value), ...days];

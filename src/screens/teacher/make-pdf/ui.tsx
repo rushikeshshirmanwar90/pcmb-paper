@@ -1,11 +1,30 @@
-import { useState, type PropsWithChildren, type ReactNode } from 'react';
+import { useEffect, useState, type PropsWithChildren, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated';
 import { Field, Icon, usePalette, type IconName } from '@/components/kit';
+import { haptic } from '@/design/haptics';
 import { KeyboardAwareScrollView } from '@/components/keyboard-safe-view';
 import { MaxContentWidth } from '@/constants/theme';
 
 // The few pieces the Make PDF steps share, in the app's own look: the step
 // header with its progress, the large choice cards, and a whole-number field.
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+/** One bar of the step progress: it fills with a critically damped spring (no bounce), so going back reverses smoothly. */
+function ProgressSegment({ filled, color, track }: { filled: boolean; color: string; track: string }) {
+  const reduceMotion = useReducedMotion();
+  const fill = useSharedValue(filled ? 1 : 0);
+  useEffect(() => {
+    fill.set(reduceMotion ? (filled ? 1 : 0) : withSpring(filled ? 1 : 0, { duration: 400, dampingRatio: 1 }));
+  }, [filled, fill, reduceMotion]);
+  const style = useAnimatedStyle(() => ({ transform: [{ scaleX: fill.value }] }));
+  return (
+    <View style={[styles.barSegment, { backgroundColor: track, overflow: 'hidden' }]}>
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: color, transformOrigin: 'left' }, style]} />
+    </View>
+  );
+}
 
 /** Where the teacher is: a back button, the step's name, a "start over" and a bar of steps. */
 export function StepHeader({
@@ -72,7 +91,7 @@ export function StepHeader({
         style={styles.bar}
       >
         {Array.from({ length: steps }, (_, i) => (
-          <View key={i} style={[styles.barSegment, { backgroundColor: i <= step ? palette.primary : palette.border }]} />
+          <ProgressSegment key={i} filled={i <= step} color={palette.primary} track={palette.border} />
         ))}
       </View>
     </View>
@@ -98,21 +117,34 @@ export function ChoiceCard({
   accessibilityLabel?: string;
 }) {
   const palette = usePalette();
+  // Feedback on press-down: the card settles in under the finger on a spring and a light tick confirms the choice.
+  const reduceMotion = useReducedMotion();
+  const scale = useSharedValue(1);
+  const press = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const spring = (to: number) => {
+    scale.set(reduceMotion ? 1 : withSpring(to, { duration: 300, dampingRatio: 1 }));
+  };
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="radio"
       accessibilityLabel={accessibilityLabel ?? `${title}. ${text}`}
       accessibilityState={{ checked: selected, disabled }}
       disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
+      onPressIn={() => spring(0.98)}
+      onPressOut={() => spring(1)}
+      onPress={() => {
+        if (!selected) haptic.select();
+        onPress();
+      }}
+      style={[
         styles.choice,
         {
           backgroundColor: selected ? palette.primarySoft : palette.card,
           borderColor: selected ? palette.primary : palette.border,
           borderWidth: selected ? 1.5 : 1,
-          opacity: disabled ? 0.5 : pressed ? 0.8 : 1,
+          opacity: disabled ? 0.5 : 1,
         },
+        press,
       ]}
     >
       <View style={[styles.choiceIcon, { backgroundColor: selected ? palette.primary : palette.primarySoft }]}>
@@ -125,7 +157,7 @@ export function ChoiceCard({
       <View style={[styles.radio, { borderColor: selected ? palette.primary : palette.borderStrong, backgroundColor: selected ? palette.primary : 'transparent' }]}>
         {selected ? <Icon name={{ ios: 'checkmark', android: 'check' }} color={palette.onPrimary} size={12} /> : null}
       </View>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -223,23 +255,23 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40 },
   backButton: { width: 40, height: 40, marginLeft: -8, alignItems: 'center', justifyContent: 'center' },
   headerCopy: { flex: 1, gap: 1 },
-  headerTitle: { fontSize: 17, fontWeight: '700' },
-  headerSubtitle: { fontSize: 12 },
+  headerTitle: { fontSize: 20, fontWeight: '700', letterSpacing: -0.3 },
+  headerSubtitle: { fontSize: 13 },
   resetButton: { minHeight: 40, paddingHorizontal: 4, justifyContent: 'center' },
   resetText: { fontSize: 14, fontWeight: '600' },
   bar: { flexDirection: 'row', gap: 4 },
   barSegment: { flex: 1, height: 4, borderRadius: 2 },
   pressed: { opacity: 0.7 },
-  choice: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 14, minHeight: 84 },
+  choice: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 18, minHeight: 88 },
   choiceIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   choiceCopy: { flex: 1, gap: 3 },
   choiceTitle: { fontSize: 16, fontWeight: '700' },
   choiceText: { fontSize: 13, lineHeight: 18 },
   radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   footer: { padding: 14, gap: 10, borderTopWidth: 1 },
-  group: { borderWidth: 1, borderRadius: 14, padding: 16, gap: 14 },
+  group: { borderWidth: 1, borderRadius: 18, padding: 18, gap: 14 },
   groupHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   groupCopy: { flex: 1, gap: 3 },
-  groupTitle: { fontSize: 15, fontWeight: '700' },
-  groupHint: { fontSize: 12, lineHeight: 17 },
+  groupTitle: { fontSize: 16, fontWeight: '700', letterSpacing: -0.15 },
+  groupHint: { fontSize: 13, lineHeight: 18 },
 });

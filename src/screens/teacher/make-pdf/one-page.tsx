@@ -8,6 +8,7 @@ import { bankBody, CLASSES, COMPETITIVE_EXAMS, COURSES, subjectsOf, withClass, w
 import type { PdfKind } from './model';
 import { ChoiceCard, Group, StepLayout } from './ui';
 import { SubjectSelector } from '@/screens/teacher/question-selection/subject-selector';
+import { keepEdits } from '@/screens/teacher/question-selection/question-edit';
 import { selectedQuestions, selectionProblem, type SubjectSelection } from '@/screens/teacher/question-selection/model';
 import type { Question } from '@/types/pcmb';
 
@@ -88,7 +89,8 @@ export function PaperQuestionsStep({ scope, sessions, onSessions, onContinue, bo
       const checked = await Promise.all(sessions.filter(s => s.questions.length).map(async s => {
         const result = await verifyBankQuestions(bankBody({ ...s.scope, source: 'regular', sources: ['regular'], chapters: [], topics: [], years: [], levels: [], search: '' }), s.questions.map(q => q._id));
         if (result.dropped) throw new Error(`${s.subject}: some questions are no longer available. Review and remove or replace them.`);
-        return result.questions;
+        // The bank's copies, except where the teacher edited a question for this paper.
+        return keepEdits(result.questions, s.questions);
       }));
       onContinue(checked.flat());
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not check the questions. Try again.'); }
@@ -99,7 +101,7 @@ export function PaperQuestionsStep({ scope, sessions, onSessions, onContinue, bo
     <Button label={total ? `Next · ${total} question${total === 1 ? '' : 's'}` : 'Next'} loading={working} disabled={working} onPress={() => void next()} />
   </>}>
     <Group title="Choose the questions" hint="Pick the subjects, then open each one to choose its questions.">
-      <SubjectSelector sessions={sessions} onChange={next => { onSessions(next); setError(null); }} subjects={subjectsOf(scope)} base={scope} label="Select Subjects" searchable />
+      <SubjectSelector sessions={sessions} onChange={next => { onSessions(next); setError(null); }} subjects={subjectsOf(scope)} base={scope} label="Select Subjects" searchable allowReplace={false} />
     </Group>
   </StepLayout>;
 }

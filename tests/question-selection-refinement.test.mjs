@@ -55,6 +55,8 @@ function harness(path, mocks = {}, expose = '') {
     'react-native-reorderable-list': { __esModule: true, default: 'ReorderableList', useReorderableDrag: () => () => {}, useIsActive: () => false },
     './reorder-list': { SelectedReorderList: 'SelectedReorderList' },
     './action-menu': { QuestionActionMenu: 'QuestionActionMenu' },
+    './question-editor': { QuestionEditor: 'QuestionEditor' },
+    './edit-tip': { EditTip: 'EditTip' },
     '@/components/kit': kit,
     '@/hooks/use-cache-keys': { useCacheKeys: () => ({ bankOptions: (k) => `bank-options:${k}`, testBatches: 'test-batches' }) },
     '@/components/explanation': { Explanation: 'Explanation' },
@@ -80,17 +82,20 @@ function harness(path, mocks = {}, expose = '') {
 const nodes = tree => !tree || typeof tree !== 'object' ? [] : [tree, ...[tree.props?.children, tree.props?.ListHeaderComponent, tree.props?.footer].flat(Infinity).flatMap(nodes)];
 const find = (tree, type, predicate = () => true) => nodes(tree).find(n => n.type === type && predicate(n.props));
 
-test('question content opens details; checkbox toggles independently; compact row opens one menu', () => {
+test('tapping the question opens nothing; checkbox toggles; details and edit have their own buttons; compact row opens one menu', () => {
   const h = harness('src/screens/teacher/question-selection/question-card.tsx');
   const calls = [];
   const props = { question: q('1'), picked: false, disabled: false, onToggle: () => calls.push('toggle'), onDetails: () => calls.push('details'), onMenu: () => calls.push('menu'), index: 0 };
   const card = h.render(h.exports.SelectionCard, props);
   find(card, 'Pressable', p => p.accessibilityRole === 'checkbox').props.onPress();
   assert.deepEqual(calls, ['toggle']);
-  find(card, 'Pressable', p => p.accessibilityRole === 'button').props.onPress();
-  assert.deepEqual(calls, ['toggle', 'details']);
+  // The question body is not a button: only the checkbox is tappable when no Edit is offered.
+  assert.equal(nodes(card).filter(n => n.type === 'Pressable').length, 1);
+  const withEdit = h.render(h.exports.SelectionCard, { ...props, onEdit: () => calls.push('edit') });
+  find(withEdit, 'Pressable', p => p.accessibilityLabel?.startsWith('View details')).props.onPress();
+  assert.equal(calls.at(-1), 'details');
   const row = h.render(h.exports.SelectedQuestionRow, props);
-  assert.equal(nodes(row).filter(n => n.type === 'Pressable').length, 2);
+  assert.equal(nodes(row).filter(n => n.type === 'Pressable').length, 1, 'only the actions button');
   const button = find(row, 'Pressable', p => p.accessibilityLabel.startsWith('Actions'));
   button.props.ref.current = { measureInWindow: f => f(300, 150, 48, 48) };
   button.props.onPress();
@@ -290,7 +295,7 @@ test('drag list forwards drops; reorder rows hide menu/details and expose bounde
   let drags = 0;
   const row = rowHarness.render(rowHarness.exports.SelectedQuestionRow, { question: q('2'), index: 1, count: 3, drag: () => drags++, onMove: o => moves.push(o), onDetails: () => assert.fail('details during drag') });
   assert.equal(find(row, 'Pressable', p => p.accessibilityLabel?.startsWith('Actions')), undefined);
-  assert.equal(find(row, 'Pressable', p => p.accessibilityLabel?.includes('View Details')).props.disabled, true);
+  assert.equal(find(row, 'Pressable', p => p.accessibilityLabel?.includes('View Details')), undefined, 'the question body opens nothing');
   const handle = find(row, 'Pressable', p => p.accessibilityRole === 'adjustable');
   handle.props.onLongPress();
   assert.equal(drags, 1);
@@ -410,7 +415,7 @@ test('filters: Topics stays when a chapter is picked, sources start unpicked, an
   assert.ok(find(tree, 'Button', p => p.label === 'Show questions'));
   find(tree, 'Button', p => p.label === 'Show questions').props.onPress(); tree = render();
 
-  // Add at random: a clear success message right under the button.
+  // Add at random: a full add shows no message; the count updates and the box is ready again, empty.
   tree = render();
   find(tree, 'Field', p => p.label === 'Number of questions').props.onChangeText('4');
   tree = render();
@@ -422,9 +427,8 @@ test('filters: Topics stays when a chapter is picked, sources start unpicked, an
   assert.equal(find(tree, 'Field', p => p.label === 'Number of questions'), undefined);
   await new Promise(resolve => setImmediate(resolve));
   tree = render();
-  const ack = find(tree, 'Notice', p => p.tone === 'success');
-  assert.equal(ack.props.title, '4 questions added successfully');
-  assert.equal(ack.props.text, 'Physics now has 4 questions selected.');
+  assert.equal(find(tree, 'Notice', p => /added/.test(p.title ?? '')), undefined, 'no success message');
+  assert.equal(find(tree, 'Field', p => p.label === 'Number of questions').props.value, '');
   assert.equal(session.questions.length, 4);
 });
 

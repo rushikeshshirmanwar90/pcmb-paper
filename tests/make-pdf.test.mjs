@@ -354,18 +354,25 @@ describe('the screens', () => {
     for (const gone of ['<ScopeStep', '<ReviewStep', '<MethodStep', '<ManualPicker', '<OnePageSelect']) assert.ok(!flow.includes(gone), gone);
   });
 
-  test('paper details: the essentials first, the rest under More options with what is in use', () => {
-    assert.match(exam, /More options/);
-    assert.match(exam, /\{more \? <>/);
-    const essentials = exam.slice(0, exam.indexOf('>More options<'));
-    for (const first of ['Paper title', 'DateField', 'What to print']) assert.ok(essentials.includes(first), first);
+  test('paper details: only title, date, what to print and the watermark; the look is always the default', () => {
+    for (const shown of ['Paper title', 'DateField', 'What to print', 'Watermark text']) assert.ok(exam.includes(shown), shown);
+    // No look and appearance options: font, size, layout, columns, logo, class label and paper set use the defaults.
+    for (const gone of ['More options', 'Look of the paper', 'Institute logo', 'Paper set', 'FONT_CHOICES', 'COLUMN_CHOICES', 'Strength']) assert.ok(!exam.includes(gone), gone);
+    assert.match(flow, /makeExamPdf\(DEFAULT_PAPER_STYLE\)/);
+    assert.doesNotMatch(flow, /loadPaperStyle|savePaperStyle/);
     // A paper made here has no time limit: none is asked for and none is sent.
     assert.doesNotMatch(exam, /Duration|duration/);
     assert.doesNotMatch(flow, /durationMinutes/);
-    const folded = exam.slice(exam.indexOf('{more ? <>'));
-    for (const later of ['Paper set', 'Look of the paper', 'Institute logo', 'Watermark']) assert.ok(folded.includes(later), later);
-    assert.match(exam, /`Now: \$\{inUse\}`/);
     assert.match(exam, /Make paper · /);
+  });
+
+  test('the watermark is kept in AsyncStorage as soon as it is typed, and fills the next paper', () => {
+    const prefs = read('../src/services/pdf-watermark-prefs.ts');
+    assert.match(prefs, /from '@react-native-async-storage\/async-storage'/);
+    assert.match(prefs, /AsyncStorage\.setItem\(watermarkPrefsKey\(userId\), cleanWatermark\(watermark\)\)/);
+    assert.match(exam, /onEndEditing=\{[\s\S]*onWatermarkSave\(watermark\)/);
+    assert.match(flow, /onWatermarkSave=\{saveWatermark\}/);
+    assert.match(flow, /loadPdfWatermark\(userId\)/);
   });
 
   test('only an Exam PDF gets the paper settings; a Smart PDF gets its own and none of the paper\'s', () => {
@@ -377,7 +384,7 @@ describe('the screens', () => {
     for (const smartOnly of ['Presentation title', 'Question area', 'Options layout', 'Writing space', 'Reset to Default', 'Edit Layout', 'Make slides']) {
       assert.ok(smart.includes(smartOnly), `Smart PDF settings have ${smartOnly}`);
     }
-    for (const field of ['Paper title', 'Paper set', 'DateField', 'Watermark', 'Institute logo', 'Page layout', 'Columns', 'Font', 'Text size']) {
+    for (const field of ['Paper title', 'DateField', 'Watermark']) {
       assert.ok(exam.includes(field), `Exam PDF settings have ${field}`);
     }
   });

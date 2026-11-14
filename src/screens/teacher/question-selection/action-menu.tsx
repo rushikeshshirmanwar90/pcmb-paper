@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { usePalette } from '@/components/kit';
 
 export type MenuAnchor = { x: number; y: number; width: number; height: number };
-export type QuestionAction = 'details' | 'replace' | 'remove';
+export type QuestionAction = 'details' | 'edit' | 'replace' | 'remove';
 
 /** Coordinates are relative to the same native window as the anchor. */
 export function menuPosition(anchor: MenuAnchor, bounds: MenuAnchor, size: { width: number; height: number }) {
@@ -18,8 +18,10 @@ export function menuPosition(anchor: MenuAnchor, bounds: MenuAnchor, size: { wid
 }
 
 /** Small transparent dismissal layer inside the subject's existing modal. */
-export function QuestionActionMenu({ anchor, disabled, onClose, onAction }: {
+export function QuestionActionMenu({ anchor, disabled, onClose, onAction, actions = ['details', 'edit', 'replace', 'remove'] }: {
   anchor: MenuAnchor; disabled: boolean; onClose: () => void; onAction: (action: QuestionAction) => void;
+  /** Which actions to offer; a paper has no question to swap in a live test, so Make a paper leaves out Replace. */
+  actions?: readonly QuestionAction[];
 }) {
   const p = usePalette();
   const root = useRef<ComponentRef<typeof View>>(null);
@@ -35,8 +37,8 @@ export function QuestionActionMenu({ anchor, disabled, onClose, onAction }: {
       style={[styles.menu, { backgroundColor: p.popover, borderColor: p.border, opacity: ready ? 1 : 0,
         maxWidth: bounds ? Math.max(0, bounds.width - 16) : '95%',
         ...(bounds ? menuPosition(anchor, bounds, size) : { top: 0, left: 0 }) }]}>
-      {(['details', 'replace', 'remove'] as const).map(action => {
-        const label = { details: 'View Details', replace: 'Replace Question', remove: 'Remove Question' }[action];
+      {actions.map(action => {
+        const label = { details: 'View Details', edit: 'Edit Question', replace: 'Replace Question', remove: 'Remove Question' }[action];
         const blocked = disabled && action !== 'details';
         return <Pressable key={action} accessibilityRole="button" accessibilityLabel={label} disabled={blocked}
           accessibilityState={{ disabled: blocked }} onPress={() => onAction(action)} style={styles.action}>
