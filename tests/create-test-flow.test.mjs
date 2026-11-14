@@ -73,11 +73,20 @@ describe('two full-screen routes share one draft', () => {
   test('headers, Next, Back and the discard confirmation are wired', () => {
     const one = read('src/screens/teacher/create-test/details-screen.tsx');
     const two = read('src/screens/teacher/create-test/setup-screen.tsx');
-    assert.match(one, /Create Test \(1 of 2\)/);
-    assert.match(two, /Test Setup \(2 of 2\)/);
+    // Where you are: the same title on both pages, and the step in the subtitle.
+    assert.match(one, /title="New test"/);
+    assert.match(one, /Step 1 of 2/);
+    assert.match(two, /Step 2 of 2/);
     assert.match(one, /router\.push\('\/create-test\/setup'/);
     assert.match(two, /router\.back\(\)/);
-    assert.match(one, /usePreventRemove\(dirty/);
+    // Leaving the flow (Back on page 1, Close on page 2) asks first; Discard repeats the blocked action.
+    const draft = read('src/screens/teacher/create-test/draft.tsx');
+    assert.match(draft, /usePreventRemove\(dirty && !discarded/);
+    assert.match(draft, /repeat\(\)/);
+    assert.doesNotMatch(draft + one, /dispatch\(data\.action\)/, 'redispatching while the guard is on blocks itself');
+    assert.match(read('src/app/create-test/_layout.tsx'), /<CreateTestLeaveGuard>/);
+    assert.match(one, /onBack=\{leave\}/);
+    assert.match(two, /onClose=\{leave\}/);
   });
 
   test('questions travel in the draft, not in the URL', () => {
@@ -85,8 +94,9 @@ describe('two full-screen routes share one draft', () => {
   });
 
   test('multi-selects apply on Done and show a count', () => {
-    for (const file of ['details-screen.tsx', 'setup-screen.tsx', 'question-picker.tsx']) {
-      const source = read(`src/screens/teacher/create-test/${file}`);
+    // The questions are picked with the shared subject selector (the old inline picker is gone).
+    for (const file of ['create-test/details-screen.tsx', 'create-test/setup-screen.tsx', 'question-selection/subject-selector.tsx']) {
+      const source = read(`src/screens/teacher/${file}`);
       assert.equal((source.match(/<MultiSelectDropdown/g) ?? []).length, (source.match(/applyOnDone/g) ?? []).length, file);
       assert.match(source, /selectedLabel/);
     }

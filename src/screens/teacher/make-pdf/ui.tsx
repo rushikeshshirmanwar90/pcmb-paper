@@ -14,10 +14,13 @@ export function StepHeader({
   step,
   steps,
   onBack,
+  backLabel = 'Back',
   onReset,
 }: {
   title: string;
   subtitle?: string;
+  /** What the back button does, for screen readers ("Back to Papers" on the first step). */
+  backLabel?: string;
   /** This step's place from 0, among `steps`. */
   step: number;
   steps: number;
@@ -31,7 +34,7 @@ export function StepHeader({
         {onBack ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Back"
+            accessibilityLabel={backLabel}
             onPress={onBack}
             hitSlop={8}
             style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}

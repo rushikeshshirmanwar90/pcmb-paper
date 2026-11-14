@@ -1,5 +1,5 @@
 import { Stack, useGlobalSearchParams } from 'expo-router';
-import { CreateTestProvider } from '@/screens/teacher/create-test/draft';
+import { CreateTestLeaveGuard, CreateTestProvider } from '@/screens/teacher/create-test/draft';
 
 /** The two full-screen Create Test pages share one draft, so going back and forth keeps everything. */
 export default function CreateTestLayout() {
@@ -7,7 +7,9 @@ export default function CreateTestLayout() {
   const { batchId } = useGlobalSearchParams<{ batchId?: string }>();
   return (
     <CreateTestProvider initialBatchIds={typeof batchId === 'string' && batchId ? [batchId] : []}>
-      <Stack screenOptions={{ headerShown: false }} />
+      <CreateTestLeaveGuard>
+        <Stack screenOptions={{ headerShown: false }} />
+      </CreateTestLeaveGuard>
     </CreateTestProvider>
   );
 }

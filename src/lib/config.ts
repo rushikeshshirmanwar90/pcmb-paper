@@ -5,7 +5,7 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import { chooseApiUrl, readLocalBackend } from '@/lib/backend-url';
 
-const LIVE_URL = 'http://192.168.31.159:3000';
+const LIVE_URL = 'http://192.168.1.13:3000';
 
 /**
  * The papers server the app talks to: the live one, unless a developer started

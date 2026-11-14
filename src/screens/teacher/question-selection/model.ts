@@ -1,33 +1,32 @@
 import type { Question } from '../../../types/pcmb';
 import type { BankScope } from '../make-pdf/bank-scope';
 
+/** One subject's part of a selection: its own filters and the questions picked for it. Its count is simply how many are picked. */
 export interface SubjectSelection {
   subject: string;
-  target: number;
   scope: BankScope;
   questions: Question[];
 }
 
-export const equalTargets = (total: number, subjects: readonly string[]) => subjects.map((_, i) => Math.floor(total / subjects.length) + (i < total % subjects.length ? 1 : 0));
+/** The most questions one test or PDF can have, across all its subjects. */
+export const MAX_SELECTED = 300;
 
-/** Existing allocations, filters and order survive adding/removing other subjects. */
-export function selectSubjects(previous: SubjectSelection[], subjects: string[], base: BankScope, total: number): SubjectSelection[] {
-  const targets = equalTargets(total, subjects);
-  return subjects.map((subject, i) => previous.find(s => s.subject === subject) ?? {
-    subject, target: targets[i], scope: { ...base, subject, chapters: [], topics: [], years: [], search: '' }, questions: [],
+/** Existing picks, filters and order survive adding or removing other subjects; a new subject starts empty. */
+export function selectSubjects(previous: SubjectSelection[], subjects: string[], base: BankScope): SubjectSelection[] {
+  return subjects.map((subject) => previous.find((s) => s.subject === subject) ?? {
+    subject, scope: { ...base, subject, chapters: [], topics: [], years: [], search: '' }, questions: [],
   });
 }
 
-export const selectedQuestions = (sessions: SubjectSelection[]) => sessions.flatMap(s => s.questions);
-export const targetTotal = (sessions: SubjectSelection[]) => sessions.reduce((sum, s) => sum + s.target, 0);
-export const remaining = (session: SubjectSelection) => Math.max(0, session.target - session.questions.length);
+export const selectedQuestions = (sessions: SubjectSelection[]) => sessions.flatMap((s) => s.questions);
+export const selectedCount = (sessions: SubjectSelection[]) => sessions.reduce((n, s) => n + s.questions.length, 0);
+
+/** What still stops the selection from being used, in words a teacher acts on; null when it's ready. */
 export function selectionProblem(sessions: SubjectSelection[]): string | null {
   if (!sessions.length) return 'Select at least one subject.';
-  if (targetTotal(sessions) < 1 || targetTotal(sessions) > 300) return 'The total target must be from 1 to 300.';
-  for (const s of sessions) {
-    if (!Number.isInteger(s.target) || s.target < 0) return `${s.subject} needs a whole-number target.`;
-    if (s.questions.length !== s.target) return `${s.subject}: ${s.questions.length}/${s.target} selected. Add/remove questions or edit the target before continuing.`;
-  }
-  const ids = selectedQuestions(sessions).map(q => q._id);
+  const empty = sessions.find((s) => !s.questions.length);
+  if (empty) return `Choose questions for ${empty.subject}, or take ${empty.subject} off the subjects.`;
+  if (selectedCount(sessions) > MAX_SELECTED) return `A test can have at most ${MAX_SELECTED} questions. Remove ${selectedCount(sessions) - MAX_SELECTED}.`;
+  const ids = selectedQuestions(sessions).map((q) => q._id);
   return new Set(ids).size === ids.length ? null : 'A question is selected more than once.';
 }

@@ -450,7 +450,7 @@ export function MyPdfsScreen({ onCreate, onBank }: { onCreate: () => void; onBan
         {!pdfLibraryAvailable ? (
           <EmptyState
             palette={palette}
-            title="My PDFs is in the phone app"
+            title="Papers are kept in the phone app"
             text="The web version can't make or keep PDFs. Open the app on your iPhone or Android phone to make one."
             onCreate={onCreate}
           />

@@ -40,7 +40,7 @@ export function DoneStep({
   };
 
   const rows: [string, string][] = [
-    ['Type', smart ? 'Smart PDF (slides)' : 'Exam PDF'],
+    ['Type', smart ? 'Classroom slides' : 'Exam paper'],
     ...(standard ? ([['Class', [standard, subject].filter(Boolean).join(' · ')]] as [string, string][]) : []),
     ['Chapters', `${new Set(questions.map((q) => q.chapter)).size}`],
     ['Questions', `${questions.length}`],
@@ -60,12 +60,17 @@ export function DoneStep({
           <Icon name={{ ios: 'checkmark.circle.fill', android: 'check_circle' }} color={palette.success} size={40} />
         </View>
         <Text accessibilityRole="header" style={[styles.title, { color: palette.foreground }]}>
-          {lone ? pdfs[0].name : 'PDFs ready'}
+          {lone ? (smart ? 'Your slides are ready' : 'Your paper is ready') : 'Your papers are ready'}
         </Text>
+        {lone ? (
+          <Text style={[styles.pdfName, { color: palette.foreground }]} numberOfLines={2}>
+            {pdfs[0].name}
+          </Text>
+        ) : null}
         <Text style={[styles.text, { color: palette.mutedForeground }]}>
           {lone
-            ? `Saved to My PDFs on this phone. Open it, send it to your students${smart ? ' or show it in class' : ', or print it'}.`
-            : 'Both are saved to My PDFs on this phone. Open them, send them to your students, or print them.'}
+            ? `Saved in Papers on this phone. Open it, send it to your students${smart ? ' or show it in class' : ', or print it'}.`
+            : 'Both are saved in Papers on this phone. Open them, send them to your students, or print them.'}
         </Text>
         <View style={styles.details}>
           {rows.map(([label, value]) => (
@@ -87,7 +92,7 @@ export function DoneStep({
               </View>
             )}
             <Button
-              label={lone ? 'Open PDF' : `Open ${pdf.name}`}
+              label={lone ? (smart ? 'Open slides' : 'Open paper') : `Open ${pdf.name}`}
               icon={{ ios: 'eye', android: 'visibility' }}
               variant={lone ? 'primary' : 'secondary'}
               onPress={() => run(openPdf, pdf)}
@@ -98,8 +103,11 @@ export function DoneStep({
             </View>
           </View>
         ))}
-        {onViewPdfs ? <Button label="My PDFs" variant="secondary" icon={{ ios: 'folder', android: 'folder' }} onPress={onViewPdfs} /> : null}
-        <Button label="Make another PDF" variant="tonal" icon={{ ios: 'plus', android: 'add' }} onPress={onAnother} />
+        {/* What next: two quieter choices under the paper's own actions. */}
+        <View style={[styles.actions, styles.next, { borderTopColor: palette.border }]}>
+          {onViewPdfs ? <Button style={styles.action} label="Back to papers" variant="tonal" icon={{ ios: 'folder', android: 'folder' }} onPress={onViewPdfs} /> : null}
+          <Button style={styles.action} label="Make another" variant="tonal" icon={{ ios: 'plus', android: 'add' }} onPress={onAnother} />
+        </View>
         <Text style={[styles.foot, { color: palette.mutedForeground }]}>{questionCount(questions.length)} used from the question bank, unchanged.</Text>
       </View>
     </StepLayout>
@@ -116,5 +124,6 @@ const styles = StyleSheet.create({
   pdfName: { fontSize: 15, fontWeight: '700', textAlign: 'center' },
   actions: { flexDirection: 'row', gap: 10 },
   action: { flex: 1 },
+  next: { paddingTop: 14, borderTopWidth: 1 },
   foot: { fontSize: 12, textAlign: 'center' },
 });

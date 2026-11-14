@@ -1,5 +1,6 @@
-import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
-import { Button, Chips, ErrorText, Field, Muted, Notice, useLoad, usePalette } from '@/components/kit';
+import { useState } from 'react';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Button, Chips, ErrorText, Field, Icon, Muted, Notice, useLoad, usePalette } from '@/components/kit';
 import { cleanWatermark, MAX_WATERMARK } from '@/shared/watermark';
 import {
   COLUMN_CHOICES,
@@ -13,11 +14,7 @@ import { PDF_CHOICES, type PdfChoice, type PdfStage } from '@/services/question-
 import { fetchInstituteLogo } from '@/services/institute-logo';
 import { DateField } from '@/screens/teacher/date-field';
 import { marksPerQuestionFor, questionCount } from '@/screens/teacher/make-pdf/model';
-import { CountField, Group, StepLayout } from '@/screens/teacher/make-pdf/ui';
-
-/** The paper's length, in minutes: 0 leaves the time out of the header. */
-export const DURATION_RANGE = { min: 0, max: 600 };
-export const DEFAULT_DURATION_MINUTES = 60;
+import { Group, StepLayout } from '@/screens/teacher/make-pdf/ui';
 
 export interface ExamForm {
   /** What the teacher typed for the paper's title; null until they do (the chapters' names are used). */
@@ -26,8 +23,6 @@ export interface ExamForm {
   standard: string | null;
   paperSet: string;
   date: Date;
-  /** NaN while the field is empty. */
-  duration: number;
   choice: PdfChoice;
   watermark: string;
   style: PaperStyle;
@@ -45,17 +40,19 @@ const OPACITY_NAMES: Record<string, string> = { '10': 'Faint', '16': 'Light', '2
 const nearestOpacity = (value: number) => WATERMARK_OPACITY_CHOICES.reduce((best, choice) => (Math.abs(choice - value) < Math.abs(best - value) ? choice : best));
 
 const STAGE_TEXT: Record<PdfStage, (count: number) => string> = {
-  making: (n) => `Making the PDF of ${questionCount(n)}…`,
-  downloading: () => 'Downloading the PDF…',
+  making: (n) => `Making your paper of ${questionCount(n)}…`,
+  downloading: () => 'Downloading your paper…',
 };
 
 const labelsOf = <T extends string | number>(choices: { value: T; label: string }[]) =>
   Object.fromEntries(choices.map((choice) => [String(choice.value), choice.label])) as Record<string, string>;
 
 /**
- * Exam PDF settings: the paper's details, what to print, its look (font, size,
- * layout, columns), the institute logo and a watermark. Nothing here is asked
- * for a Smart PDF, which has its own settings.
+ * The details of an exam paper. What every paper needs comes first (title, date,
+ * what to print; a paper made here has no time limit printed on it); the rest (class label, paper set, look, institute
+ * logo, watermark) is under "More options", closed until asked for, with a
+ * line saying what is in use. Nothing here is asked for a Smart PDF, which has
+ * its own settings.
  */
 export function ExamSettingsStep({
   form,
@@ -88,12 +85,20 @@ export function ExamSettingsStep({
   const palette = usePalette();
   const logo = useLoad(fetchInstituteLogo, []);
   const patchStyle = (patch: Partial<PaperStyle>) => onForm({ ...form, style: { ...form.style, ...patch } });
-  const durationBad = !Number.isInteger(form.duration) || form.duration < DURATION_RANGE.min || form.duration > DURATION_RANGE.max;
   const title = form.title ?? titleDefault;
-  const missing = !title.trim() ? 'Add a paper title.' : durationBad ? `Set a duration from ${DURATION_RANGE.min} to ${DURATION_RANGE.max} minutes.` : null;
+  const missing = !title.trim() ? 'Add a paper title.' : null;
   const busy = stage !== null;
   const hasLogo = !!logo.data;
   const logoGone = !logo.loading && !logo.error && !logo.data;
+  const [more, setMore] = useState(false);
+  // What the folded options are set to, so nothing is hidden from the teacher.
+  const inUse = [
+    FONT_CHOICES.find((c) => c.value === form.style.fontFamily)?.label,
+    form.style.columns === 2 ? '2 columns' : '1 column',
+    form.style.logo && hasLogo ? 'logo' : 'no logo',
+    form.watermark.trim() ? 'watermark' : 'no watermark',
+    `set ${form.paperSet.trim() || '1'}`,
+  ].filter(Boolean).join(' · ');
 
   return (
     <StepLayout
@@ -110,7 +115,7 @@ export function ExamSettingsStep({
           <>
             <ErrorText message={error} />
             <Button
-              label={`Generate PDF · ${questionCount(questionTotal)}`}
+              label={`Make paper · ${questionCount(questionTotal)}`}
               icon={{ ios: 'doc.richtext', android: 'picture_as_pdf' }}
               disabled={!!missing}
               onPress={() => onGenerate({ ...form.style, logo: form.style.logo && !logoGone })}
@@ -120,7 +125,7 @@ export function ExamSettingsStep({
         )
       }
     >
-      <Group title="Paper details" hint="Printed in the paper's header. The institute, subject and total marks come from your account and questions.">
+      <Group title="Paper details" hint="Printed at the top of the paper.">
         <Field
           label="Paper title"
           value={title}
@@ -135,8 +140,37 @@ export function ExamSettingsStep({
             Total marks: {questionTotal * marksPerQuestionFor(form.standard ?? standardDefault)} ({marksPerQuestionFor(form.standard ?? standardDefault)} per question)
           </Muted>
         </View>
+        <DateField label="Date" value={form.date} minimumDate={startOfToday()} onChange={(date) => onForm({ ...form, date })} />
+      </Group>
+
+      <Group title="What to print">
+        <Chips
+          choices={PDF_CHOICES.map((choice) => choice.value)}
+          labels={Object.fromEntries(PDF_CHOICES.map((choice) => [choice.value, choice.label]))}
+          selected={form.choice}
+          onChange={(choice) => onForm({ ...form, choice })}
+        />
+        <Muted>{PDF_CHOICES.find((choice) => choice.value === form.choice)?.hint}</Muted>
+      </Group>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: more }}
+        accessibilityLabel={`More options: ${inUse}`}
+        onPress={() => setMore((v) => !v)}
+        style={({ pressed }) => [styles.more, { backgroundColor: palette.card, borderColor: palette.border, opacity: pressed ? 0.8 : 1 }]}
+      >
+        <View style={styles.rowItem}>
+          <Text style={[styles.moreTitle, { color: palette.foreground }]}>More options</Text>
+          <Text style={[styles.moreText, { color: palette.mutedForeground }]}>{more ? 'Class label, paper set, look, logo and watermark' : `Now: ${inUse}`}</Text>
+        </View>
+        <Icon name={more ? { ios: 'chevron.up', android: 'expand_less' } : { ios: 'chevron.down', android: 'expand_more' }} color={palette.foreground} size={18} />
+      </Pressable>
+
+      {more ? <>
+      <Group title="Class and paper set" hint="Both are printed in the header.">
         <Field
-          label="Standard"
+          label="Class"
           value={form.standard ?? standardDefault}
           onChangeText={(text) => onForm({ ...form, standard: text === '' ? null : text.slice(0, 40) })}
           placeholder="e.g. 11th"
@@ -148,33 +182,9 @@ export function ExamSettingsStep({
           value={form.paperSet}
           onChangeText={(text) => onForm({ ...form, paperSet: text.slice(0, 10) })}
           placeholder="1"
+          hint="For more than one version of the same paper: 1, 2, A, B…"
           returnKeyType="done"
         />
-        <View style={styles.row}>
-          <View style={styles.rowItem}>
-            <DateField label="Date" value={form.date} minimumDate={startOfToday()} onChange={(date) => onForm({ ...form, date })} />
-          </View>
-          <View style={styles.rowItem}>
-            <CountField
-              label="Duration (minutes)"
-              value={form.duration}
-              min={DURATION_RANGE.min}
-              max={DURATION_RANGE.max}
-              onChange={(duration) => onForm({ ...form, duration })}
-              hint="0 leaves it out"
-            />
-          </View>
-        </View>
-      </Group>
-
-      <Group title="In the PDF">
-        <Chips
-          choices={PDF_CHOICES.map((choice) => choice.value)}
-          labels={Object.fromEntries(PDF_CHOICES.map((choice) => [choice.value, choice.label]))}
-          selected={form.choice}
-          onChange={(choice) => onForm({ ...form, choice })}
-        />
-        <Muted>{PDF_CHOICES.find((choice) => choice.value === form.choice)?.hint}</Muted>
       </Group>
 
       <Group title="Look of the paper" hint="Your choices are remembered for the next paper.">
@@ -259,6 +269,7 @@ export function ExamSettingsStep({
           />
         ) : null}
       </Group>
+      </> : null}
     </StepLayout>
   );
 }
@@ -271,4 +282,7 @@ const styles = StyleSheet.create({
   logo: { width: 64, height: 64, borderWidth: 1, borderRadius: 10 },
   progress: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
   progressText: { flex: 1, fontSize: 13, lineHeight: 18 },
+  more: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1, borderRadius: 14 },
+  moreTitle: { fontSize: 15, fontWeight: '700' },
+  moreText: { fontSize: 13, lineHeight: 18, marginTop: 2 },
 });

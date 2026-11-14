@@ -7,6 +7,24 @@ import { answerOf } from './answer';
 import type { Question } from '@/types/pcmb';
 import type { MenuAnchor } from './action-menu';
 
+/** A question's level, as teachers say it: Easy, Medium or Difficult (null when the bank has none). */
+export function levelOf(question: Pick<Question, 'difficulty'>): 'Easy' | 'Medium' | 'Difficult' | null {
+  const v = String(question.difficulty ?? '').trim().toLowerCase();
+  if (!v) return null;
+  return v === 'easy' ? 'Easy' : v === 'hard' || v === 'difficult' ? 'Difficult' : 'Medium';
+}
+
+/** A small tag with the question's level. */
+export function LevelTag({ question }: { question: Pick<Question, 'difficulty'> }) {
+  const p = usePalette();
+  const level = levelOf(question);
+  if (!level) return null;
+  const [bg, fg] = level === 'Easy' ? [p.successSoft, p.successInk] : level === 'Difficult' ? [p.dangerSoft, p.dangerInk] : [p.warningSoft, p.warningInk];
+  return <View accessible accessibilityLabel={`Level: ${level}`} style={[styles.tag, { backgroundColor: bg }]}>
+    <Text style={[styles.tagText, { color: fg }]}>{level}</Text>
+  </View>;
+}
+
 export const SelectionCard = memo(function SelectionCard({ question, picked, disabled, onToggle, onDetails }: {
   question: Question; picked: boolean; disabled: boolean;
   onToggle: (question: Question) => void; onDetails: (question: Question) => void;
@@ -21,7 +39,8 @@ export const SelectionCard = memo(function SelectionCard({ question, picked, dis
           {picked ? <Icon name={{ ios: 'checkmark', android: 'check' }} color={p.onPrimary} size={16} /> : null}
         </View>
       </Pressable>
-      <Text numberOfLines={2} style={[styles.meta, { color: p.mutedForeground }]}>{questionMeta(question)}</Text>
+      <Text numberOfLines={2} style={[styles.meta, styles.flex, { color: p.mutedForeground }]}>{questionMeta(question)}</Text>
+      <LevelTag question={question} />
     </View>
     <Pressable accessibilityRole="button" accessibilityLabel={`Question Details: question ${question.questionNumber}`}
       onPress={() => onDetails(question)} style={styles.content}>
@@ -45,7 +64,10 @@ export const SelectedQuestionRow = memo(function SelectedQuestionRow({ question,
       disabled={!!drag} onPress={() => onDetails(question)} style={styles.summary}>
       <View style={{ maxHeight: 60, overflow: 'hidden' }}><MathText text={question.questionText} fontSize={14} color={p.foreground} /></View>
       <MathText text={answer.summary} fontSize={13} color={answer.summary === 'Answer unavailable' ? p.mutedForeground : p.successInk} />
-      <Text numberOfLines={1} style={[styles.meta, { color: p.mutedForeground }]}>{questionMeta(question)}</Text>
+      <View style={styles.metaRow}>
+        <LevelTag question={question} />
+        <Text numberOfLines={1} style={[styles.meta, styles.flex, { color: p.mutedForeground }]}>{questionMeta(question)}</Text>
+      </View>
     </Pressable>
     {drag ? <Pressable accessibilityRole="adjustable" accessibilityLabel={`Reorder question ${index + 1}`}
       accessibilityHint="Hold and drag to reorder, or use Move Up and Move Down accessibility actions."
@@ -71,4 +93,8 @@ const styles = StyleSheet.create({
   meta: { flexShrink: 1, fontSize: 12, lineHeight: 17 },
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderBottomWidth: 1 },
   summary: { flex: 1, minWidth: 0, paddingVertical: 12, gap: 4 },
+  flex: { flex: 1 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  tag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
+  tagText: { fontSize: 11, fontWeight: '700' },
 });

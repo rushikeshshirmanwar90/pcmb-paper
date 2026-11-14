@@ -41,7 +41,6 @@ import { pickerQuestions, stepBack } from '@/screens/teacher/test-questions';
 import { TestEditSelection } from '@/screens/teacher/question-selection/test-edit-selection';
 import {
   FILTER_LABELS,
-  STATUS_FILTER,
   STATUS_WORDS,
   TEST_FILTERS,
   durationProblem,
@@ -79,7 +78,6 @@ export function TeacherTestsScreen() {
   // The status filters below only sort what's loaded: switching them sends no request.
   const testsKey = keys.tests(batchFilter === ALL ? undefined : batchFilter);
   const { data, error, loading, refreshing, refresh, reload } = useLoad(() => schoolApi.tests(batchFilter === ALL ? undefined : batchFilter), [batchFilter, version, testsKey], { cacheKey: testsKey });
-  const [wizard, setWizard] = useState<{ kind: 'new' } | { kind: 'edit'; test: TestSummary; questions: TestQuestionCopy[] } | null>(null);
   const router = useRouter();
   const openTest = useCallback((id: string) => router.push({ pathname: '/test/[testId]', params: { testId: id } } as Href), [router]);
   const batches = overview.data?.batches ?? [];
@@ -89,7 +87,7 @@ export function TeacherTestsScreen() {
 
   return (
     <Screen title="Tests" subtitle="Create tests, monitor students and manage access" onRefresh={refresh} refreshing={refreshing}>
-      <Button label="Create Test" icon={{ ios: 'plus', android: 'add' }} onPress={() => router.push('/create-test' as Href)} />
+      <Button label="Create test" icon={{ ios: 'plus', android: 'add' }} onPress={() => router.push('/create-test' as Href)} />
       {batches.length > 1 ? (
         <DropdownSelect
           label="Filter by batch"
@@ -149,23 +147,6 @@ export function TeacherTestsScreen() {
         </View>
       )}
 
-      {wizard ? (
-        <TestWizard
-          key={wizard.kind === 'edit' ? wizard.test.id : 'new'}
-          edit={wizard.kind === 'edit' ? wizard : null}
-          batches={batches}
-          onClose={() => setWizard(null)}
-          onView={(id) => {
-            setWizard(null);
-            openTest(id);
-          }}
-          onManage={(status) => {
-            setWizard(null);
-            setFilter(STATUS_FILTER[status]);
-          }}
-        />
-      ) : null}
-
     </Screen>
   );
 }
@@ -202,7 +183,7 @@ const TestCard = memo(function TestCard({ test: t, onOpen }: { test: TestSummary
       </Text>
       <SubjectChips subjects={t.subject} />
       <Text style={[styles.cardLine, { color: palette.mutedForeground }]} numberOfLines={1}>
-        {t.questionCount} Q · {t.maxScore} marks · {t.durationMinutes} min
+        {t.questionCount} questions · {t.maxScore} marks · {t.durationMinutes} min
       </Text>
       <Text style={[styles.cardLine, { color: palette.mutedForeground }]} numberOfLines={2}>
         {scheduleLine(t)}
@@ -491,8 +472,8 @@ export function TestWizard({
             <Segmented
               label="When it opens"
               options={[
-                { value: 'now', label: 'Start Now' },
-                { value: 'later', label: 'Schedule for Later' },
+                { value: 'now', label: 'Open now' },
+                { value: 'later', label: 'Schedule' },
               ]}
               value={mode}
               onChange={(m) => {
@@ -527,7 +508,7 @@ export function TestWizard({
               <View style={styles.row}>
                 <Button label="Back" variant="secondary" onPress={back} style={styles.flex} disabled={submitting} />
                 <Button
-                  label={edit ? 'Save changes' : mode === 'now' ? 'Publish Now' : 'Schedule Test'}
+                  label={edit ? 'Save changes' : mode === 'now' ? 'Publish test' : 'Schedule test'}
                   onPress={publish}
                   loading={submitting}
                   style={styles.flex2}
@@ -563,8 +544,8 @@ export function TestWizard({
           <WizardPage
             footer={
               <View style={styles.row}>
-                <Button label="View Test" variant="secondary" onPress={() => onView(saved.id)} style={styles.flex} />
-                <Button label="Manage Tests" onPress={() => onManage(saved.status)} style={styles.flex} />
+                <Button label="Back to tests" variant="secondary" onPress={() => onManage(saved.status)} style={styles.flex} />
+                <Button label="View test" onPress={() => onView(saved.id)} style={styles.flex} />
               </View>
             }
           >
@@ -573,7 +554,7 @@ export function TestWizard({
                 <Icon name={{ ios: 'checkmark', android: 'check' }} color={palette.successInk} size={30} />
               </View>
               <Text accessibilityRole="header" style={[styles.doneTitle, { color: palette.foreground }]}>
-                {saved.status === 'scheduled' ? 'TEST SCHEDULED SUCCESSFULLY' : 'TEST PUBLISHED SUCCESSFULLY'}
+                {edit ? 'Changes saved' : saved.status === 'scheduled' ? 'Your test is scheduled' : 'Your test is open'}
               </Text>
             </View>
             <Card>
@@ -685,5 +666,5 @@ const styles = StyleSheet.create({
   previewOptionKey: { width: 16, fontSize: 13, fontWeight: '600' },
   doneHead: { alignItems: 'center', gap: 12, paddingVertical: 12 },
   doneIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
-  doneTitle: { fontSize: 17, fontWeight: '800', letterSpacing: 0.4, textAlign: 'center' },
+  doneTitle: { fontSize: 20, fontWeight: '700', textAlign: 'center' },
 });

@@ -6,7 +6,7 @@ import { ErrorText, Icon, usePalette } from '@/components/kit';
 import { Footer, StepLayout } from '@/screens/teacher/make-pdf/ui';
 
 /** A full-screen page of the Create Test flow: header with Back, a scrolling body and the pinned action(s). */
-export function FlowPage({ title, subtitle, onBack, error, footer, children }: { title: string; subtitle: string; onBack: () => void; error?: string | null; footer: ReactNode; children: ReactNode }) {
+export function FlowPage({ title, subtitle, onBack, onClose, error, footer, children }: { title: string; subtitle: string; onBack: () => void; /** Leaves the whole flow (shown as a close button). */ onClose?: () => void; error?: string | null; footer: ReactNode; children: ReactNode }) {
   const palette = usePalette();
   return (
     <SafeAreaView edges={['top', 'bottom']} style={[styles.flex, { backgroundColor: palette.background }]}>
@@ -18,6 +18,11 @@ export function FlowPage({ title, subtitle, onBack, error, footer, children }: {
           <Text accessibilityRole="header" style={[styles.title, { color: palette.foreground }]} numberOfLines={1}>{title}</Text>
           <Text style={[styles.subtitle, { color: palette.mutedForeground }]}>{subtitle}</Text>
         </View>
+        {onClose ? (
+          <Pressable accessibilityRole="button" accessibilityLabel="Close and discard this test" onPress={onClose} hitSlop={10} style={styles.back}>
+            <Icon name={{ ios: 'xmark', android: 'close' }} color={palette.foreground} size={20} />
+          </Pressable>
+        ) : null}
       </View>
       <KeyboardSafeView>
         <StepLayout

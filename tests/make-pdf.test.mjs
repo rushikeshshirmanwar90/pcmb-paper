@@ -329,13 +329,43 @@ describe('the screens', () => {
     assert.match(dropdown, /required \? options\.filter/);
   });
 
-  test('one screen offers Exam PDF and Smart PDF and chooses the questions; no wizard steps remain', () => {
+  test('four named steps: the class, the questions, then what to make (each kind explained), then its details', () => {
     const page = read('../src/screens/teacher/make-pdf/one-page.tsx');
-    assert.match(page, /label: 'Exam PDF'/);
-    assert.match(page, /label: 'Smart PDF'/);
+    // Step 1 explains both kinds in a teacher's words instead of a bare switch.
+    assert.match(page, /exam: \{ title: 'Exam paper', text: '[^']+answer key/);
+    assert.match(page, /smart: \{ title: 'Classroom slides', text: '[^']+slide/);
+    assert.equal((page.match(/<ChoiceCard/g) ?? []).length, 2);
     assert.match(flow, /useState<PdfKind>/);
-    assert.equal((flow.match(/<OnePageSelect/g) ?? []).length, 1);
-    for (const gone of ['<ScopeStep', '<ReviewStep', '<MethodStep', '<ManualPicker']) assert.ok(!flow.includes(gone), gone);
+    // The order: class, questions, then the paper-or-slides choice (after the questions are chosen).
+    const at = (tag) => flow.indexOf(tag);
+    assert.ok(at('<PaperClassStep') > 0 && at('<PaperClassStep') < at('<PaperQuestionsStep') && at('<PaperQuestionsStep') < at('<PaperFormatStep'));
+    assert.match(flow, /setSelected\(questions\);\s*setStep\('format'\)/);
+    // The summary of the picked questions is part of the format page (it scrolls), never pinned over the settings.
+    assert.match(flow, /summary=\{<SubjectReview questions=\{selected\} onEdit=\{back\} \/>\}/);
+    assert.doesNotMatch(flow, /step === 'settings' \? <SubjectReview/);
+    assert.doesNotMatch(read('../src/screens/teacher/make-pdf/subject-review.tsx'), /marginHorizontal/);
+    // One header says where the teacher is, and the first step leads back to Papers.
+    assert.match(flow, /`Step \$\{info\.index \+ 1\} of \$\{STEPS\}/);
+    assert.match(flow, /const STEPS = 4;/);
+    assert.match(flow, /onExit\?\.\(\)/);
+    const tab = read('../src/app/questions.tsx');
+    assert.match(tab, /onExit=\{\(\) => setQuestionsMode\('pdfs'\)\}/);
+    assert.doesNotMatch(tab, /<AppHeader title="Make a paper"/, 'no second header above the flow');
+    for (const gone of ['<ScopeStep', '<ReviewStep', '<MethodStep', '<ManualPicker', '<OnePageSelect']) assert.ok(!flow.includes(gone), gone);
+  });
+
+  test('paper details: the essentials first, the rest under More options with what is in use', () => {
+    assert.match(exam, /More options/);
+    assert.match(exam, /\{more \? <>/);
+    const essentials = exam.slice(0, exam.indexOf('>More options<'));
+    for (const first of ['Paper title', 'DateField', 'What to print']) assert.ok(essentials.includes(first), first);
+    // A paper made here has no time limit: none is asked for and none is sent.
+    assert.doesNotMatch(exam, /Duration|duration/);
+    assert.doesNotMatch(flow, /durationMinutes/);
+    const folded = exam.slice(exam.indexOf('{more ? <>'));
+    for (const later of ['Paper set', 'Look of the paper', 'Institute logo', 'Watermark']) assert.ok(folded.includes(later), later);
+    assert.match(exam, /`Now: \$\{inUse\}`/);
+    assert.match(exam, /Make paper · /);
   });
 
   test('only an Exam PDF gets the paper settings; a Smart PDF gets its own and none of the paper\'s', () => {
@@ -344,7 +374,7 @@ describe('the screens', () => {
     for (const examOnly of ['DateField', 'Paper set', 'Total marks', 'Watermark', 'PDF_CHOICES', 'Answer Key', 'answerKey', 'Duration', 'Columns']) {
       assert.ok(!smart.includes(examOnly), `Smart PDF settings don't mention ${examOnly}`);
     }
-    for (const smartOnly of ['Presentation title', 'Question area', 'Options layout', 'Writing space', 'Reset to Default', 'Edit Layout', 'Generate Smart PDF']) {
+    for (const smartOnly of ['Presentation title', 'Question area', 'Options layout', 'Writing space', 'Reset to Default', 'Edit Layout', 'Make slides']) {
       assert.ok(smart.includes(smartOnly), `Smart PDF settings have ${smartOnly}`);
     }
     for (const field of ['Paper title', 'Paper set', 'DateField', 'Watermark', 'Institute logo', 'Page layout', 'Columns', 'Font', 'Text size']) {
@@ -352,12 +382,12 @@ describe('the screens', () => {
     }
   });
 
-  test('the shared subject browser offers targets, additive random fill, manual picking and removal', () => {
+  test('the shared subject browser offers additive random picks (asked for, never pre-set), manual picking and removal', () => {
     const page = read('../src/screens/teacher/question-selection/subject-selector.tsx');
-    for (const text of ['Fill Remaining', 'SelectionCard', 'View Selected', 'QuestionActionMenu', 'onEndReached']) assert.ok(page.includes(text), text);
+    for (const text of ['Number of questions', 'SelectionCard', 'View Selected', 'QuestionActionMenu', 'onEndReached']) assert.ok(page.includes(text), text);
     assert.ok(read('../src/screens/teacher/question-selection/action-menu.tsx').includes('Remove Question'));
     assert.ok(page.includes('SelectedQuestionRow'));
-    assert.doesNotMatch(page, /Custom random count|Add \$\{custom\} Random|label="Preview"/);
+    assert.doesNotMatch(page, /Custom random count|Add \$\{custom\} Random|label="Preview"|Fill Remaining|Distribute Equally|target/);
   });
 
   test('the flow never reads questions from anywhere but the exam-checked services', () => {
