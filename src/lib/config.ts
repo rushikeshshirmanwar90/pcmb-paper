@@ -5,7 +5,8 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import { chooseApiUrl, readLocalBackend } from '@/lib/backend-url';
 
-const LIVE_URL = 'https://papers-jet.vercel.app';
+// const LIVE_URL = 'https://papers-jet.vercel.app';
+const LIVE_URL = 'https://quest.exponentor.com/';
 
 /**
  * The papers server the app talks to: the live one, unless a developer started
