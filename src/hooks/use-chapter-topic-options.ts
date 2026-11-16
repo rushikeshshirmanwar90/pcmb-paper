@@ -8,6 +8,9 @@ interface Scope {
   standard: string;
   subject: string;
   chapter: string;
+  /** Optional: when set, forwarded to /filters so the server scopes chapters
+   *  to that exam's question bank (Fix 1). */
+  exam?: string;
 }
 
 interface Loaded {
@@ -33,28 +36,38 @@ const NO_TOPICS: Record<string, string[]> = {};
  * `enabled: false` returns nothing, for a form that has no subject yet.
  */
 export function useChapterTopicOptions(
-  { examCategory, standard, subject, chapter }: Scope,
+  { examCategory, standard, subject, chapter, exam }: Scope,
   { enabled = true }: { enabled?: boolean } = {}
 ) {
   const scopeKey = [examCategory, standard, subject].join('|');
   const fullKey = `${scopeKey}|${chapter}`;
   const [loaded, setLoaded] = useState<Loaded | null>(null);
+  // Fix 2: surface fetch errors so the UI can show them instead of silently
+  // leaving the chapter dropdown blank.
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
     let isCancelled = false;
+    setFetchError(null);
+    // Fix 1: pass `exam` through so fetchFilterOptions sends it to /filters.
     fetchFilterOptions({
+      exam,
       examCategory: examCategory as any,
       standard: standard as any,
       subject: subject as any,
       chapter,
     }).then((options) => {
       if (!isCancelled) setLoaded({ scopeKey, fullKey, options });
+    }).catch((err) => {
+      if (!isCancelled) {
+        setFetchError(err instanceof Error ? err.message : 'Could not load chapters. Check your connection.');
+      }
     });
     return () => {
       isCancelled = true;
     };
-  }, [enabled, examCategory, standard, subject, chapter, scopeKey, fullKey]);
+  }, [enabled, exam, examCategory, standard, subject, chapter, scopeKey, fullKey]);
 
   const bundled = useMemo(
     () => syllabusOptions(standardsFor(examCategory, standard), isSubject(subject) ? [subject] : ALL_SUBJECTS, chapter),
@@ -70,6 +83,7 @@ export function useChapterTopicOptions(
         topicCounts: NO_COUNTS,
         chapterTopics: NO_TOPICS,
         loading: false,
+        error: null as string | null,
       };
     }
     // Picking a chapter only changes the topics, so the server's chapter list
@@ -87,6 +101,8 @@ export function useChapterTopicOptions(
       topicCounts: { ...bundled.topicCounts, ...serverTopics?.topicCounts },
       chapterTopics,
       loading: !serverTopics,
+      // Fix 2: expose the error so callers can render it.
+      error: fetchError,
     };
-  }, [enabled, bundled, loaded, scopeKey, fullKey]);
+  }, [enabled, bundled, loaded, scopeKey, fullKey, fetchError]);
 }

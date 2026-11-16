@@ -196,6 +196,10 @@ export function autoBody(scope: Scope, config: AutoConfig, exclude: string[]): R
   return {
     exam: scope.exam,
     subject: scope.subject,
+    // Empty arrays mean "no filter" (all chapters / all topics). The server
+    // must treat [] as "every chapter" not "no chapters match". If the server
+    // ever changes that contract, questions silently disappear — this comment
+    // is the cross-reference to that assumption (Issue 11).
     chapters: scope.chapters,
     topics: scope.topics,
     answerType: config.type,
@@ -218,6 +222,13 @@ export interface PickSummary {
 export function shortfallMessage(summary: PickSummary): string | null {
   if (summary.complete) return null;
   if (summary.found === 0) {
+    // available.total === 0 with no avoided questions most likely means the
+    // server treated chapters: [] as "no chapters match" rather than "all
+    // chapters". Surface a distinct message so the teacher knows to try
+    // selecting specific chapters as a workaround (Issue 11).
+    if (summary.available.total === 0 && summary.avoided === 0) {
+      return 'The server found no questions for these choices. Try picking specific chapters, another question type, or a different level.';
+    }
     return summary.avoided > 0
       ? `No questions are left for these choices: ${summary.avoided} ${summary.avoided === 1 ? 'was' : 'were'} left out because ${summary.avoided === 1 ? 'it is' : 'they are'} in PDFs you already made.`
       : 'The question bank has no questions for these choices. Try other chapters, another question type or level.';

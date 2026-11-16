@@ -408,7 +408,7 @@ function BrowseQuestions({
           >
             <View style={styles.pdfBannerTop}>
               <Text style={[styles.pdfBannerText, { color: palette.successInk }]} numberOfLines={2}>
-                Saved “{madePdf.name}” to My PDFs
+                Saved "{madePdf.name}" to My PDFs
               </Text>
               <Pressable accessibilityLabel="Dismiss" hitSlop={8} onPress={() => setMadePdf(null)}>
                 <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} tintColor={palette.successInk} size={14} />
@@ -660,8 +660,8 @@ function BrowseQuestions({
             data={questions}
             keyExtractor={(item) => item._id}
             renderItem={({ item }) => <QuestionCard question={item} dark={dark} />}
-            ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
-            contentContainerStyle={[styles.listContent, { paddingBottom: BottomTabInset + 40 }]}
+            ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+            contentContainerStyle={[styles.listContent, { paddingBottom: BottomTabInset + 42 }]}
             showsVerticalScrollIndicator={false}
           />
         )}
@@ -695,14 +695,14 @@ const styles = StyleSheet.create({
   },
   pdfStatus: {
     fontSize: 13,
-    paddingHorizontal: Spacing.three,
-    paddingBottom: Spacing.two,
+    paddingHorizontal: 16,
+    paddingBottom: 10,
   },
   pdfBanner: {
-    marginHorizontal: Spacing.three,
-    marginBottom: Spacing.two,
-    padding: 12,
-    borderRadius: 10,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    padding: 16,
+    borderRadius: 16,
     borderWidth: 1,
     gap: 10,
   },
@@ -722,9 +722,9 @@ const styles = StyleSheet.create({
   },
   pdfBannerBtn: {
     flex: 1,
-    minHeight: 38,
+    minHeight: 42,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -736,9 +736,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: 4,
-    minHeight: 44,
-    paddingHorizontal: Spacing.three,
+    gap: 6,
+    minHeight: 42,
+    paddingHorizontal: 16,
   },
   backRowText: {
     fontSize: 14,
@@ -750,9 +750,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.two,
-    paddingBottom: Spacing.one,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 6,
   },
   resultsLabel: {
     fontSize: 13,
@@ -762,9 +762,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
   },
   filterToggleText: {
     fontSize: 13,
@@ -784,17 +784,17 @@ const styles = StyleSheet.create({
 
   // Search
   searchContainer: {
-    paddingHorizontal: Spacing.three,
-    paddingBottom: Spacing.two,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 8,
+    borderRadius: 42,
+    borderWidth: 1.2,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 10,
   },
   searchInput: {
     flex: 1,
@@ -804,8 +804,8 @@ const styles = StyleSheet.create({
 
   // Active filter pills
   activePillsContainer: {
-    paddingHorizontal: Spacing.three,
-    paddingBottom: Spacing.two,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     gap: 8,
   },
   activePill: {
@@ -813,8 +813,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
+    paddingVertical: 6,
+    borderRadius: 26,
     borderWidth: 1,
   },
   activePillText: {
@@ -828,32 +828,34 @@ const styles = StyleSheet.create({
   },
   filterPanel: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 16,
     paddingBottom: 40,
+    gap: 16,
   },
   resetBtn: {
     marginTop: 10,
-    paddingVertical: 13,
-    borderRadius: 10,
+    paddingVertical: 16,
+    borderRadius: 42,
     alignItems: 'center',
     justifyContent: 'center',
   },
   resetBtnText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
   },
 
   // Question Card
   card: {
     marginHorizontal: Spacing.three,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    gap: 10,
+    marginBottom: 10,
   },
   badgeRow: {
     flexDirection: 'row',
@@ -861,9 +863,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   badge: {
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    borderRadius: 26,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   badgeText: {
     fontSize: 11,
@@ -876,14 +878,14 @@ const styles = StyleSheet.create({
   },
   chapterLabel: {
     fontSize: 12,
-    marginBottom: 8,
+    marginBottom: 10,
     fontStyle: 'italic',
   },
   questionTextWrap: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   optionsGrid: {
-    gap: 8,
+    gap: 6,
   },
   optionBox: {
     flexDirection: 'row',
@@ -892,9 +894,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 10,
     gap: 10,
+    marginBottom: 6,
   },
   optionKey: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
     fontFamily: 'monospace',
     minWidth: 16,

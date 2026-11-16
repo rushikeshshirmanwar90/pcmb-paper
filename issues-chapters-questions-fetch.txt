@@ -1,0 +1,89 @@
+ISSUE REPORT: Chapters & Questions Not Fetching Properly
+=========================================================
+Date: Teacher login → Tests & Papers tab (Make PDF flow)
+
+
+ISSUE 1 — /filters endpoint called without required `exam` parameter
+---------------------------------------------------------------------
+File:    src/services/apiService.ts → fetchFilterOptions()
+
+The question bank tab and useChapterTopicOptions both call fetchFilterOptions()
+to populate the chapter and topic dropdowns. It builds the query from:
+  { examCategory, standard, subject, chapter }
+but never sends an `exam` parameter.
+
+The server's /filters route expects `exam` for exam-specific lookups (JEE, NEET).
+Without it, the server either returns nothing or returns unfiltered/wrong chapters.
+
+Visible symptom: Chapter dropdown appears empty in the question bank tab.
+
+
+ISSUE 2 — fetchFilterOptions silently swallows all errors, returns empty arrays
+--------------------------------------------------------------------------------
+File:    src/services/apiService.ts → fetchFilterOptions()
+
+The network call is wrapped like this:
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/filters?...`);
+    filterData = res.ok ? await res.json() : null;  // non-ok → null
+  } catch {
+    filterData = null;                               // any error → null
+  }
+
+If the server is unreachable, slow, or returns any non-200 status,
+filterData becomes null and the fallback immediately returns:
+  chapters: [],
+  topics: []
+
+There is no retry, no error state passed back, and nothing shown to the teacher.
+The dropdowns just stay blank with no explanation.
+
+Visible symptom: Chapters and topics silently empty — no error message shown.
+
+
+ISSUE 3 — Chapter ordering hardcoded to JEE/NEET syllabus only
+---------------------------------------------------------------
+File:    src/screens/teacher/make-pdf/use-scope-options.ts → useScopeOptions()
+
+The reference array used to sort chapters into syllabus order is:
+  syllabusOptions(STANDARDS_BY_TRACK['JEE/NEET'], [subject as Subject]).chapters
+
+STANDARDS_BY_TRACK['JEE/NEET'] is hardcoded. This means:
+  - For NEET, chapters are sorted against a JEE-biased reference.
+  - If a Foundation exam (9th/10th) were ever added, its chapters would
+    receive no syllabus ordering since those standards are never consulted.
+
+Visible symptom: Chapters appear in wrong or arbitrary order in the Make PDF
+scope step when picking chapters for a NEET paper.
+
+
+ISSUE 4 — browseQuestions silently drops questions with unrecognised source strings
+------------------------------------------------------------------------------------
+File:    src/services/pdf-questions.ts → browseQuestions()
+
+After fetching questions from the server, results are filtered by:
+  .filter((question) => sourceMatchesExam(question.source, exam))
+
+sourceMatchesExam checks whether question.source matches a regex like:
+  "JEE|AIEEE|IIT|BITSAT"  (for JEE)
+  "NEET|AIPMT|AIIMS|JIPMER" (for NEET)
+
+Questions uploaded with a blank source, a custom source label, or a
+school-specific source string are silently dropped — even if they belong
+to the correct exam and subject in the database.
+
+The chapter count shown in the scope step includes these questions (it
+comes from /filters), but the browse list excludes them.
+
+Visible symptom: The question count shown for a chapter is higher than the
+number of questions that actually appear when browsing that chapter.
+
+
+SUMMARY TABLE
+=============
+#  | File                                        | Root cause                                      | Symptom
+---|---------------------------------------------|-------------------------------------------------|------------------------------------------
+1  | src/services/apiService.ts                  | `exam` param never sent to /filters             | Chapter dropdown empty in question bank
+2  | src/services/apiService.ts                  | All fetch errors swallowed, returns []          | Blank chapters/topics, no error shown
+3  | src/screens/teacher/make-pdf/use-scope-options.ts | Chapter order hardcoded to JEE/NEET       | Wrong chapter order for NEET papers
+4  | src/services/pdf-questions.ts               | sourceMatchesExam drops custom-source questions | Fewer questions shown than count promised

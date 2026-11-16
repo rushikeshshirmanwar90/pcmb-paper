@@ -118,10 +118,24 @@ export function ManualPicker({
   // Replacing starts in the chapter of the question being replaced, which is usually what's wanted.
   const [chapter, setChapter] = useState(() => (mode.type === 'replace' && chapters.includes(mode.question.chapter) ? mode.question.chapter : ''));
 
+  // Debounce the text search field (400 ms, same as before).
   useEffect(() => {
     const timer = setTimeout(() => setSearch(query), 400);
     return () => clearTimeout(timer);
   }, [query]);
+
+  // Debounce levels and type chip changes (200 ms) so rapid taps don't fire
+  // a network request for every intermediate state (Issue 10).
+  const [debouncedLevels, setDebouncedLevels] = useState<Level[]>([]);
+  const [debouncedType, setDebouncedType] = useState<QuestionType>('any');
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedLevels(levels), 200);
+    return () => clearTimeout(timer);
+  }, [levels]);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedType(type), 200);
+    return () => clearTimeout(timer);
+  }, [type]);
 
   const request = useMemo(
     () => ({
@@ -129,11 +143,11 @@ export function ManualPicker({
       subject: scope.subject,
       chapters: chapter ? [chapter] : scope.chapters,
       topics: chapter ? [] : scope.topics,
-      levels,
-      type,
+      levels: debouncedLevels,
+      type: debouncedType,
       search,
     }),
-    [chapter, levels, scope.chapters, scope.exam, scope.subject, scope.topics, search, type]
+    [chapter, debouncedLevels, debouncedType, scope.chapters, scope.exam, scope.subject, scope.topics, search]
   );
   const key = JSON.stringify(request);
   const [loaded, setLoaded] = useState<Loaded>(() => EMPTY(''));

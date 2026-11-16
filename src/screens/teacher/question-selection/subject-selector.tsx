@@ -74,8 +74,7 @@ function SubjectBrowser({ session, subjects, totalSelected, allowReplace, onChan
   const live = useRef({ session, totalSelected });
   useEffect(() => { live.current = { session, totalSelected }; });
   const alive = useRef(true);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-  const scope = session.scope;
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);  const scope = session.scope;
   const key = bankKey(scope);
   const liveKey = useRef(key);
   useEffect(() => { liveKey.current = key; }, [key]);
@@ -188,6 +187,13 @@ function SubjectBrowser({ session, subjects, totalSelected, allowReplace, onChan
     finally { randomBusy.current = false; if (alive.current) { setWorking(false); setAdding(0); } }
   };
   const fresh = options.data?.key === listsKey ? options.data.data : null;
+  // Keep a ref to the latest `fresh` data so chapter-selection callbacks
+  // (changeScope → withChapters) always use the current topics list rather
+  // than a stale render-time closure. Without this, switching sources and
+  // immediately tapping a chapter chip ran withChapters against the previous
+  // source's topic list (Issue 8).
+  const liveData = useRef<typeof fresh>(null);
+  useEffect(() => { liveData.current = fresh ?? null; }, [fresh]);
   // While other lists load (another source), the last ones stay, so no field disappears.
   const [kept, setKept] = useState<typeof fresh>(null);
   if (fresh && kept !== fresh) setKept(fresh);
@@ -289,7 +295,7 @@ function SubjectBrowser({ session, subjects, totalSelected, allowReplace, onChan
           {replacing ? <><Notice text="Select a checkbox to replace the question. Existing selections stay until then." /><Button label="Cancel Replacement" variant="secondary" style={compactButton} onPress={() => { setReplacing(null); setReview(true); }} /></> : null}
           {!review ? <>
             <MultiSelectDropdown label="Chapters / Topics" options={data?.chapters.map(c => c.name) ?? []} counts={Object.fromEntries((data?.chapters ?? []).map(c => [c.name, c.count]))} selected={scope.chapters} placeholder="All chapters" allWhenNone applyOnDone searchable showSelectedChips={false}
-              onSelect={chapters => changeScope(withChapters(scope, chapters, data?.topics ?? []))} />
+              onSelect={chapters => changeScope(withChapters(scope, chapters, liveData.current?.topics ?? []))} />
             {/* Always shown: its list follows the chapters picked. */}
             <MultiSelectDropdown label="Topics" options={[...new Set(topics.map(t => t.name))]} selected={scope.topics} placeholder="All topics" emptyText="These chapters have no topics" allWhenNone applyOnDone searchable showSelectedChips={false}
               sections={(data?.chapters ?? []).map(c => ({ title: c.name, options: topics.filter(t => t.chapter.toLowerCase() === c.name.toLowerCase()).map(t => t.name) })).filter(s => s.options.length)}

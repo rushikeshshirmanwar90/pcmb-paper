@@ -33,7 +33,7 @@ export function AppHeader({ title, subtitle, onMenuPress, right }: AppHeaderProp
           </Pressable>
         ) : (
           <View style={[styles.brandMark, { backgroundColor: palette.primarySoft }]}>
-            <Text style={[styles.brandMarkText, { color: palette.primaryInk }]}>P</Text>
+            <Text style={[styles.brandMarkText, { color: palette.primaryInk }]}>Q</Text>
           </View>
         )}
         <View style={styles.heading}>
@@ -53,26 +53,26 @@ const styles = StyleSheet.create({
   headerInner: {
     width: '100%',
     maxWidth: 900,
-    minHeight: 72,
+    minHeight: 68,
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 16,
   },
   brandMark: {
-    width: 38,
-    height: 38,
+    width: 42,
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
+    borderRadius: 10,
     backgroundColor: '#C6613F',
   },
-  brandMarkText: { fontSize: 18, fontWeight: '800' },
+  brandMarkText: { fontSize: 20, fontWeight: '800' },
   menuButton: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 10,
@@ -80,6 +80,6 @@ const styles = StyleSheet.create({
   },
   pressed: { opacity: 0.72 },
   heading: { flex: 1, minWidth: 0 },
-  title: { fontSize: 17, fontWeight: '700' },
-  subtitle: { fontSize: 12, marginTop: 2 },
+  title: { fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
+  subtitle: { fontSize: 11, marginTop: 4 },
 });

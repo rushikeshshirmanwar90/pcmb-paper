@@ -1,6 +1,6 @@
 import { api, ApiError } from '@/services/api-client';
 import { toQuestion } from '@/services/apiService';
-import { isExamId, sourceMatchesExam } from '@/shared/exam-bank';
+import { isExamId } from '@/shared/exam-bank';
 import type { Mix, PickSummary, QuestionType } from '@/screens/teacher/make-pdf/model';
 import type { Question } from '@/types/pcmb';
 
@@ -79,12 +79,21 @@ export async function browseQuestions(request: BrowseRequest): Promise<Questions
   const data = await api<{ questions?: unknown[]; total?: number }>(`/questions?${query}`, { auth: false });
   const raw = Array.isArray(data.questions) ? data.questions : [];
   const total = typeof data.total === 'number' ? data.total : raw.length;
-  const exam = request.exam;
+  // Fix 4: do not filter by sourceMatchesExam here. The server already scoped
+  // the results to the exam via the `exam` query param. Filtering again by
+  // source string silently dropped questions uploaded without a recognisable
+  // source (blank, custom, or school-specific), making counts in the chapter
+  // list higher than the questions actually shown. Trust the server's scope.
+  const questions = raw.map((item, idx) => toQuestion(item, idx, request.subject));
   return {
-    questions: raw.map((item, idx) => toQuestion(item, idx, request.subject)).filter((question) => sourceMatchesExam(question.source, exam)),
+    questions,
     total,
     page: request.page,
-    hasMore: raw.length >= request.limit && request.page * request.limit < total,
+    // hasMore is true only when the server definitely has more pages beyond
+    // this one. Using `raw.length >= request.limit` as a guard caused an extra
+    // empty fetch whenever the total happened to be an exact multiple of the
+    // page size (the last full page reported hasMore: true).
+    hasMore: request.page * request.limit < total,
   };
 }
 
@@ -106,7 +115,11 @@ export async function pickQuestions(exam: string, body: Record<string, unknown>)
     throw error;
   }
   const raw = Array.isArray(data.questions) ? data.questions : [];
-  const questions = raw.map((item, idx) => toQuestion(item, idx)).filter((question) => sourceMatchesExam(question.source, exam));
+  // Fix 4 (same as browseQuestions): the server already scoped the pick to the
+  // exam via the request body. Filtering by source here drops questions with
+  // blank or custom sources, making "found" lower than "requested" for no
+  // good reason. Trust the server's selection.
+  const questions = raw.map((item, idx) => toQuestion(item, idx));
   const mix = (value: unknown, fallback: Mix | null): Mix | null =>
     value && typeof value === 'object'
       ? { Easy: Number((value as Mix).Easy) || 0, Mid: Number((value as Mix).Mid) || 0, Hard: Number((value as Mix).Hard) || 0 }

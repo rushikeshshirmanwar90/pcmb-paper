@@ -378,71 +378,69 @@ async function getJsonWithRetry(
 /**
  * Filter dropdown options. With no scope, chapters and topics cover every
  * uploaded paper; passing a selection narrows them to it.
+ *
+ * Fix 1: `exam` is now forwarded to the server when present so /filters can
+ *         scope chapters to that exam's questions rather than the whole bank.
+ * Fix 2: Network and non-200 errors are thrown instead of being swallowed so
+ *         callers (useChapterTopicOptions) can surface them to the teacher.
  */
 export async function fetchFilterOptions(
-  scope: Partial<Pick<FilterState, "examCategory" | "standard" | "subject" | "chapter">> = {}
+  scope: Partial<Pick<FilterState, "examCategory" | "standard" | "subject" | "chapter"> & { exam?: string }> = {}
 ): Promise<FilterOptions> {
   const query = new URLSearchParams();
+  // Forward `exam` first so the server can narrow chapters to that exam bank.
+  if (scope.exam && scope.exam !== "All") query.set("exam", scope.exam);
   for (const [key, value] of Object.entries(scope)) {
-    if (value && value !== "All") query.set(key, value);
+    if (key !== "exam" && value && value !== "All") query.set(key, value);
   }
+
   // /filters reads chapters and topics straight from the questions (and is
   // never served from a build-time snapshot), so it alone fills the dropdowns.
-  let filterData: any = null;
-  try {
-    const res = await fetchWithTimeout(`${API_BASE_URL}/filters?${query.toString()}`, {
-      headers: { Accept: "application/json" },
-    });
-    filterData = res.ok ? await res.json() : null;
-  } catch {
-    filterData = null;
+  const res = await fetchWithTimeout(`${API_BASE_URL}/filters?${query.toString()}`, {
+    headers: { Accept: "application/json" },
+  });
+
+  if (!res.ok) {
+    throw new QuestionLoadError(
+      `Could not load chapter options (server returned ${res.status}). Check your connection and try again.`,
+      res.status >= 500
+    );
   }
 
-  if (filterData) {
-    const names = (values: unknown) =>
-      Array.from(
-        new Set(
-          (Array.isArray(values) ? values : []).filter((v): v is string => typeof v === "string" && v.trim() !== "")
-        )
-      ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-    const counts = (value: unknown) =>
-      value && typeof value === "object" ? (value as Record<string, number>) : undefined;
+  const filterData: any = await res.json();
 
-    return {
-      examCategories: filterData?.examCategories ?? ["Foundation", "JEE/NEET"],
-      standards: filterData?.standards ?? [
-        { category: "Foundation", values: ["9th", "10th"] },
-        { category: "JEE/NEET", values: ["11th", "12th"] },
-      ],
-      subjects: filterData?.subjects ?? ["Physics", "Chemistry", "Mathematics", "Biology", "Science"],
-      chapters: names(filterData.chapters),
-      topics: names(filterData.topics),
-      chapterCounts: counts(filterData.chapterCounts),
-      topicCounts: counts(filterData.topicCounts),
-      chapterTopics: filterData.chapterTopics && typeof filterData.chapterTopics === "object"
-        ? (filterData.chapterTopics as Record<string, string[]>)
-        : undefined,
-      levels: filterData?.levels ?? ["Easy", "Mid", "Hard"],
-    };
-  }
+  const names = (values: unknown) =>
+    Array.from(
+      new Set(
+        (Array.isArray(values) ? values : []).filter((v): v is string => typeof v === "string" && v.trim() !== "")
+      )
+    ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const counts = (value: unknown) =>
+    value && typeof value === "object" ? (value as Record<string, number>) : undefined;
 
-  // Backend unreachable: the bundled syllabus (constants/syllabus.ts) still
-  // lists every chapter and topic, so send none rather than made-up ones.
   return {
-    examCategories: ["Foundation", "JEE/NEET"],
-    standards: [
+    examCategories: filterData?.examCategories ?? ["Foundation", "JEE/NEET"],
+    standards: filterData?.standards ?? [
       { category: "Foundation", values: ["9th", "10th"] },
       { category: "JEE/NEET", values: ["11th", "12th"] },
     ],
-    subjects: ["Physics", "Chemistry", "Mathematics", "Biology", "Science"],
-    chapters: [],
-    topics: [],
-    levels: ["Easy", "Mid", "Hard"],
+    subjects: filterData?.subjects ?? ["Physics", "Chemistry", "Mathematics", "Biology", "Science"],
+    chapters: names(filterData.chapters),
+    topics: names(filterData.topics),
+    chapterCounts: counts(filterData.chapterCounts),
+    topicCounts: counts(filterData.topicCounts),
+    chapterTopics: filterData.chapterTopics && typeof filterData.chapterTopics === "object"
+      ? (filterData.chapterTopics as Record<string, string[]>)
+      : undefined,
+    levels: filterData?.levels ?? ["Easy", "Mid", "Hard"],
   };
 }
 
 export interface PdfQuestionSearch {
   examCategory: Exclude<FilterState["examCategory"], "All">;
+  /** The specific exam (JEE | NEET) to scope results to. Forwarded as ?exam=
+   *  so the server never mixes questions from different exams (Issue 6). */
+  exam?: string;
   standards: Standard[];
   subjects: Subject[];
   chapter?: string;
@@ -452,22 +450,28 @@ export interface PdfQuestionSearch {
 }
 
 export async function fetchPdfFilterOptions(
-  scope: Partial<Pick<FilterState, "examCategory" | "standard" | "subject" | "chapter">>
+  scope: Partial<Pick<FilterState, "examCategory" | "standard" | "subject" | "chapter"> & { exam?: string }>
 ): Promise<Pick<FilterOptions, "chapters" | "topics">> {
   const query = new URLSearchParams();
+  // Forward `exam` so the server scopes chapters to that exam's questions,
+  // matching the same fix applied to fetchFilterOptions (Issue 5).
+  if (scope.exam && scope.exam !== "All") query.set("exam", scope.exam);
   for (const [key, value] of Object.entries(scope)) {
-    if (value && value !== "All") query.set(key, value);
+    if (key !== "exam" && value && value !== "All") query.set(key, value);
   }
 
   const response = await fetchWithTimeout(`${API_BASE_URL}/filters?${query.toString()}`, {
     headers: { Accept: "application/json" },
   });
   if (!response.ok) {
-    throw new Error(`Unable to load question filters (${response.status}).`);
+    throw new QuestionLoadError(
+      `Unable to load question filters (${response.status}). Check your connection and try again.`,
+      response.status >= 500
+    );
   }
   const data: unknown = await response.json();
   if (typeof data !== "object" || data === null || !("chapters" in data) || !("topics" in data)) {
-    throw new Error("Question filters returned an invalid response.");
+    throw new QuestionLoadError("Question filters returned an invalid response.", false);
   }
   const chapters = Array.isArray(data.chapters) ? data.chapters : [];
   const topics = Array.isArray(data.topics) ? data.topics : [];
@@ -493,6 +497,9 @@ export async function searchPdfQuestions(filters: PdfQuestionSearch): Promise<Qu
       standard,
       subject,
     });
+    // Forward the specific exam so the server scopes results to JEE or NEET
+    // rather than returning every JEE/NEET question for the subject (Issue 6).
+    if (filters.exam && filters.exam !== "All") query.set("exam", filters.exam);
     if (filters.chapter) query.set("chapter", filters.chapter);
     if (filters.topic) query.set("topic", filters.topic);
     if (filters.level) query.set("level", filters.level);
